@@ -42,7 +42,7 @@ def test_broker_importar_archivo_csv_vacio_no_crash():
 
     import pandas as pd
 
-    from broker_importer import importar_archivo_broker
+    from broker_importer import ImportBrokerResult, importar_archivo_broker
 
     class _F:
         name = "x.csv"
@@ -54,5 +54,7 @@ def test_broker_importar_archivo_csv_vacio_no_crash():
         def seek(self, n):
             pass
 
-    df = importar_archivo_broker(_F(), "P", "C", ccl=1000.0)
-    assert isinstance(df, pd.DataFrame)
+    res = importar_archivo_broker(_F(), "P", "C", ccl=1000.0)
+    assert isinstance(res, ImportBrokerResult)
+    assert isinstance(res.df, pd.DataFrame)
+    assert res.df.empty

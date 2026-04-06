@@ -761,17 +761,24 @@ def obtener_trade_log(id_cliente: int) -> pd.DataFrame:
     return pd.read_sql_query(text(sql), engine, params={"cid": id_cliente})
 
 
-def obtener_todos_los_trades() -> pd.DataFrame:
-    """Todos los trades de todos los clientes (para vista consolidada)."""
+def obtener_todos_los_trades(tenant_id: str = "default") -> pd.DataFrame:
+    """
+    Trades consolidados solo para el tenant indicado (nunca cruza tenants).
+
+    El default \"default\" mantiene compatibilidad con despliegues de un solo estudio;
+    en SaaS multi-tenant pasar siempre el tenant activo.
+    """
+    tid = (tenant_id or "default").strip() or "default"
     sql = """
         SELECT c.nombre AS cliente, t.fecha, a.ticker_local AS ticker,
                t.tipo_op, t.nominales, t.precio_bruto_ars AS precio_ars
         FROM transacciones t
         JOIN activos a ON a.id = t.activo_id
         JOIN clientes c ON c.id = t.cliente_id
+        WHERE c.tenant_id = :tid
         ORDER BY t.fecha DESC, t.id DESC
     """
-    return pd.read_sql_query(text(sql), engine)
+    return pd.read_sql_query(text(sql), engine, params={"tid": tid})
 
 
 # ─── ALERTAS ──────────────────────────────────────────────────────────────────
@@ -951,6 +958,67 @@ def registrar_auditoria(
             usuario     = usuario,
             enviada     = True,
             created_at  = dt.datetime.utcnow(),
+        ))
+
+
+def registrar_optimization_audit(
+    *,
+    cliente_id: int | None = None,
+    usuario: str = "",
+    accion: str = "",
+    modelo: str = "",
+    ccl: float | None = None,
+    tickers: list[str] | None = None,
+    pesos: dict[str, float] | None = None,
+    run_id: str = "",
+    version_app: str = "",
+    extra: dict | None = None,
+    ticker_resumen: str = "",
+) -> None:
+    """
+    Ledger mínimo de optimización / ejecución: JSON en alertas_log (tipo OPTIMIZATION_AUDIT).
+    Sin Streamlit; seguro para llamar desde UI con try/except externo si se desea.
+    """
+    import json as _json
+
+    ts = dt.datetime.utcnow()
+    payload: dict = {
+        "fecha": ts.isoformat() + "Z",
+        "cliente_id": cliente_id,
+        "accion": accion,
+        "modelo": modelo,
+        "ccl": ccl,
+        "tickers": list(tickers) if tickers is not None else None,
+        "run_id": run_id or None,
+        "version_app": version_app or None,
+    }
+    if pesos is not None:
+        payload["pesos"] = {str(k): round(float(v), 6) for k, v in pesos.items()}
+    if extra:
+        payload["extra"] = extra
+    try:
+        msg = _json.dumps(payload, ensure_ascii=False, default=str)
+    except Exception as e:
+        logger.warning("registrar_optimization_audit: serialización JSON: %s", e)
+        msg = _json.dumps(
+            {"fecha": payload["fecha"], "accion": accion, "error": str(e)},
+            ensure_ascii=False,
+            default=str,
+        )
+    tkr = (ticker_resumen or "").strip()[:20]
+    if not tkr and tickers:
+        tkr = str(tickers[0])[:20]
+    if not tkr:
+        tkr = "PORTFOLIO"
+    with get_session() as s:
+        s.add(AlertaLog(
+            cliente_id=cliente_id,
+            tipo_alerta="OPTIMIZATION_AUDIT",
+            ticker=tkr,
+            mensaje=msg,
+            usuario=(usuario or "")[:100],
+            enviada=True,
+            created_at=ts,
         ))
 
 

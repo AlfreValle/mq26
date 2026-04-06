@@ -6,6 +6,10 @@ from __future__ import annotations
 
 import pandas as pd
 
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 def filtrar_transaccional_por_rol(
     trans: pd.DataFrame,
@@ -27,12 +31,19 @@ def filtrar_transaccional_por_rol(
         return trans.loc[pref == cn].copy()
 
     if r in ("super_admin", "estudio", "asesor"):
+        # Fail-closed: sin lista de clientes válida, no mostrar ninguna fila (evita IDOR).
         if df_clientes is None or df_clientes.empty or "Nombre" not in df_clientes.columns:
-            return trans.copy()
+            logger.error(
+                "ALERTA SEGURIDAD: df_clientes vacío o mal formado en filtro por rol. "
+                "Bloqueando acceso a datos transaccionales."
+            )
+            return trans.iloc[0:0].copy()
         nombres = set(df_clientes["Nombre"].dropna().astype(str).str.strip())
         if not nombres:
-            return trans.copy()
+            return trans.iloc[0:0].copy()
         pref = trans["CARTERA"].astype(str).str.split("|").str[0].str.strip()
         return trans.loc[pref.isin(nombres)].copy()
 
-    return trans.copy()
+    # Rol desconocido: no exponer el universo completo.
+    logger.warning("filtrar_transaccional_por_rol: rol no reconocido %r — bloqueando.", r)
+    return trans.iloc[0:0].copy()

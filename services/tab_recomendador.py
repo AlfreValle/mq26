@@ -49,7 +49,7 @@ def render_tab_recomendador(
     perfil_cliente: str,    # "Conservador" / "Moderado" / "Agresivo"
     presupuesto_semanal: float,  # en ARS
     ccl: float,
-    email_destino: str = "contadorvallejos@gmail.com",
+    email_destino: str = "comercial@tudominio.com",
 ):
     st.markdown("## 🎯 Recomendador Semanal — Modelo 60/20/20")
     st.caption(

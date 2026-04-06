@@ -1,6 +1,6 @@
 """
 tests/test_risk_var.py — Tests de calcular_var_cvar (Sprint 24)
-Sin red: mock streamlit/plotly; yfinance.download vía patch en services.risk_var.yf.
+Sin red: mock streamlit/plotly; yfinance.download (usa core.cache_manager en runtime).
 """
 from __future__ import annotations
 
@@ -16,6 +16,16 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("MQ26_PASSWORD", "test_password_123")
+
+
+@pytest.fixture(autouse=True)
+def clear_streamlit_cache_risk_var():
+    try:
+        import streamlit as st
+        st.cache_data.clear()
+    except Exception:
+        pass
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -78,7 +88,7 @@ def _fake_download_factory(close_df: pd.DataFrame):
 class TestCalcularVarCvar:
     def test_valor_total_cero_retorna_vacio(self, precios_historicos_mock):
         rv = _import_risk_var()
-        with patch.object(rv.yf, "download", _fake_download_factory(precios_historicos_mock)):
+        with patch("yfinance.download", _fake_download_factory(precios_historicos_mock)):
             out = rv.calcular_var_cvar(
                 tickers=["AAPL"],
                 cantidades={"AAPL": 0.0},
@@ -89,7 +99,7 @@ class TestCalcularVarCvar:
 
     def test_download_falla_retorna_vacio(self):
         rv = _import_risk_var()
-        with patch.object(rv.yf, "download", side_effect=ConnectionError("sin red")):
+        with patch("yfinance.download", side_effect=ConnectionError("sin red")):
             out = rv.calcular_var_cvar(
                 tickers=["AAPL"],
                 cantidades={"AAPL": 10.0},
@@ -100,8 +110,8 @@ class TestCalcularVarCvar:
 
     def test_mock_ok_claves_y_convencion_signos(self, precios_historicos_mock):
         rv = _import_risk_var()
-        with patch.object(
-            rv.yf, "download", _fake_download_factory(precios_historicos_mock)
+        with patch(
+            "yfinance.download", _fake_download_factory(precios_historicos_mock)
         ):
             out = rv.calcular_var_cvar(
                 tickers=["AAPL", "MSFT"],
@@ -135,8 +145,8 @@ class TestCalcularVarCvar:
         cant = {"AAPL": 5.0, "MSFT": 2.0}
         px = {"AAPL": 150.0, "MSFT": 300.0}
         ccl = 1200.0
-        with patch.object(
-            rv.yf, "download", _fake_download_factory(precios_historicos_mock)
+        with patch(
+            "yfinance.download", _fake_download_factory(precios_historicos_mock)
         ):
             v95 = rv.calcular_var_cvar(
                 tickers=tickers,

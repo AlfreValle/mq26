@@ -15,14 +15,19 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from core.diagnostico_types import RENDIMIENTO_MODELO_YTD_REF, perfil_diagnostico_valido, perfil_motor_salida
+from core.diagnostico_types import (
+    CARTERA_IDEAL,
+    RENDIMIENTO_MODELO_YTD_REF,
+    perfil_diagnostico_valido,
+    perfil_motor_salida,
+)
 from core.renta_fija_ar import descripcion_legible, get_meta, ladder_vencimientos, tir_ponderada_cartera, top_instrumentos_rf
 from services.copy_inversor import (
     antes_despues_defensivo,
     patrimonio_dual_line,
     titulo_seccion_resumen,
 )
-from ui.mq26_ux import defensive_bar_html, obs_card_html, semaforo_html
+from ui.mq26_ux import defensive_bar_html, fig_torta_ideal, obs_card_html, semaforo_html
 from services.cartera_service import PRECIOS_FALLBACK_ARS
 
 _OBS_PRIO_MAP = {
@@ -275,8 +280,16 @@ def _render_empezar_cero(ctx: dict) -> None:
     rec = st.session_state.get("inv_recomendacion") or {}
     rr = rec.get("rr")
     if rr is not None and abs(float(rec.get("capital", -1)) - float(cap0)) < 0.5:
+        perfil_v = perfil_diagnostico_valido(str(ctx.get("cliente_perfil", "Moderado")))
+        ideal_dict = CARTERA_IDEAL.get(perfil_v, CARTERA_IDEAL["Moderado"])
         if getattr(rr, "alerta_mercado", False):
             st.warning(rr.mensaje_alerta)
+        else:
+            st.success("¡Tu portafolio semilla está listo para revisar y ejecutar con tu asesor!")
+        st.plotly_chart(
+            fig_torta_ideal(perfil_v, ideal_dict),
+            use_container_width=True,
+        )
         st.caption(getattr(rr, "resumen_recomendacion", "") or "Sugerencias según tu perfil y el capital ingresado.")
         for it in getattr(rr, "compras_recomendadas", []) or []:
             st.markdown(

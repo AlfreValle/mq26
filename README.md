@@ -102,7 +102,7 @@ En la app: **Mi Cartera → Agregar activo → Importar desde mi broker**
 MQ26_PASSWORD=test pytest tests/ -q --tb=short
 ```
 
-1535+ tests, 0 failures (ajustar `MQ26_PASSWORD` si tu entorno lo exige).
+1562 tests, 0 failures (ajustar `MQ26_PASSWORD` si tu entorno lo exige; verificación Sprint 11 con `test_password_123`).
 
 ---
 

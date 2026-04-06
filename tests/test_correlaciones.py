@@ -1,8 +1,8 @@
 """
 tests/test_correlaciones.py — Tests de services/correlaciones.py (Sprint 19)
-correlaciones.py importa streamlit y yfinance a nivel de módulo.
+correlaciones.py importa streamlit; la descarga pasa por core.cache_manager (yfinance dentro).
 - calcular_matriz_correlacion: función 100% pura (pandas), se testea directamente.
-- obtener_retornos_historicos: mockea yfinance.download.
+- obtener_retornos_historicos: mockea yfinance.download (invocado desde cache_manager).
 Sin red. Sin Streamlit runtime (render_* mockea st).
 """
 from __future__ import annotations

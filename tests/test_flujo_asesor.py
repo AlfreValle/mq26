@@ -97,7 +97,7 @@ def test_iol_parser_smoke():
     assert detectar_formato(df_iol) == "iol"
     result = parsear_iol(df_iol, ccl=1150.0)
     assert len(result) == 2
-    assert "AAPL" in result["Ticker"].values
+    assert "AAPL" in result["TICKER"].values
 
 
 def test_precio_on_estimado_desde_paridad():

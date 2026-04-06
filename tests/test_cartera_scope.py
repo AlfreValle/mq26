@@ -44,3 +44,13 @@ def test_super_admin_restringe_a_clientes_bd():
     out = filtrar_transaccional_por_rol(df, "super_admin", "", df_cli)
     assert len(out) == 1
     assert out.iloc[0]["TICKER"] == "SPY"
+
+
+def test_asesor_df_clientes_vacio_no_expone_transaccional():
+    """Fail-closed: sin df_clientes válido no se devuelve el transaccional completo (IDOR)."""
+    df = pd.DataFrame({"CARTERA": ["Otro | X"], "TICKER": ["SPY"]})
+    out = filtrar_transaccional_por_rol(df, "asesor", "", None)
+    assert len(out) == 0
+
+    out2 = filtrar_transaccional_por_rol(df, "asesor", "", pd.DataFrame())
+    assert len(out2) == 0

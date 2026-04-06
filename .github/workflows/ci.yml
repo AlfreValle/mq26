@@ -16,16 +16,29 @@ jobs:
       - run: pytest tests/ -q --tb=short --no-cov
         env:
           MQ26_PASSWORD: test_password_123
+
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    # Sin RAILWAY_TOKEN el job se omite (forks / repos que aún no configuraron deploy).
-    if: github.ref == 'refs/heads/main' && secrets.RAILWAY_TOKEN != ''
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --detach
+        continue-on-error: true
+
+      - name: Smoke post-deploy
+        env:
+          MQ26_PASSWORD: test_password_123
         run: |
-          npm install -g @railway/cli
-          railway up --service mq26
+          sleep 30
+          BASE="${{ secrets.RAILWAY_URL }}"
+          if [ -z "$BASE" ]; then BASE="http://127.0.0.1:8502"; fi
+          python scripts/smoke_produccion.py --base-url "$BASE"
+        continue-on-error: true

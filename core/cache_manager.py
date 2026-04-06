@@ -34,6 +34,71 @@ def cache_historico(engine_data, tickers: tuple, period: str = "1y") -> pd.DataF
     return engine_data.descargar_historico(list(tickers), period)
 
 
+def _yf_download_close_batches(
+    tickers_yf: list[str],
+    *,
+    period: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+) -> pd.DataFrame:
+    """Descarga Close con yfinance en lotes (menos picos RAM / URL largas)."""
+    import yfinance as yf
+
+    if not tickers_yf:
+        return pd.DataFrame()
+    batch = max(1, int(os.environ.get("YF_DOWNLOAD_BATCH", "18")))
+    pieces: list[pd.DataFrame] = []
+    for i in range(0, len(tickers_yf), batch):
+        ch = tickers_yf[i : i + batch]
+        try:
+            if period is not None:
+                raw = yf.download(
+                    ch,
+                    period=period,
+                    auto_adjust=True,
+                    progress=False,
+                    threads=False,
+                )
+            else:
+                raw = yf.download(
+                    ch,
+                    start=start,
+                    end=end,
+                    auto_adjust=True,
+                    progress=False,
+                    threads=False,
+                )
+            close = raw["Close"]
+            if isinstance(close, pd.Series):
+                close = close.to_frame(ch[0])
+            pieces.append(close)
+        except Exception:
+            continue
+    if not pieces:
+        return pd.DataFrame()
+    out = pd.concat(pieces, axis=1)
+    return out.sort_index()
+
+
+@st.cache_data(ttl=_TTL_HISTORICO)
+def cache_yfinance_close_matrix(tickers_yf: tuple[str, ...], periodo: str) -> pd.DataFrame:
+    """
+    Matriz de precios de cierre (Yahoo) para correlaciones / VaR.
+    Misma clave de caché: tupla de símbolos YF en orden + periodo.
+    """
+    return _yf_download_close_batches(list(tickers_yf), period=periodo)
+
+
+@st.cache_data(ttl=_TTL_HISTORICO)
+def cache_yfinance_close_range(
+    tickers_yf: tuple[str, ...],
+    start_iso: str,
+    end_iso: str,
+) -> pd.DataFrame:
+    """Close entre fechas (backtester real, etc.); tickers en orden estable."""
+    return _yf_download_close_batches(list(tickers_yf), start=start_iso, end=end_iso)
+
+
 @st.cache_data(ttl=_TTL_PRECIOS)
 def cache_precios_actuales(engine_data, tickers: tuple, ccl: float) -> dict:
     """Precios actuales de la cartera, cacheados 5 min."""

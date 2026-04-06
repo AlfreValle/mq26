@@ -7,7 +7,7 @@
 3. Variables: `MQ26_PASSWORD` (mín. 8 caracteres), `PYTHONUNBUFFERED=1`; opcional `MQ26_VIEWER_PASSWORD`, `MQ26_INVESTOR_PASSWORD`, `MQ26_ADVISOR_PASSWORD`; demo pública: `DEMO_MODE=true`.
 4. Settings → Generate Domain → abrir la URL.
 5. Verificar `GET https://TU_DOMINIO/_stcore/health` → 200 (Streamlit).
-6. Opcional CI: en GitHub → Settings → Secrets → `RAILWAY_TOKEN` para que el job `deploy` de `.github/workflows/ci.yml` ejecute `railway up` (si no configurás el token, los tests igual corren y el deploy se omite).
+6. Opcional CI: en GitHub → Settings → Secrets → `RAILWAY_TOKEN` (deploy) y `RAILWAY_URL` (URL pública del servicio, para el smoke post-deploy). Sin token el pipeline de tests sigue; el job de deploy no rompe el PR gracias a `continue-on-error` en el workflow.
 
 ## Requisitos previos
 

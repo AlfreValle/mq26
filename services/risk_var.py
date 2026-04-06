@@ -19,10 +19,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-import yfinance as yf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import RISK_FREE_RATE
+from core.cache_manager import cache_yfinance_close_matrix
 
 
 def calcular_var_cvar(
@@ -55,13 +55,12 @@ def calcular_var_cvar(
     pesos = {t: (cantidades.get(t, 0) * precios_ars.get(t, 0)) / valor_total
              for t in tickers}
 
-    # Descargar retornos históricos
+    # Descargar retornos históricos (cacheado vía cache_manager)
     tickers_yf = [mapa_yf.get(t, t) for t in tickers]
     try:
-        data = yf.download(tickers_yf, period=periodo_hist,
-                           auto_adjust=True, progress=False)["Close"]
-        if isinstance(data, pd.Series):
-            data = data.to_frame(tickers_yf[0])
+        data = cache_yfinance_close_matrix(tuple(tickers_yf), periodo_hist)
+        if data.empty:
+            return {}
         rename_r = {v: k for k, v in mapa_yf.items()}
         data.rename(columns=rename_r, inplace=True)
     except Exception:

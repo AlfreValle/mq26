@@ -388,3 +388,49 @@ def highlight_pnl_target_stop(df: pd.DataFrame,
         elif pnl <= stop < 0:
             df.loc[mask, "_estado_objetivo"] = "STOP_ALCANZADO"
     return df
+
+
+# ── Cold start / onboarding: torta de cartera modelo por perfil ───────────────
+def fig_torta_ideal(perfil: str, ideal: dict[str, float]):
+    """
+    Dona con la distribución semilla (CARTERA_IDEAL) sugerida para el perfil.
+    """
+    import plotly.graph_objects as go
+
+    labels = [k for k in ideal.keys() if not str(k).startswith("_")]
+    vals = [max(0.0, float(ideal[k])) for k in labels]
+    total = sum(vals)
+    if total <= 0 or not labels:
+        fig = go.Figure()
+        fig.update_layout(
+            title=dict(text=f"Distribución semilla — {perfil}", font=dict(size=14)),
+            height=240,
+            margin=dict(t=40, b=10, l=10, r=10),
+            annotations=[dict(text="Sin pesos", x=0.5, y=0.5, showarrow=False)],
+        )
+        return fig
+
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=vals,
+                hole=0.45,
+                textinfo="label+percent",
+                hoverinfo="label+percent",
+                marker=dict(line=dict(color="#000000", width=1)),
+            )
+        ]
+    )
+    fig.update_layout(
+        title=dict(
+            text=f"Distribución semilla sugerida — Perfil {perfil}",
+            font=dict(size=14),
+        ),
+        margin=dict(t=40, b=10, l=10, r=10),
+        height=320,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
+    )
+    return fig

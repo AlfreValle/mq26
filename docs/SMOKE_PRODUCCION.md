@@ -1,25 +1,47 @@
-# Smoke test — producción (Railway u otro host)
+# MQ26 — Smoke de producción post-deploy
 
-Objetivo: comprobar en **5 minutos** que la URL pública sirve MQ26 y el flujo mínimo es usable.
+Verifica que Railway (u otro hosting) esté respondiendo correctamente después de un deploy.
 
-## Automático (salud HTTP)
-
-Con la app levantada (local o Railway):
+## Uso rápido
 
 ```bash
-python scripts/smoke_produccion.py --base-url https://TU-SERVICIO.up.railway.app
+# Contra Railway (reemplazar con tu URL real):
+python scripts/smoke_produccion.py --base-url https://mq26-production.up.railway.app
+
+# Contra local (Streamlit en 8502):
+python scripts/smoke_produccion.py
 ```
 
-Sin `--base-url`, solo valida el contrato de health en localhost (`http://127.0.0.1:8502` por defecto).
+## Qué verifica
 
-## Manual (post-deploy)
+- `GET /_stcore/health` → HTTP 200 (healthcheck de Streamlit).
+- Timeout configurable (`--timeout`, default 30 s).
+
+## Manual (flujo mínimo)
 
 1. **Login**: usuario `admin` (o el configurado) + `MQ26_PASSWORD`.
-2. **Cliente**: seleccionar uno existente o crear cliente de prueba (rol con permiso de alta).
-3. **Cartera**: abrir pestaña Cartera; verificar que carga sin traceback.
-4. **Demo**: con `DEMO_MODE=true`, verificar clientes precargados (María / Carlos / Diego según `generate_demo_data`).
-5. **Estudio** (rol adecuado): generar informe completo y descargar HTML.
-6. **Inversor** (rol inversor): ver semáforo y barra defensiva sin error.
+2. **Cliente**: seleccionar uno existente o crear cliente de prueba.
+3. **Cartera**: abrir pestaña Cartera; sin traceback.
+4. **Demo**: con `DEMO_MODE=true`, clientes precargados según `generate_demo_data`.
+
+## Integración en CI/CD
+
+En `.github/workflows/ci.yml`, el job de deploy puede encadenar (con `continue-on-error` si aún no hay URL):
+
+```yaml
+- name: Smoke producción
+  run: python scripts/smoke_produccion.py --base-url ${{ secrets.RAILWAY_URL }}
+  if: github.ref == 'refs/heads/main'
+```
+
+## Interpretación
+
+| Resultado | Significado |
+|-----------|-------------|
+| `OK: ... → HTTP 200` | Deploy exitoso, app respondiendo. |
+| `FAIL: ... → HTTP 5xx` | App arrancó pero Streamlit falla internamente. |
+| `FAIL: Connection refused` | App no arrancó (revisar logs en Railway). |
+| `FAIL: Timeout` | App muy lenta o host sin recursos. |
 
 ## Variables útiles para demos
 
@@ -28,5 +50,5 @@ Sin `--base-url`, solo valida el contrato de health en localhost (`http://127.0.
 
 ## Si falla el healthcheck
 
-- Railway: `railway.json` usa `healthcheckPath`: `/_stcore/health` y timeout amplio por arranque lento.
-- Revisar logs del contenedor: debe verse `[MQ26] listen port ...` desde `docker-entrypoint.sh`.
+- Railway: `railway.json` puede definir `healthcheckPath`: `/_stcore/health`.
+- Revisar logs del contenedor y variables (`MQ26_PASSWORD`, `PYTHONUNBUFFERED=1`).

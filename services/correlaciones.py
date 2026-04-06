@@ -14,9 +14,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-import yfinance as yf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from core.cache_manager import cache_yfinance_close_matrix
 
 
 def obtener_retornos_historicos(
@@ -29,11 +30,10 @@ def obtener_retornos_historicos(
     tickers_yf = [mapa.get(t.upper(), t.upper()) for t in tickers]
 
     try:
-        data = yf.download(tickers_yf, period=periodo,
-                           auto_adjust=True, progress=False)["Close"]
-        if isinstance(data, pd.Series):
-            data = data.to_frame(tickers[0])
-        data.columns = tickers[:len(data.columns)]
+        data = cache_yfinance_close_matrix(tuple(tickers_yf), periodo)
+        if data.empty:
+            return pd.DataFrame()
+        data.columns = tickers[: len(data.columns)]
         retornos = data.pct_change().dropna()
         return retornos
     except Exception:

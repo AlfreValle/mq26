@@ -12,7 +12,10 @@ import pandas as pd
 import streamlit as st
 
 from broker_importer import importar_archivo_broker
+from core.logging_config import get_logger
 from services.copy_inversor import broker_tarjeta_sub, historial_meses_copy
+
+_log = get_logger(__name__)
 from core.renta_fija_ar import (
     INSTRUMENTOS_RF,
     descripcion_legible,
@@ -372,19 +375,21 @@ def _broker_to_maestra_rows(df_imp: pd.DataFrame, ctx: dict) -> list[dict[str, A
     for _, r in df_imp.iterrows():
         if str(r.get("Tipo_Op", "")).upper() != "COMPRA":
             continue
-        tick = str(r.get("Ticker", "")).strip().upper()
-        cant = int(float(r.get("Cantidad", 0) or 0))
+        tick = str(
+            r.get("TICKER", r.get("Ticker", "")),
+        ).strip().upper()
+        cant = int(float(r.get("CANTIDAD", r.get("Cantidad", 0)) or 0))
         if cant <= 0 or not tick:
             continue
         precio_ars = float(r.get("Precio_ARS", 0) or 0)
         ppc_usd = float(r.get("PPC_USD", 0) or 0)
-        f_raw = r.get("Fecha")
+        f_raw = r.get("Fecha", r.get("FECHA_COMPRA"))
         if hasattr(f_raw, "date"):
             fc = f_raw.date()
         else:
             fc = pd.to_datetime(f_raw, errors="coerce")
             fc = fc.date() if pd.notna(fc) else date.today()
-        tipo_act = str(r.get("Tipo_Activo", "")).upper()
+        tipo_act = str(r.get("TIPO", r.get("Tipo_Activo", ""))).upper()
         if "ACCION" in tipo_act or tipo_act == "ACCIÓN":
             tipo_m = "ACCION_LOCAL"
         elif "ETF" in tipo_act:
@@ -439,10 +444,30 @@ def _render_importar_broker(ctx: dict) -> None:
             pass
         st.caption(f"Detección: **{fmt_guess}** — revisá el preview.")
         try:
-            df_imp = importar_archivo_broker(uploaded, propietario=prop, cartera=_cartera_csv(ctx), ccl=float(ctx.get("ccl") or 1450.0))
+            imp_res = importar_archivo_broker(
+                uploaded,
+                propietario=prop,
+                cartera=_cartera_csv(ctx),
+                ccl=float(ctx.get("ccl") or 1450.0),
+            )
         except Exception as e:
-            st.error(f"No se pudo leer el archivo: {e}")
+            _log.exception("carga_activos: importar_archivo_broker inesperado")
+            st.error("No se pudo procesar el archivo. Si el problema persiste, contactá soporte.")
             df_imp = pd.DataFrame()
+        else:
+            for msg in imp_res.errors:
+                st.error(msg)
+            for msg in imp_res.warnings:
+                st.warning(msg)
+            df_imp = imp_res.df
+            if not df_imp.empty:
+                resumen = f"**{len(df_imp)}** operaciones listas para confirmar."
+                if imp_res.filas_omitidas:
+                    resumen += (
+                        f" Filas omitidas en el parser (Bull Market): **{imp_res.filas_omitidas}** "
+                        "(detalle arriba si aplica)."
+                    )
+                st.info(resumen)
         if df_imp is not None and not df_imp.empty:
             st.dataframe(df_imp.head(30), use_container_width=True)
             modo = st.radio(

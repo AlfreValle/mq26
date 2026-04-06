@@ -4,7 +4,10 @@ Soporta: Balanz | Bull Market Brokers | IOL (Invertir Online)
 Detecta el formato automáticamente por las columnas.
 Convierte precio ARS → PPC_USD usando CCL del día de la operación.
 """
+from __future__ import annotations
+
 import sys
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -25,6 +28,16 @@ from core.pricing_utils import (
 logger = get_logger(__name__)
 
 
+@dataclass
+class ImportBrokerResult:
+    """Resultado de importar_archivo_broker: datos + mensajes para UI y auditoría."""
+
+    df: pd.DataFrame
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    filas_omitidas: int = 0
+
+
 # ── PARSER IOL ────────────────────────────────────────────────────────────────
 
 
@@ -41,8 +54,8 @@ def parsear_iol(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd.DataFrame:
     """
     Parsea exportación IOL (Mi cartera → Tenencia → Exportar).
 
-    Devuelve el mismo esquema que parsear_balanz() para encadenar con
-    _dataframe_comprobante_final / Maestra.
+    Devuelve esquema **estándar maestra** (TICKER, CANTIDAD, TIPO, …).
+    `_dataframe_comprobante_final` lo normaliza a columnas internas (Ticker, …).
     """
     import re
 
@@ -73,7 +86,6 @@ def parsear_iol(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd.DataFrame:
             return pd.DataFrame()
 
         today = date.today()
-        fecha_str = today.strftime("%Y-%m-%d")
 
         for _, row in df.iterrows():
             ticker_raw = str(row.get(col_map["TICKER_RAW"], "") or "").strip().upper()
@@ -108,40 +120,29 @@ def parsear_iol(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd.DataFrame:
             }.get(tipo_raw, "CEDEAR")
 
             if tipo_norm == "CEDEAR":
-                tipo_activo = "Cedears"
                 precio_ars = ppc_ars
                 ppc_usd = precio_ars_to_ppc_usd(precio_ars, ticker_raw, ccl)
             else:
-                tipo_map = {
-                    "ACCION_LOCAL": "Acción",
-                    "ON_USD": "ON",
-                    "BONO_USD": "Bonos",
-                    "LETRA": "Letras",
-                    "FCI": "FCI",
-                    "CAUCION": "Cauciones",
-                }
-                tipo_activo = tipo_map.get(tipo_norm, tipo_norm)
                 precio_ars = ppc_ars
                 ppc_usd = precio_ars_to_ppc_usd(precio_ars, ticker_raw, ccl)
 
-            neto_ars = cantidad * precio_ars
             cant_int = int(round(float(cantidad)))
+            cant_int = max(1, cant_int) if cant_int < 1 else cant_int
 
             rows.append({
-                "Tipo": "COMPRA",
-                "Ticker": ticker_raw,
-                "Cantidad": max(1, cant_int) if cant_int < 1 else cant_int,
-                "Precio_ARS": precio_ars,
-                "Neto_ARS": neto_ars,
+                "CARTERA": "",
+                "FECHA_COMPRA": today,
+                "TICKER": ticker_raw,
+                "CANTIDAD": float(cant_int),
                 "PPC_USD": round(float(ppc_usd), 4),
-                "Fecha": fecha_str,
+                "PPC_ARS": round(float(precio_ars), 2),
+                "TIPO": tipo_norm,
                 "Broker": "IOL",
-                "Tipo_Activo": tipo_activo,
             })
 
         return pd.DataFrame(rows)
     except Exception as e:
-        logger.debug("parsear_iol: %s", e)
+        logger.warning("parsear_iol: fallo global del parser IOL: %s", e, exc_info=True)
         return pd.DataFrame()
 
 
@@ -209,12 +210,17 @@ def parsear_balanz(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def parsear_bullmarket(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd.DataFrame:
+def parsear_bullmarket(
+    df_raw: pd.DataFrame,
+    ccl: float = 1450.0,
+    warnings_out: list[str] | None = None,
+    filas_omitidas_acc: list[int] | None = None,
+) -> pd.DataFrame:
     """Parsea el formato de comprobante Bull Market Brokers."""
     rows = []
     data = df_raw.values.tolist()
 
-    for row in data:
+    for row_idx, row in enumerate(data):
         if len(row) < 4:
             continue
         c0 = str(row[0]).strip()
@@ -253,12 +259,27 @@ def parsear_bullmarket(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd.DataFram
                 'Broker':     'Bull Market',
                 'Tipo_Activo':tipo_activo,
             })
-        except Exception:
+        except Exception as ex:
+            if filas_omitidas_acc is not None:
+                filas_omitidas_acc[0] += 1
+            msg = (
+                f"Bull Market: fila {row_idx + 1} omitida ({c0!r}…): {ex}. "
+                "Verificá tipos de dato y caracteres raros en cantidad/precio."
+            )
+            logger.warning(msg)
+            if warnings_out is not None:
+                warnings_out.append(msg)
             continue
     return pd.DataFrame(rows)
 
 
-def normalizar_hoja_comprobante(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd.DataFrame:
+def normalizar_hoja_comprobante(
+    df_raw: pd.DataFrame,
+    ccl: float = 1450.0,
+    *,
+    warnings_out: list[str] | None = None,
+    filas_omitidas_acc: list[int] | None = None,
+) -> pd.DataFrame:
     """Parsea una tabla suelta (CSV / una hoja) al formato interno de parsear_*."""
     if df_raw is None or df_raw.empty:
         return pd.DataFrame()
@@ -268,13 +289,73 @@ def normalizar_hoja_comprobante(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd
     if fmt == "balanz":
         return parsear_balanz(df_raw, ccl=ccl)
     if fmt == "bullmarket":
-        return parsear_bullmarket(df_raw, ccl=ccl)
+        return parsear_bullmarket(
+            df_raw,
+            ccl=ccl,
+            warnings_out=warnings_out,
+            filas_omitidas_acc=filas_omitidas_acc,
+        )
     df_p = parsear_iol(df_raw, ccl=ccl)
     if df_p.empty:
         df_p = parsear_balanz(df_raw, ccl=ccl)
     if df_p.empty:
-        df_p = parsear_bullmarket(df_raw, ccl=ccl)
+        df_p = parsear_bullmarket(
+            df_raw,
+            ccl=ccl,
+            warnings_out=warnings_out,
+            filas_omitidas_acc=filas_omitidas_acc,
+        )
     return df_p
+
+
+def _ensure_comprobante_interno(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    IOL (y maestra TICKER/CANTIDAD) → mismas columnas que Balanz/Bull para el pipeline.
+    """
+    if df.empty or "Ticker" in df.columns:
+        return df
+    if "TICKER" not in df.columns:
+        return df
+
+    tipo_to_activo = {
+        "CEDEAR": "Cedears",
+        "ACCION_LOCAL": "Acción",
+        "ON_USD": "ON",
+        "BONO_USD": "Bonos",
+        "LETRA": "Letras",
+        "FCI": "FCI",
+        "CAUCION": "Cauciones",
+    }
+    x = df.copy()
+    x["Ticker"] = x["TICKER"].astype(str).str.strip().str.upper()
+    x["Cantidad"] = (
+        pd.to_numeric(x["CANTIDAD"], errors="coerce").fillna(0).round(0).astype(int)
+    )
+    x["Tipo"] = "COMPRA"
+    x["Precio_ARS"] = pd.to_numeric(x["PPC_ARS"], errors="coerce").fillna(0.0)
+    x["Neto_ARS"] = x["Cantidad"].astype(float) * x["Precio_ARS"]
+    x["PPC_USD"] = pd.to_numeric(x["PPC_USD"], errors="coerce").fillna(0.0)
+
+    def _fecha_str(v):
+        if hasattr(v, "isoformat"):
+            return v.isoformat()
+        t = pd.to_datetime(v, errors="coerce")
+        if pd.notna(t):
+            try:
+                return t.date().isoformat()
+            except Exception:
+                return str(t)[:10]
+        return date.today().isoformat()
+
+    x["Fecha"] = x["FECHA_COMPRA"].apply(_fecha_str)
+    x["Tipo_Activo"] = x["TIPO"].astype(str).map(tipo_to_activo).fillna("Cedears")
+    if "Broker" not in x.columns:
+        x["Broker"] = "IOL"
+    drop_me = [
+        c for c in ("TICKER", "CANTIDAD", "FECHA_COMPRA", "TIPO", "PPC_ARS", "CARTERA")
+        if c in x.columns
+    ]
+    return x.drop(columns=drop_me, errors="ignore")
 
 
 def _dataframe_comprobante_final(
@@ -284,7 +365,8 @@ def _dataframe_comprobante_final(
 ) -> pd.DataFrame:
     if not df_parts:
         return pd.DataFrame()
-    df_final = pd.concat(df_parts, ignore_index=True)
+    normalized = [_ensure_comprobante_interno(p) for p in df_parts]
+    df_final = pd.concat(normalized, ignore_index=True)
     df_final = df_final.rename(columns={"Tipo": "Tipo_Op"})
     cols = [
         "Propietario", "Cartera", "Ticker", "Tipo_Activo", "Tipo_Op",
@@ -299,44 +381,103 @@ def importar_archivo_broker(
     propietario: str,
     cartera: str,
     ccl: float = 1450.0,
-) -> pd.DataFrame:
+) -> ImportBrokerResult:
     """
-    Acepta upload de Streamlit o BytesIO: .xlsx / .xls / .csv / .txt
+    Acepta upload de Streamlit o BytesIO: .xlsx / .xls / .csv / .txt.
+    Devuelve ImportBrokerResult con DataFrame normalizado y mensajes para la UI.
     """
     import io
 
+    errors: list[str] = []
+    warnings: list[str] = []
+    filas_omitidas_acc = [0]
     name = str(getattr(uploaded_like, "name", "") or "").lower()
     raw = uploaded_like.read()
     if hasattr(uploaded_like, "seek"):
         try:
             uploaded_like.seek(0)
-        except Exception:
-            pass
+        except Exception as ex:
+            logger.debug("importar_archivo_broker: seek(0) falló: %s", ex)
+
+    def _empty_result() -> ImportBrokerResult:
+        return ImportBrokerResult(
+            df=pd.DataFrame(),
+            errors=list(errors),
+            warnings=list(warnings),
+            filas_omitidas=filas_omitidas_acc[0],
+        )
+
     if name.endswith(".csv") or name.endswith(".txt"):
         try:
             df_raw = pd.read_csv(io.BytesIO(raw))
-        except Exception:
-            return pd.DataFrame()
-        df_p = normalizar_hoja_comprobante(df_raw, ccl=ccl)
+        except Exception as e:
+            msg = f"No se pudo leer el archivo CSV/TXT ({name or 'sin nombre'}): {e}"
+            logger.warning(msg, exc_info=True)
+            errors.append(msg)
+            return _empty_result()
+        df_p = normalizar_hoja_comprobante(
+            df_raw,
+            ccl=ccl,
+            warnings_out=warnings,
+            filas_omitidas_acc=filas_omitidas_acc,
+        )
         if df_p.empty:
-            return pd.DataFrame()
+            warnings.append(
+                "No se detectaron operaciones válidas en el archivo. "
+                "Revisá que sea un comprobante Balanz, Bull Market o IOL."
+            )
+            return _empty_result()
+        df_p = df_p.copy()
         df_p["Propietario"] = propietario
         df_p["Cartera"] = cartera
-        return _dataframe_comprobante_final([df_p], propietario, cartera)
+        df_final = _dataframe_comprobante_final([df_p], propietario, cartera)
+        return ImportBrokerResult(
+            df=df_final,
+            errors=errors,
+            warnings=warnings,
+            filas_omitidas=filas_omitidas_acc[0],
+        )
+
     bio = io.BytesIO(raw)
     try:
         xl = pd.ExcelFile(bio)
-    except Exception:
+    except Exception as e_xl:
+        logger.warning(
+            "importar_archivo_broker: ExcelFile falló (%s), probando read_excel único: %s",
+            name or "sin nombre",
+            e_xl,
+            exc_info=True,
+        )
         try:
             df_raw = pd.read_excel(io.BytesIO(raw))
-        except Exception:
-            return pd.DataFrame()
-        df_p = normalizar_hoja_comprobante(df_raw, ccl=ccl)
+        except Exception as e2:
+            msg = f"No se pudo leer el Excel ({name or 'sin nombre'}): {e2}"
+            logger.warning(msg, exc_info=True)
+            errors.append(msg)
+            return _empty_result()
+        df_p = normalizar_hoja_comprobante(
+            df_raw,
+            ccl=ccl,
+            warnings_out=warnings,
+            filas_omitidas_acc=filas_omitidas_acc,
+        )
         if df_p.empty:
-            return pd.DataFrame()
+            warnings.append(
+                "No se detectaron operaciones válidas en el archivo. "
+                "Revisá que sea un comprobante Balanz, Bull Market o IOL."
+            )
+            return _empty_result()
+        df_p = df_p.copy()
         df_p["Propietario"] = propietario
         df_p["Cartera"] = cartera
-        return _dataframe_comprobante_final([df_p], propietario, cartera)
+        df_final = _dataframe_comprobante_final([df_p], propietario, cartera)
+        return ImportBrokerResult(
+            df=df_final,
+            errors=errors,
+            warnings=warnings,
+            filas_omitidas=filas_omitidas_acc[0],
+        )
+
     dfs = []
     for hoja in xl.sheet_names:
         df_raw = pd.read_excel(xl, sheet_name=hoja, header=0)
@@ -348,18 +489,48 @@ def importar_archivo_broker(
         elif fmt == "balanz":
             df_parsed = parsear_balanz(df_raw, ccl=ccl)
         elif fmt == "bullmarket":
-            df_parsed = parsear_bullmarket(df_raw, ccl=ccl)
+            df_parsed = parsear_bullmarket(
+                df_raw,
+                ccl=ccl,
+                warnings_out=warnings,
+                filas_omitidas_acc=filas_omitidas_acc,
+            )
         else:
             df_parsed = parsear_iol(df_raw, ccl=ccl)
             if df_parsed.empty:
                 df_parsed = parsear_balanz(df_raw, ccl=ccl)
             if df_parsed.empty:
-                df_parsed = parsear_bullmarket(df_raw, ccl=ccl)
+                df_parsed = parsear_bullmarket(
+                    df_raw,
+                    ccl=ccl,
+                    warnings_out=warnings,
+                    filas_omitidas_acc=filas_omitidas_acc,
+                )
         if not df_parsed.empty:
+            df_parsed = df_parsed.copy()
             df_parsed["Propietario"] = propietario
             df_parsed["Cartera"] = cartera
             dfs.append(df_parsed)
-    return _dataframe_comprobante_final(dfs, propietario, cartera)
+
+    if not dfs:
+        warnings.append(
+            "El Excel no contiene hojas con datos reconocibles como comprobante de broker."
+        )
+        return _empty_result()
+
+    df_final = _dataframe_comprobante_final(dfs, propietario, cartera)
+    if df_final.empty:
+        warnings.append(
+            "No se pudieron unificar operaciones desde las hojas del Excel. Revisá el formato."
+        )
+        return _empty_result()
+
+    return ImportBrokerResult(
+        df=df_final,
+        errors=errors,
+        warnings=warnings,
+        filas_omitidas=filas_omitidas_acc[0],
+    )
 
 
 def importar_comprobante(

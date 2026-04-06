@@ -10,7 +10,7 @@ Estrategia definida:
 
 Funciones principales:
   sincronizar_excel_a_bd(ruta_excel) → lee Maestra y popula la BD.
-  exportar_bd_a_excel(ruta_salida)   → genera un Excel desde la BD (útil como backup).
+  exportar_bd_a_excel(ruta_salida, tenant_id=...)   → Excel desde la BD (solo ese tenant).
 """
 import sys
 from datetime import date
@@ -120,16 +120,16 @@ def sincronizar_excel_a_bd(ruta_excel: Path) -> dict:
     return resultado
 
 
-def exportar_bd_a_excel(ruta_salida: Path) -> bool:
+def exportar_bd_a_excel(ruta_salida: Path, tenant_id: str = "default") -> bool:
     """
-    Genera un Excel con todas las transacciones de la BD.
+    Genera un Excel con las transacciones de la BD para un tenant.
     Útil como backup o para reconstruir la Maestra desde cero.
     Devuelve True si tuvo éxito.
     """
     from core import db_manager as dbm
 
     try:
-        df = dbm.obtener_todos_los_trades()
+        df = dbm.obtener_todos_los_trades(tenant_id=tenant_id)
         if df.empty:
             logger.warning("exportar_bd_a_excel: BD sin transacciones.")
             return False
@@ -142,7 +142,7 @@ def exportar_bd_a_excel(ruta_salida: Path) -> bool:
         return False
 
 
-def reconciliar_fuentes(ruta_csv: Path) -> dict:
+def reconciliar_fuentes(ruta_csv: Path, tenant_id: str = "default") -> dict:
     """
     D6: Reconciliación CSV vs SQLite.
     Compara las operaciones del CSV transaccional con las de la tabla transacciones en BD.
@@ -172,7 +172,7 @@ def reconciliar_fuentes(ruta_csv: Path) -> dict:
         return resultado
 
     try:
-        df_bd = dbm.obtener_todos_los_trades()
+        df_bd = dbm.obtener_todos_los_trades(tenant_id=tenant_id)
         df_bd["TICKER"]   = df_bd.get("ticker",    pd.Series(dtype=str)).astype(str).str.upper().str.strip()
         df_bd["CANTIDAD"] = pd.to_numeric(df_bd.get("nominales", 0), errors="coerce").fillna(0)
         df_bd["FECHA"]    = pd.to_datetime(df_bd.get("fecha", ""), errors="coerce").dt.date

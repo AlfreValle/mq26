@@ -122,7 +122,18 @@ def _puntos_entrada_salida_bb_stochrsi(close: pd.Series, lower: pd.Series,
 
 
 def render_tab_universo(ctx: dict) -> None:
-    df_ag           = ctx["df_ag"]
+    df_ag = ctx.get("df_ag")
+    if df_ag is None or df_ag.empty:
+        st.info(
+            "Varias herramientas de esta pestaña **contextualizan señales con tu cartera**. "
+            "Sin posiciones cargadas, los análisis dual-portfolio y alertas por ticker quedan limitados."
+        )
+        st.markdown(
+            "**Próximo paso:** en **Cartera y Libro Mayor** importá o cargá al menos un activo, "
+            "o coordiná la primera carga con el cliente."
+        )
+        return
+
     tickers_cartera = ctx["tickers_cartera"]
     df_analisis     = ctx["df_analisis"]
     m23svc          = ctx["m23svc"]

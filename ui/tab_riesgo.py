@@ -36,6 +36,18 @@ def _run_montecarlo(w, ret_d, tickers_ok, n_sim, horiz, shock_ret, shock_vol, rf
 
 
 def render_tab_riesgo(ctx: dict) -> None:
+    df_ag_guard = ctx.get("df_ag")
+    if df_ag_guard is None or df_ag_guard.empty:
+        st.info(
+            "Riesgo y simulación necesitan **al menos un activo en cartera** "
+            "(pesos, volatilidad conjunta y escenarios)."
+        )
+        st.markdown(
+            "**Próximo paso:** en **Cartera y Libro Mayor** cargá posiciones o pedí al cliente "
+            "que use **Empezar de cero con sugerencia** en su vista Inversor."
+        )
+        return
+
     RISK_FREE_RATE   = ctx["RISK_FREE_RATE"]
     N_SIM_DEFAULT    = ctx["N_SIM_DEFAULT"]
     df_ag            = ctx["df_ag"]

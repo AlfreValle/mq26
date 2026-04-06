@@ -37,7 +37,7 @@ _log = get_logger(__name__)
 
 BASE_URL   = "https://api.cafci.org.ar"
 TIMEOUT    = 15
-HEADERS    = {"User-Agent": "MQ26-DSS/1.0 (+contadorvallejos@gmail.com)"}
+HEADERS    = {"User-Agent": "MQ26-DSS/1.0 (+https://example.com/contact)"}
 
 # ─── MAPA NOMBRE → ID CAFCI (pre-cacheado para fondos populares) ──────────────
 # Actualizar ejecutando: cafci_connector.actualizar_mapa_ids()

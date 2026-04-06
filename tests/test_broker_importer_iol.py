@@ -28,8 +28,8 @@ def test_parsear_iol_retorna_filas():
     df = _df_iol_muestra()
     result = parsear_iol(df, ccl=1150.0)
     assert len(result) == 3
-    assert "Ticker" in result.columns
-    assert "Cantidad" in result.columns
+    assert "TICKER" in result.columns
+    assert "CANTIDAD" in result.columns
 
 
 def test_parsear_iol_ticker_correcto():
@@ -37,8 +37,8 @@ def test_parsear_iol_ticker_correcto():
 
     df = _df_iol_muestra()
     result = parsear_iol(df, ccl=1150.0)
-    assert "AAPL" in result["Ticker"].values
-    assert "GLD" in result["Ticker"].values
+    assert "AAPL" in result["TICKER"].values
+    assert "GLD" in result["TICKER"].values
 
 
 def test_parsear_iol_df_vacio_no_rompe():
@@ -53,5 +53,5 @@ def test_parsear_iol_cantidad_correcta():
 
     df = _df_iol_muestra()
     result = parsear_iol(df, ccl=1150.0)
-    aapl = result[result["Ticker"] == "AAPL"].iloc[0]
-    assert float(aapl["Cantidad"]) == 10.0
+    aapl = result[result["TICKER"] == "AAPL"].iloc[0]
+    assert float(aapl["CANTIDAD"]) == 10.0

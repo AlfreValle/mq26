@@ -11,7 +11,24 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.logging_config import get_logger
 from core.panel_precios import validar_panel_precios
+
+_log = get_logger(__name__)
+
+
+def _try_registrar_optimization_audit(ctx: dict, **kwargs) -> None:
+    dbm = ctx.get("dbm")
+    if dbm is None:
+        return
+    try:
+        kwargs.setdefault("usuario", str(st.session_state.get("mq26_login_user", "") or "")[:100])
+        kwargs.setdefault("cliente_id", ctx.get("cliente_id"))
+        kwargs.setdefault("ccl", float(ctx.get("ccl") or 0) or None)
+        kwargs.setdefault("run_id", datetime.now().strftime("%Y%m%d%H%M%S"))
+        dbm.registrar_optimization_audit(**kwargs)
+    except Exception as e:
+        _log.warning("OPTIMIZATION_AUDIT (UI optimización): %s", e)
 
 _MODELOS_LAB = ["Sharpe", "Sortino", "CVaR", "Paridad de Riesgo", "Kelly", "Min Drawdown", "Multi-Objetivo", "Black-Litterman"]
 _COLORES_LAB = {
@@ -50,6 +67,18 @@ def _w_prev_desde_df_ag(df_ag: pd.DataFrame, tickers_subset: list[str]) -> dict[
 
 
 def render_tab_optimizacion(ctx: dict) -> None:
+    df_ag = ctx.get("df_ag")
+    if df_ag is None or df_ag.empty:
+        st.info(
+            "El optimizador cuantitativo necesita **al menos un activo en cartera** "
+            "para armar la matriz de covarianza y el histórico conjunto."
+        )
+        st.markdown(
+            "**Próximo paso:** en **Cartera y Libro Mayor** cargá el depósito inicial "
+            "o importá las posiciones del cliente."
+        )
+        return
+
     tickers_cartera  = ctx["tickers_cartera"]
     prop_nombre      = ctx.get("prop_nombre", "")
     RISK_FREE_RATE   = ctx["RISK_FREE_RATE"]
@@ -58,7 +87,6 @@ def render_tab_optimizacion(ctx: dict) -> None:
     RiskEngine       = ctx["RiskEngine"]
     cached_historico = ctx["cached_historico"]
     _boton_exportar  = ctx["_boton_exportar"]
-    df_ag            = ctx["df_ag"]
     horizonte_label  = ctx.get("horizonte_label", "1 año")
     cliente_perfil   = ctx.get("cliente_perfil", "Moderado")
     _is_viewer       = str(ctx.get("user_role", "admin")).lower() == "viewer"
@@ -1246,8 +1274,16 @@ def _renderizar_resultados(ctx: dict) -> None:
             key="lab_modelo_elegido",
         )
         if modelo_elegido != modelo_activo:
-            st.session_state["pesos_opt"]  = resultados[modelo_elegido]["pesos"]
+            _pw = resultados[modelo_elegido]["pesos"]
+            st.session_state["pesos_opt"] = _pw
             st.session_state["modelo_opt"] = modelo_elegido
+            _try_registrar_optimization_audit(
+                ctx,
+                accion="lab_modelo_activo_select",
+                modelo=str(modelo_elegido),
+                tickers=list(_pw.keys()),
+                pesos=_pw,
+            )
         r_sel = resultados[modelo_elegido]
         st.info(
             f"**{modelo_elegido}**  \n"
@@ -1422,7 +1458,16 @@ def _renderizar_resultados(ctx: dict) -> None:
                     st.markdown("<div style='margin-top:28px'/>", unsafe_allow_html=True)
                     if st.button("✅ Activar modelo", key="btn_multi_activar",
                                  use_container_width=True, type="primary"):
-                        st.session_state["pesos_opt"]  = modelos_con_pesos[modelo_activar]
+                        _pm = modelos_con_pesos[modelo_activar]
+                        st.session_state["pesos_opt"] = _pm
                         st.session_state["modelo_opt"] = modelo_activar
+                        _try_registrar_optimization_audit(
+                            ctx,
+                            accion="multi_backtest_activar_modelo",
+                            modelo=str(modelo_activar),
+                            tickers=list(_pm.keys()),
+                            pesos=_pm,
+                            extra={"origen": "backtest_multi_modelo"},
+                        )
                         st.success(f"Modelo **{modelo_activar}** activado para tabs de Riesgo y Ejecución.")
 

@@ -293,6 +293,27 @@ class TestObjetivosMarcado:
             pytest.fail(f"actualizar_objetivo lanzó: {e}")
 
 
+def test_registrar_optimization_audit_inserta_alertas_log(db_en_memoria, cliente_ejemplo):
+    dbm = db_en_memoria
+    cid = cliente_ejemplo["id"]
+    dbm.registrar_optimization_audit(
+        cliente_id=cid,
+        usuario="tester",
+        accion="unit_test",
+        modelo="Sharpe",
+        ccl=1000.0,
+        tickers=["GGAL", "YPF"],
+        pesos={"GGAL": 0.6, "YPF": 0.4},
+        run_id="run_unit",
+    )
+    df_al = dbm.obtener_alertas_recientes(limite=50)
+    assert not df_al.empty
+    opt = df_al[df_al["tipo_alerta"] == "OPTIMIZATION_AUDIT"]
+    assert not opt.empty
+    assert "Sharpe" in str(opt.iloc[0]["mensaje"])
+    assert "GGAL" in str(opt.iloc[0]["mensaje"])
+
+
 def test_version_universo_incrementa_en_update(db_en_memoria):
     dbm = db_en_memoria
     dbm.registrar_activo("CEDEAR", "ZZUVER", "ZZUVER.US", nombre="t", ratio=10.0)

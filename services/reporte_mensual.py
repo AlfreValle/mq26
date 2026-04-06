@@ -296,7 +296,7 @@ def generar_reporte_mensual_html(
 </div>
 
 <div class="footer">
-  Master Quant 26 | DSS Unificado · contadorvallejos@gmail.com ·
+  Master Quant 26 | DSS Unificado · comercial@tudominio.com ·
   Generado automáticamente el {date.today().strftime('%d/%m/%Y')} ·
   Modelo 60/20/20 v15
 </div>

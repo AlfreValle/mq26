@@ -25,6 +25,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import RISK_FREE_RATE
+from core.cache_manager import cache_yfinance_close_range
 
 
 def calcular_equity_curve_real(
@@ -41,8 +42,6 @@ def calcular_equity_curve_real(
 
     Devuelve DataFrame con columnas: fecha, valor_usd, retorno_diario
     """
-    import yfinance as yf
-
     if df_operaciones.empty:
         return pd.DataFrame()
 
@@ -63,14 +62,12 @@ def calcular_equity_curve_real(
     tickers_yf = [mapa_yf.get(t, t) for t in tickers_unicos]
 
     try:
-        precios = yf.download(
-            tickers_yf + ["SPY"],
-            start=fecha_inicio - timedelta(days=5),
-            end=fecha_fin,
-            auto_adjust=True, progress=False
-        )["Close"]
-        if isinstance(precios, pd.Series):
-            precios = precios.to_frame(tickers_yf[0])
+        _start = (fecha_inicio - timedelta(days=5)).isoformat()
+        _end = fecha_fin.isoformat()
+        _syms = tuple(tickers_yf + ["SPY"])
+        precios = cache_yfinance_close_range(_syms, _start, _end)
+        if precios.empty:
+            return pd.DataFrame(columns=["fecha", "valor_usd", "spy_usd"])
         # Renombrar columnas a tickers locales
         rename_map = {v: k for k, v in mapa_yf.items()}
         precios.rename(columns=rename_map, inplace=True)

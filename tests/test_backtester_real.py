@@ -167,7 +167,10 @@ class TestCalcularEquityCurveReal:
                 "FECHA_INICIAL": [pd.Timestamp("2023-06-01")],
             }
         )
-        with patch("yfinance.download", side_effect=RuntimeError("sin red")):
+        with patch(
+            "services.backtester_real.cache_yfinance_close_range",
+            return_value=pd.DataFrame(),
+        ):
             out = bt.calcular_equity_curve_real(
                 df_ops, ccl_historico={"2023-06": 1300.0}
             )
@@ -194,10 +197,12 @@ class TestCalcularEquityCurveReal:
             np.column_stack([aapl, spy]), index=idx, columns=cols
         )
 
-        def fake_download(*_a, **_k):
-            return full
+        close_panel = full["Close"] if isinstance(full.columns, pd.MultiIndex) else full
 
-        with patch("yfinance.download", fake_download):
+        with patch(
+            "services.backtester_real.cache_yfinance_close_range",
+            return_value=close_panel,
+        ):
             out = bt.calcular_equity_curve_real(
                 df_ops,
                 ccl_historico={"2023-05": 1250.0, "2023-06": 1300.0, "2023-07": 1280.0},

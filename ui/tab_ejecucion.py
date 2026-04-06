@@ -7,6 +7,10 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
+from core.logging_config import get_logger
+
+_log = get_logger(__name__)
+
 
 def render_tab_ejecucion(ctx: dict) -> None:
     df_ag            = ctx["df_ag"]
@@ -344,6 +348,35 @@ def render_tab_ejecucion(ctx: dict) -> None:
                                 ), use_container_width=True, hide_index=True,
                             )
                             ejsvc.enviar_alerta_rebalanceo(ejecutables, prop_nombre)
+                            try:
+                                _usr_ej = str(st.session_state.get("mq26_login_user", "") or "")
+                                _tk_ej = (
+                                    ejecutables["ticker"].astype(str).tolist()
+                                    if "ticker" in ejecutables.columns
+                                    else []
+                                )
+                                dbm.registrar_optimization_audit(
+                                    cliente_id=cliente_id,
+                                    usuario=_usr_ej[:100],
+                                    accion="plan_rebalanceo_generado",
+                                    modelo=str(mod_ejec),
+                                    ccl=float(ccl) if ccl else None,
+                                    tickers=_tk_ej,
+                                    pesos=None,
+                                    run_id=datetime.now().strftime("%Y%m%d%H%M%S"),
+                                    extra={
+                                        "n_filas": int(len(ejecutables)),
+                                        "total_compras_ars": float(total_compras),
+                                        "total_ventas_ars": float(total_ventas),
+                                        "total_costos_ars": float(total_costos),
+                                        "capital_nuevo_ars": float(liq_nueva),
+                                        "comision_pct": float(comision_pct),
+                                        "umbral_churning": float(umbral_churning),
+                                        "prop_nombre": str(prop_nombre or ""),
+                                    },
+                                )
+                            except Exception as _aud_e:
+                                _log.warning("OPTIMIZATION_AUDIT plan rebalanceo: %s", _aud_e)
                             st.session_state["df_ventas_rebalanceo"] = ejecutables[
                                 ejecutables["tipo_op"] == "VENTA"]
                             st.session_state["df_compras_rebalanceo"] = ejecutables[
@@ -400,7 +433,7 @@ def render_tab_ejecucion(ctx: dict) -> None:
                 perfil_cliente      = perfil_activo,
                 presupuesto_semanal = _presup_bd,
                 ccl                 = ccl,
-                email_destino       = _email_bd or "contadorvallejos@gmail.com",
+                email_destino       = _email_bd or "comercial@tudominio.com",
             )
         except Exception as e:
             st.error(f"Error en Recomendador Semanal: {e}")
