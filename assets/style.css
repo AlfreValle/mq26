@@ -1,0 +1,959 @@
+/*
+  MQ26 — Design System v9
+  Estética: "Quant Dark" — preciso, denso, poderoso.
+  Inspiración: terminal financiero profesional con alma de producto moderno.
+  Tipografía: DM Mono para números, DM Sans para texto.
+*/
+
+/* ── FUENTES ──────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+
+/* ── MEJORA 1: Sistema de tokens completo ──────────────────────────────────── */
+:root {
+  /* Paleta base */
+  --c-bg:           #080a0f;
+  --c-surface:      #0f1117;
+  --c-surface-2:    #161b27;
+  --c-surface-3:    #1c2333;
+  --c-border:       rgba(255,255,255,0.07);
+  --c-border-2:     rgba(255,255,255,0.12);
+  --c-border-focus: rgba(59,130,246,0.5);
+
+  /* Texto */
+  --c-text:         #f1f5f9;
+  --c-text-2:       #94a3b8;
+  --c-text-3:       #4b5563;
+  --c-text-inv:     #0f1117;
+
+  /* Acento principal: azul eléctrico */
+  --c-accent:       #3b82f6;
+  --c-accent-2:     #2563eb;
+  --c-accent-3:     #1d4ed8;
+  --c-accent-muted: rgba(59,130,246,0.15);
+  --c-accent-glow:  rgba(59,130,246,0.25);
+
+  /* Semáforo */
+  --c-green:        #10b981;
+  --c-green-muted:  rgba(16,185,129,0.12);
+  --c-green-glow:   rgba(16,185,129,0.2);
+  --c-yellow:       #f59e0b;
+  --c-yellow-muted: rgba(245,158,11,0.12);
+  --c-red:          #ef4444;
+  --c-red-muted:    rgba(239,68,68,0.12);
+
+  /* Tipografía */
+  --font-ui:        'DM Sans', system-ui, sans-serif;
+  --font-mono:      'DM Mono', 'Fira Code', monospace;
+
+  /* Espaciado */
+  --space-1: 4px;  --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px; --space-5: 20px;  --space-6: 24px;
+  --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  /* Radios */
+  --r-sm:  4px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  16px;
+  --r-pill: 999px;
+
+  /* Sombras */
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.6);
+  --shadow-accent: 0 0 20px rgba(59,130,246,0.15);
+
+  /* Animaciones */
+  --ease: cubic-bezier(0.16,1,0.3,1);
+  --ease-out: cubic-bezier(0,0,0.2,1);
+  --dur-fast:   120ms;
+  --dur-normal: 200ms;
+  --dur-slow:   350ms;
+}
+
+/* ── MEJORA 2: Reset y base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  font-family: var(--font-ui) !important;
+  background: var(--c-bg) !important;
+  color: var(--c-text) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── MEJORA 3: Contenedor principal ─────────────────────────────────────── */
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="block-container"] {
+  background: var(--c-bg) !important;
+  color: var(--c-text) !important;
+  font-family: var(--font-ui) !important;
+}
+
+[data-testid="block-container"] {
+  padding-top: 1.25rem !important;
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+  max-width: 1400px !important;
+}
+
+/* ── MEJORA 4: Sidebar rediseñado ─────────────────────────────────────── */
+section[data-testid="stSidebar"] {
+  background: var(--c-surface) !important;
+  border-right: 1px solid var(--c-border) !important;
+  padding-top: var(--space-4) !important;
+}
+
+section[data-testid="stSidebar"] > div {
+  padding: 0 var(--space-4) !important;
+}
+
+section[data-testid="stSidebar"] * {
+  color: var(--c-text) !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+  font-size: 0.8rem !important;
+  color: var(--c-text-2) !important;
+}
+
+/* ── MEJORA 5: Tipografía headings ──────────────────────────────────────── */
+[data-testid="stMarkdownContainer"] h1 {
+  font-size: 1.35rem !important;
+  font-weight: 600 !important;
+  color: var(--c-text) !important;
+  letter-spacing: -0.025em !important;
+  border-bottom: 1px solid var(--c-border) !important;
+  padding-bottom: var(--space-3) !important;
+  margin: var(--space-2) 0 var(--space-5) 0 !important;
+  line-height: 1.2 !important;
+}
+
+[data-testid="stMarkdownContainer"] h2 {
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  color: var(--c-text) !important;
+  letter-spacing: -0.015em !important;
+  margin-top: var(--space-6) !important;
+  margin-bottom: var(--space-3) !important;
+}
+
+[data-testid="stMarkdownContainer"] h3 {
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  color: var(--c-text-2) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  margin-top: var(--space-5) !important;
+  margin-bottom: var(--space-2) !important;
+}
+
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li {
+  font-size: 0.875rem !important;
+  color: var(--c-text-2) !important;
+  line-height: 1.6 !important;
+}
+
+[data-testid="stCaptionContainer"] {
+  font-size: 0.72rem !important;
+  color: var(--c-text-3) !important;
+  letter-spacing: 0.01em !important;
+}
+
+/* ── MEJORA 6: Métricas rediseñadas ─────────────────────────────────────── */
+[data-testid="metric-container"] {
+  background: var(--c-surface-2) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: var(--r-lg) !important;
+  padding: var(--space-4) var(--space-5) !important;
+  transition: border-color var(--dur-normal) var(--ease),
+              box-shadow var(--dur-normal) var(--ease) !important;
+}
+
+[data-testid="metric-container"]:hover {
+  border-color: var(--c-border-2) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-testid="metric-container"] > div > label {
+  font-family: var(--font-ui) !important;
+  font-size: 0.68rem !important;
+  font-weight: 500 !important;
+  color: var(--c-text-3) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.07em !important;
+  margin-bottom: var(--space-1) !important;
+}
+
+[data-testid="metric-container"] > div > div:first-child {
+  font-family: var(--font-mono) !important;
+  font-size: 1.45rem !important;
+  font-weight: 500 !important;
+  color: var(--c-text) !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.1 !important;
+}
+
+[data-testid="metric-container"] [data-testid="stMetricDelta"] {
+  font-family: var(--font-mono) !important;
+  font-size: 0.78rem !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* ── MEJORA 7: Tabs con animación suave ─────────────────────────────────── */
+[data-testid="stTabs"] [role="tablist"] {
+  gap: 0 !important;
+  border-bottom: 1px solid var(--c-border) !important;
+  padding-bottom: 0 !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+
+[data-testid="stTabs"] [role="tablist"]::-webkit-scrollbar { display: none !important; }
+
+[data-testid="stTabs"] button {
+  border-radius: 0 !important;
+  font-family: var(--font-ui) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  color: var(--c-text-3) !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  padding: var(--space-3) var(--space-4) !important;
+  margin-bottom: -1px !important;
+  transition: color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease) !important;
+  white-space: nowrap !important;
+}
+
+[data-testid="stTabs"] button:hover {
+  color: var(--c-text) !important;
+  background: rgba(255,255,255,0.03) !important;
+}
+
+[data-testid="stTabs"] button[aria-selected="true"] {
+  color: var(--c-accent) !important;
+  border-bottom-color: var(--c-accent) !important;
+  background: transparent !important;
+}
+
+/* ── MEJORA 8: DataFrames/tablas ────────────────────────────────────────── */
+[data-testid="stDataFrame"] {
+  border-radius: var(--r-lg) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--c-border) !important;
+}
+
+[data-testid="stDataFrame"] th {
+  font-family: var(--font-ui) !important;
+  font-size: 0.68rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--c-text-3) !important;
+  background: var(--c-surface) !important;
+  border-bottom: 1px solid var(--c-border) !important;
+  padding: var(--space-2) var(--space-3) !important;
+}
+
+[data-testid="stDataFrame"] td {
+  font-family: var(--font-mono) !important;
+  font-size: 0.78rem !important;
+  color: var(--c-text) !important;
+  border-bottom: 1px solid var(--c-border) !important;
+  padding: var(--space-2) var(--space-3) !important;
+}
+
+/* ── MEJORA 9: Botones rediseñados ──────────────────────────────────────── */
+.stButton > button,
+button[kind="primary"],
+button[kind="secondary"] {
+  font-family: var(--font-ui) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  border-radius: var(--r-md) !important;
+  padding: var(--space-2) var(--space-4) !important;
+  transition: all var(--dur-normal) var(--ease) !important;
+  letter-spacing: -0.01em !important;
+  cursor: pointer !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+button[kind="primary"],
+.stButton > button[data-baseweb="button"]:not([kind="secondary"]) {
+  background: var(--c-accent) !important;
+  border: 1px solid var(--c-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3),
+              inset 0 1px 0 rgba(255,255,255,0.1) !important;
+}
+
+button[kind="primary"]:hover {
+  background: var(--c-accent-2) !important;
+  border-color: var(--c-accent-2) !important;
+  box-shadow: var(--shadow-accent), 0 2px 8px rgba(0,0,0,0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+button[kind="primary"]:active {
+  transform: translateY(0) !important;
+}
+
+button[kind="secondary"],
+.stButton > button:not([kind="primary"]) {
+  background: var(--c-surface-2) !important;
+  border: 1px solid var(--c-border-2) !important;
+  color: var(--c-text) !important;
+}
+
+button[kind="secondary"]:hover {
+  background: var(--c-surface-3) !important;
+  border-color: var(--c-border-2) !important;
+}
+
+/* ── MEJORA 10: Inputs y selects ────────────────────────────────────────── */
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea {
+  font-family: var(--font-mono) !important;
+  font-size: 0.875rem !important;
+  background: var(--c-surface-2) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: var(--r-md) !important;
+  color: var(--c-text) !important;
+  padding: var(--space-2) var(--space-3) !important;
+  transition: border-color var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease) !important;
+}
+
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus {
+  border-color: var(--c-accent) !important;
+  box-shadow: 0 0 0 3px var(--c-accent-muted) !important;
+  outline: none !important;
+}
+
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stMultiSelect"] > div {
+  font-family: var(--font-ui) !important;
+  font-size: 0.875rem !important;
+  background: var(--c-surface-2) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: var(--r-md) !important;
+  color: var(--c-text) !important;
+  transition: border-color var(--dur-fast) var(--ease) !important;
+}
+
+[data-testid="stSelectbox"] > div > div:hover {
+  border-color: var(--c-border-2) !important;
+}
+
+/* ── MEJORA 11: Expanders ────────────────────────────────────────────────── */
+[data-testid="stExpander"] {
+  background: var(--c-surface-2) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: var(--r-lg) !important;
+  transition: border-color var(--dur-normal) var(--ease) !important;
+}
+
+[data-testid="stExpander"]:hover {
+  border-color: var(--c-border-2) !important;
+}
+
+[data-testid="stExpander"] summary {
+  font-family: var(--font-ui) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  color: var(--c-text) !important;
+  padding: var(--space-3) var(--space-4) !important;
+}
+
+/* ── MEJORA 12: Alerts ──────────────────────────────────────────────────── */
+[data-testid="stAlert"] {
+  border-radius: var(--r-md) !important;
+  border: 1px solid transparent !important;
+  border-left-width: 3px !important;
+  font-size: 0.8125rem !important;
+  padding: var(--space-3) var(--space-4) !important;
+}
+
+[data-testid="stAlert"][data-type="success"] {
+  background: var(--c-green-muted) !important;
+  border-left-color: var(--c-green) !important;
+}
+
+[data-testid="stAlert"][data-type="warning"] {
+  background: var(--c-yellow-muted) !important;
+  border-left-color: var(--c-yellow) !important;
+}
+
+[data-testid="stAlert"][data-type="error"] {
+  background: var(--c-red-muted) !important;
+  border-left-color: var(--c-red) !important;
+}
+
+[data-testid="stAlert"][data-type="info"] {
+  background: var(--c-accent-muted) !important;
+  border-left-color: var(--c-accent) !important;
+}
+
+/* ── MEJORA 13: Progress bars ────────────────────────────────────────────── */
+[data-testid="stProgress"] > div > div > div {
+  background: var(--c-surface-2) !important;
+  border-radius: var(--r-pill) !important;
+  height: 6px !important;
+  overflow: hidden !important;
+}
+
+[data-testid="stProgress"] > div > div > div > div {
+  background: linear-gradient(90deg, var(--c-accent), var(--c-green)) !important;
+  border-radius: var(--r-pill) !important;
+  transition: width var(--dur-slow) var(--ease) !important;
+}
+
+/* ── MEJORA 14: Sliders ─────────────────────────────────────────────────── */
+[data-testid="stSlider"] [role="slider"] {
+  background: var(--c-accent) !important;
+  border: 2px solid var(--c-surface) !important;
+  box-shadow: 0 0 0 3px var(--c-accent-muted) !important;
+}
+
+/* ── MEJORA 15: Checkboxes y toggles ─────────────────────────────────────── */
+[data-testid="stCheckbox"] label,
+[data-testid="stToggle"] label {
+  font-size: 0.8125rem !important;
+  color: var(--c-text-2) !important;
+}
+
+/* ── MEJORA 16: Divisores ────────────────────────────────────────────────── */
+hr {
+  border: none !important;
+  height: 1px !important;
+  background: var(--c-border) !important;
+  margin: var(--space-5) 0 !important;
+}
+
+/* ── MEJORA 17: Topline bar (barra superior de cartera) ──────────────────── */
+.mq-topline {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  margin-bottom: var(--space-5);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-xl);
+  position: relative;
+  overflow: hidden;
+}
+
+.mq-topline::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent, var(--c-accent-muted), var(--c-accent), var(--c-accent-muted), transparent);
+  opacity: 0.6;
+}
+
+.mq-topline__portfolio {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--c-text);
+  letter-spacing: -0.01em;
+}
+
+.mq-topline__client {
+  font-size: 0.78rem;
+  color: var(--c-text-3);
+  margin-left: var(--space-2);
+}
+
+.mq-topline__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.mq-topline__value {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--c-text);
+  letter-spacing: -0.02em;
+}
+
+.mq-topline__pnl {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-pill);
+  letter-spacing: -0.01em;
+}
+
+.mq-topline__pnl--ok  { color: var(--c-green); background: var(--c-green-muted); }
+.mq-topline__pnl--bad { color: var(--c-red);   background: var(--c-red-muted); }
+.mq-topline__pnl--mid { color: var(--c-yellow); background: var(--c-yellow-muted); }
+
+.mq-topline__meta {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--c-text-3);
+}
+
+/* ── MEJORA 18: Semáforo inversor ────────────────────────────────────────── */
+.mq-sem-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) 0 var(--space-5) 0;
+}
+
+.mq-sem-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: mq-pulse 3s ease-in-out infinite;
+}
+
+@keyframes mq-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.mq-sem-dot--verde   { background: var(--c-green);  box-shadow: 0 0 0 4px var(--c-green-glow); }
+.mq-sem-dot--amarillo{ background: var(--c-yellow); box-shadow: 0 0 0 4px var(--c-yellow-muted); }
+.mq-sem-dot--rojo    { background: var(--c-red);    box-shadow: 0 0 0 4px var(--c-red-muted); }
+.mq-sem-dot--neutro  { background: var(--c-text-3); animation: none; }
+
+.mq-sem-label {
+  font-size: 0.8125rem;
+  color: var(--c-text-2);
+  line-height: 1.4;
+}
+
+/* ── MEJORA 19: Cards de métricas ────────────────────────────────────────── */
+.mq26-metric-card {
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-xl);
+  padding: var(--space-5) var(--space-6);
+  text-align: center;
+  transition: border-color var(--dur-normal) var(--ease),
+              box-shadow var(--dur-normal) var(--ease),
+              transform var(--dur-normal) var(--ease);
+}
+
+.mq26-metric-card:hover {
+  border-color: var(--c-border-2);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.mq26-metric-card .mq-icon {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-2);
+  opacity: 0.85;
+}
+
+.mq26-metric-card .label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--c-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-2);
+}
+
+.mq26-metric-card .value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--c-text);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.mq26-metric-card .delta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  margin-top: var(--space-1);
+  letter-spacing: -0.01em;
+}
+
+.delta-pos { color: var(--c-green); }
+.delta-neg { color: var(--c-red); }
+.delta-neu { color: var(--c-text-3); }
+
+/* ── MEJORA 20: Cards horizontales de métricas ───────────────────────────── */
+.mq-metric-card-h {
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  transition: all var(--dur-normal) var(--ease);
+}
+
+.mq-metric-card-h:hover {
+  border-color: var(--c-border-2);
+  background: var(--c-surface-3);
+}
+
+.mq-metric-card-h .mq-icon {
+  font-size: 1.2rem;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.mq-metric-card-h .mq-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--c-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 2px;
+}
+
+.mq-metric-card-h .mq-value {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--c-text);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.mq-metric-card-h .mq-delta {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  margin-top: 1px;
+}
+
+/* ── MEJORA 21: Badges y pills ───────────────────────────────────────────── */
+.mq-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.mq-pill--ok     { background: var(--c-green-muted);  color: var(--c-green); }
+.mq-pill--bad    { background: var(--c-red-muted);    color: var(--c-red); }
+.mq-pill--warn   { background: var(--c-yellow-muted); color: var(--c-yellow); }
+.mq-pill--neutral{ background: var(--c-accent-muted); color: var(--c-accent); }
+.mq-pill--ghost  { background: var(--c-surface-3);    color: var(--c-text-2);
+                   border: 1px solid var(--c-border); }
+
+/* ── MEJORA 22: Progress bars custom ─────────────────────────────────────── */
+.mq26-progress-bar-container {
+  width: 100%;
+  background: var(--c-surface-3);
+  border-radius: var(--r-pill);
+  height: 6px;
+  overflow: hidden;
+}
+
+.mq26-progress-bar {
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width 0.6s var(--ease);
+  position: relative;
+}
+
+.mq26-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(90deg,
+    transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  animation: mq-shimmer 2s infinite;
+}
+
+@keyframes mq-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.mq26-progress-verde  { background: var(--c-green); }
+.mq26-progress-yellow { background: var(--c-yellow); }
+.mq26-progress-danger { background: var(--c-red); }
+.mq26-progress-accent { background: var(--c-accent); }
+
+/* ── MEJORA 23: Skeleton loading ─────────────────────────────────────────── */
+.skeleton-card {
+  background: linear-gradient(90deg,
+    var(--c-surface-2) 25%,
+    var(--c-surface-3) 50%,
+    var(--c-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: mq-skeleton 1.8s ease-in-out infinite;
+  border-radius: var(--r-lg);
+  height: 72px;
+  margin-bottom: var(--space-2);
+}
+
+@keyframes mq-skeleton {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* ── MEJORA 24: Workflow header ──────────────────────────────────────────── */
+.mq-status-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  font-size: 0.8125rem;
+  color: var(--c-text-2);
+}
+
+.mq-status-step .mq-status-icon {
+  font-size: 0.875rem;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ── MEJORA 25: Pantalla login ────────────────────────────────────────────── */
+.mq-login-hero {
+  text-align: center;
+  padding: var(--space-10) 0 var(--space-6) 0;
+}
+
+.mq-login-hero h1 {
+  font-size: 1.35rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.025em !important;
+  color: var(--c-text) !important;
+  margin: var(--space-3) 0 var(--space-1) 0 !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.mq-login-hero p {
+  font-size: 0.8125rem !important;
+  color: var(--c-text-3) !important;
+  margin: 0 !important;
+}
+
+/* ── MEJORA 26: Breadcrumbs ──────────────────────────────────────────────── */
+.mq-breadcrumb {
+  font-size: 0.72rem;
+  color: var(--c-text-3);
+  margin-bottom: var(--space-4);
+  letter-spacing: 0.01em;
+}
+
+.mq-breadcrumb span { color: var(--c-text-3); }
+.mq-breadcrumb span:last-child { color: var(--c-text-2); }
+.mq-breadcrumb .sep { margin: 0 6px; opacity: 0.4; }
+
+/* ── MEJORA 27: Main header injected ─────────────────────────────────────── */
+.main-header {
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.025em !important;
+  color: var(--c-text) !important;
+  margin: 0 0 var(--space-1) 0 !important;
+  line-height: 1.2 !important;
+}
+
+.sub-header {
+  font-size: 0.8rem !important;
+  font-weight: 400 !important;
+  color: var(--c-text-3) !important;
+  margin: 0 0 var(--space-6) 0 !important;
+  line-height: 1.5 !important;
+}
+
+/* ── MEJORA 28: Onboarding cards ─────────────────────────────────────────── */
+.onboarding-step {
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-accent-muted);
+  border-radius: var(--r-xl);
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-4);
+  position: relative;
+  overflow: hidden;
+}
+
+.onboarding-step::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    var(--c-accent-muted), var(--c-accent), var(--c-accent-muted));
+}
+
+/* ── MEJORA 29: Notificaciones sidebar ──────────────────────────────────── */
+.mq-notif-item {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 0.75rem;
+  color: var(--c-text-2);
+  line-height: 1.4;
+}
+
+.mq-notif-item:last-child { border-bottom: none; }
+
+/* ── MEJORA 30: Tema presentación ────────────────────────────────────────── */
+.presentacion-mode [data-testid="stSidebar"],
+.presentacion-mode [data-testid="stToolbar"],
+.presentacion-mode .stDeployButton,
+.presentacion-mode footer {
+  display: none !important;
+}
+
+.presentacion-mode [data-testid="block-container"] {
+  padding: var(--space-4) !important;
+  max-width: 100% !important;
+}
+
+/* ── MEJORA 31: Print / PDF ──────────────────────────────────────────────── */
+@media print {
+  [data-testid="stSidebar"],
+  [data-testid="stToolbar"],
+  .stDeployButton, footer,
+  .stButton, [data-testid="stDownloadButton"] {
+    display: none !important;
+  }
+  [data-testid="block-container"] {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  body {
+    background: white !important;
+    color: #0f172a !important;
+  }
+}
+
+/* ── MEJORA 32: Scrollbar custom ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--c-border-2);
+  border-radius: var(--r-pill);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--c-text-3); }
+
+/* ── MEJORA 33: Watermark ────────────────────────────────────────────────── */
+.stApp::after {
+  content: "MQ26";
+  position: fixed;
+  bottom: 12px;
+  right: 16px;
+  opacity: 0.06;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--c-text-3);
+  pointer-events: none;
+  z-index: 9999;
+  letter-spacing: 0.1em;
+}
+
+/* ── MEJORA 34: Formularios ──────────────────────────────────────────────── */
+[data-testid="stForm"] {
+  background: var(--c-surface-2) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: var(--r-xl) !important;
+  padding: var(--space-6) !important;
+}
+
+/* ── MEJORA 35: File uploader ────────────────────────────────────────────── */
+[data-testid="stFileUploader"] {
+  border: 2px dashed var(--c-border-2) !important;
+  border-radius: var(--r-xl) !important;
+  background: var(--c-surface) !important;
+  transition: border-color var(--dur-normal) var(--ease),
+              background var(--dur-normal) var(--ease) !important;
+  padding: var(--space-6) !important;
+}
+
+[data-testid="stFileUploader"]:hover {
+  border-color: var(--c-accent) !important;
+  background: var(--c-accent-muted) !important;
+}
+
+/* ── MEJORA 36: Info boxes (reporte) ─────────────────────────────────────── */
+.mq-info-box {
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-3) 0;
+}
+
+.mq-info-box--accent {
+  background: var(--c-accent-muted);
+  border-color: rgba(59,130,246,0.25);
+}
+
+/* ── MEJORA 37: Número mono en tablas ───────────────────────────────────── */
+.num { font-family: var(--font-mono) !important; }
+
+/* ── MEJORA 38: Observación diagnóstico ─────────────────────────────────── */
+.mq-obs {
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-left: 3px solid var(--c-border-2);
+  border-radius: var(--r-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+  transition: border-left-color var(--dur-normal) var(--ease);
+}
+
+.mq-obs--critica { border-left-color: var(--c-red); }
+.mq-obs--alta    { border-left-color: var(--c-yellow); }
+.mq-obs--media   { border-left-color: var(--c-accent); }
+.mq-obs--baja    { border-left-color: var(--c-green); }
+
+.mq-obs__title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--c-text);
+  margin-bottom: var(--space-1);
+}
+
+.mq-obs__body {
+  font-size: 0.78rem;
+  color: var(--c-text-2);
+  line-height: 1.5;
+}
+
+.mq-obs__cifra {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--c-text-3);
+  margin-top: var(--space-2);
+}
+
+/* ── MEJORA 39: Tooltip helper ──────────────────────────────────────────── */
+[title] { cursor: help; }
+
+/* ── MEJORA 40: Footer oculto ────────────────────────────────────────────── */
+footer, [data-testid="stBottomBlockContainer"] {
+  display: none !important;
+}

@@ -1,0 +1,29 @@
+# MQ26-DSS — Dependencias de producción (G6: eliminadas librerías no usadas)
+# Nota: fpdf2, fastapi, uvicorn, pydantic removidos (no usados activamente)
+
+streamlit>=1.56.0
+pandas>=2.0.0
+numpy>=1.24.0
+yfinance>=0.2.38
+scipy>=1.11.0
+plotly>=5.18.0
+openpyxl>=3.1.0
+sqlalchemy>=2.0.0
+requests>=2.31.0
+requests-cache>=1.1.0
+python-dotenv>=1.0.0
+psycopg2-binary>=2.9.0
+scikit-learn>=1.3.0
+feedparser>=6.0.0
+python-dateutil>=2.8.0
+alembic>=1.13.0
+
+# Sprint 5: autenticación multi-asesor (opcional — solo si AUTH_CONFIG está definida)
+streamlit-authenticator>=0.3.0
+pyyaml>=6.0.0
+
+# Sprint 6: monitoreo de errores en producción (opcional — solo si SENTRY_DSN definida)
+sentry-sdk>=1.40.0
+
+# Dev: cobertura de código
+pytest-cov>=4.0.0

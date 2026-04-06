@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MQ26 — Optimizador Cuantitativo de Carteras | Argentina</title>
+<meta name="description" content="El único optimizador cuantitativo de carteras diseñado para CEDEARs, bonos y FCIs en Argentina. Independiente de tu broker. Para asesores e inversores sofisticados.">
+
+<!-- Open Graph / WhatsApp / Telegram -->
+<meta property="og:title" content="MQ26 — Optimizador de Carteras para Argentina">
+<meta property="og:description" content="Markowitz, Black-Litterman, Kelly y CVaR aplicados a CEDEARs. Independiente de tu broker.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mq26.estrategiacapitales.com">
+<meta property="og:image" content="https://mq26.estrategiacapitales.com/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Canonical -->
+<link rel="canonical" href="https://mq26.estrategiacapitales.com">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0d1117;
+    --ink2: #2c3441;
+    --muted: #6b7684;
+    --border: rgba(13,17,23,0.10);
+    --surface: #f8f7f4;
+    --white: #ffffff;
+    --accent: #1a3a5c;
+    --accent-lt: #e8f0f8;
+    --gold: #c8922a;
+    --gold-lt: #fdf3e3;
+    --green: #1a6b3c;
+    --green-lt: #e8f5ee;
+    --red: #991b1b;
+    --red-lt: #fef2f2;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--white);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Syne', sans-serif;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 5vw;
+    height: 60px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.25rem;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: -0.03em;
+  }
+  .nav-logo span { color: var(--gold); }
+  .nav-links { display: flex; gap: 2rem; list-style: none; }
+  .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 400; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.15s;
+    display: inline-flex; align-items: center;
+  }
+  .nav-cta:hover { background: #0f2640; transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 5vw 60px;
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent-lt);
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 1.5rem;
+    width: fit-content;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .hero h1 {
+    font-size: clamp(2.6rem, 5.5vw, 5rem);
+    font-weight: 800;
+    color: var(--ink);
+    max-width: 820px;
+    margin-bottom: 1.5rem;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+    position: relative;
+  }
+  .hero h1 em::after {
+    content: '';
+    position: absolute;
+    bottom: 2px; left: 0; right: 0;
+    height: 3px;
+    background: var(--gold);
+    border-radius: 2px;
+    opacity: 0.7;
+  }
+
+  .hero-sub {
+    font-size: 1.15rem;
+    color: var(--ink2);
+    max-width: 560px;
+    font-weight: 300;
+    line-height: 1.7;
+    margin-bottom: 2.5rem;
+  }
+
+  .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 3rem; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.85rem 2rem;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary:hover { background: #0f2640; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(26,58,92,0.25); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--border);
+    padding: 0.85rem 2rem;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.2s, background 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-secondary:hover { border-color: var(--ink); background: var(--surface); }
+
+  .hero-proof {
+    display: flex; gap: 2rem; flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .hero-proof span { display: flex; align-items: center; gap: 6px; }
+  .hero-proof span::before {
+    content: '✓';
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  /* ── METRICS STRIP ── */
+  .metrics-strip {
+    background: var(--ink);
+    padding: 2rem 5vw;
+    display: flex;
+    justify-content: space-around;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .metric-item { text-align: center; }
+  .metric-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: white;
+    line-height: 1;
+  }
+  .metric-num span { color: var(--gold); }
+  .metric-label { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* ── SECTIONS ── */
+  section { padding: 80px 5vw; max-width: 1200px; margin: 0 auto; }
+
+  .section-tag {
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 0.75rem;
+  }
+  .section-title { font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 700; margin-bottom: 1rem; }
+  .section-sub { font-size: 1.05rem; color: var(--muted); max-width: 520px; font-weight: 300; line-height: 1.7; }
+
+  /* ── PROBLEM/SOLUTION ── */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start; }
+  @media (max-width: 768px) { .split { grid-template-columns: 1fr; gap: 3rem; } }
+
+  .problem-list { list-style: none; margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
+  .problem-list li {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 1rem 1.25rem;
+    background: var(--red-lt);
+    border-radius: 10px;
+    border-left: 3px solid #e53e3e;
+    font-size: 0.95rem;
+    color: var(--ink2);
+  }
+  .problem-list li .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+  .solution-list { list-style: none; margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
+  .solution-list li {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 1rem 1.25rem;
+    background: var(--green-lt);
+    border-radius: 10px;
+    border-left: 3px solid #38a169;
+    font-size: 0.95rem;
+    color: var(--ink2);
+  }
+  .solution-list li .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+
+  /* ── FEATURES GRID ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: transform 0.2s, border-color 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card:hover { transform: translateY(-4px); border-color: rgba(26,58,92,0.2); }
+  .feature-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .feature-card:hover::before { opacity: 1; }
+  .feature-icon {
+    width: 44px; height: 44px;
+    background: var(--accent-lt);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+  }
+  .feature-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .feature-card p { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
+
+  /* ── COMPARISON TABLE ── */
+  .comp-table { width: 100%; border-collapse: collapse; margin-top: 2rem; }
+  .comp-table th, .comp-table td {
+    padding: 0.9rem 1.25rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .comp-table th {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .comp-table th:first-child { border-radius: 10px 0 0 0; }
+  .comp-table th:last-child { border-radius: 0 10px 0 0; background: var(--accent); color: white; }
+  .comp-table td:last-child { background: var(--accent-lt); font-weight: 500; }
+  .comp-table tr:last-child td { border-bottom: none; }
+  .check { color: var(--green); font-weight: 700; }
+  .cross { color: #cbd5e0; }
+  .partial { color: var(--gold); }
+
+  /* ── PRICING ── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+    align-items: start;
+  }
+  .pricing-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem 1.75rem;
+    position: relative;
+    transition: transform 0.2s;
+  }
+  .pricing-card:hover { transform: translateY(-4px); }
+  .pricing-card.featured {
+    border: 2px solid var(--accent);
+    box-shadow: 0 12px 40px rgba(26,58,92,0.12);
+  }
+  .pricing-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: var(--accent);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 14px;
+    border-radius: 100px;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .pricing-tier { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; }
+  .pricing-price { margin-bottom: 0.25rem; }
+  .pricing-price strong { font-family: 'Syne', sans-serif; font-size: 2.5rem; font-weight: 800; }
+  .pricing-price span { color: var(--muted); font-size: 0.9rem; }
+  .pricing-desc { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.5rem; }
+  .pricing-features { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 2rem; }
+  .pricing-features li { display: flex; gap: 8px; align-items: flex-start; font-size: 0.9rem; }
+  .pricing-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+  .pricing-btn {
+    display: block;
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .pricing-btn:hover { background: var(--accent); color: white; }
+  .pricing-card.featured .pricing-btn { background: var(--accent); color: white; }
+  .pricing-card.featured .pricing-btn:hover { background: #0f2640; }
+
+  /* ── TESTIMONIAL / DISCLAIMER ── */
+  .disclaimer-box {
+    background: var(--gold-lt);
+    border: 1px solid rgba(200,146,42,0.25);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    font-size: 0.85rem;
+    color: #92400e;
+    margin-top: 2rem;
+    line-height: 1.6;
+  }
+  .disclaimer-box strong { font-weight: 600; }
+
+  /* ── CTA FINAL ── */
+  .cta-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 80px 5vw;
+    text-align: center;
+  }
+  .cta-box {
+    background: var(--ink);
+    border-radius: 24px;
+    padding: 5rem 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-box::before {
+    content: '';
+    position: absolute; top: -80px; right: -80px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: rgba(200,146,42,0.08);
+  }
+  .cta-box h2 { color: white; font-size: clamp(1.8rem, 4vw, 3rem); max-width: 700px; margin: 0 auto 1rem; }
+  .cta-box p { color: rgba(255,255,255,0.6); font-size: 1rem; margin-bottom: 2.5rem; }
+  .cta-box .btn-primary { background: var(--gold); color: var(--ink); font-weight: 600; }
+  .cta-box .btn-primary:hover { background: #a87820; box-shadow: 0 8px 24px rgba(200,146,42,0.4); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 5vw;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .hero-eyebrow { animation: fadeUp 0.5s ease both; }
+  .hero h1      { animation: fadeUp 0.6s 0.1s ease both; }
+  .hero-sub     { animation: fadeUp 0.6s 0.2s ease both; }
+  .hero-actions { animation: fadeUp 0.6s 0.3s ease both; }
+  .hero-proof   { animation: fadeUp 0.6s 0.4s ease both; }
+
+  /* ── LIVE DEMO WIDGET ── */
+  .demo-section { background: var(--surface); padding: 80px 5vw; }
+  .demo-inner { max-width: 1200px; margin: 0 auto; }
+  .demo-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-top: 3rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  }
+  .demo-controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; align-items: flex-end; }
+  .demo-input-group { display: flex; flex-direction: column; gap: 6px; }
+  .demo-input-group label { font-size: 0.8rem; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .demo-input-group select, .demo-input-group input {
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: var(--surface);
+    min-width: 180px;
+  }
+  .btn-run {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    align-self: flex-end;
+  }
+  .btn-run:hover { background: #0f2640; }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .result-card {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+  }
+  .result-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
+  .result-value { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+  .result-value.green { color: var(--green); }
+  .result-value.gold  { color: var(--gold); }
+
+  .weights-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 1rem; }
+  .weight-row { display: flex; align-items: center; gap: 12px; }
+  .weight-ticker { font-size: 0.85rem; font-weight: 600; min-width: 48px; }
+  .weight-bar-bg { flex: 1; height: 8px; background: var(--surface); border-radius: 4px; overflow: hidden; }
+  .weight-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+  .weight-pct { font-size: 0.8rem; color: var(--muted); min-width: 40px; text-align: right; }
+</style>
+</head>
+<body>
+
+<!--
+  CONFIGURACIÓN DE DESPLIEGUE
+  Actualizar la URL de la app Streamlit antes de publicar:
+    - Desarrollo  : http://localhost:8502
+    - Streamlit Cloud : https://<slug>.streamlit.app
+    - VPS propio  : https://mq26.estrategiacapitales.com
+  Buscar y reemplazar: http://localhost:8502
+-->
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">MQ<span>26</span></a>
+  <ul class="nav-links">
+    <li><a href="#caracteristicas">Características</a></li>
+    <li><a href="#comparativa">Comparativa</a></li>
+    <li><a href="#precios">Precios</a></li>
+  </ul>
+  <a href="http://localhost:8502" class="nav-cta" target="_blank" rel="noopener">Comenzar gratis →</a>
+</nav>
+
+<!-- HERO -->
+<div style="max-width:1200px;margin:0 auto;">
+  <header class="hero">
+    <div class="hero-eyebrow">Optimizador cuantitativo — Argentina</div>
+    <h1>Tu cartera de CEDEARs,<br><em>optimizada con ciencia</em></h1>
+    <p class="hero-sub">
+      Markowitz, Black-Litterman, Kelly y CVaR aplicados a CEDEARs, bonos y FCIs argentinos. 
+      Independiente de tu broker. Diseñado para asesores e inversores sofisticados.
+    </p>
+    <div class="hero-actions">
+      <a href="#demo" class="btn-primary">Ver demo interactiva ↓</a>
+      <a href="#precios" class="btn-secondary">Ver planes y precios</a>
+    </div>
+    <div class="hero-proof">
+      <span>8 modelos de optimización</span>
+      <span>120+ CEDEARs del universo BYMA</span>
+      <span>CCL en tiempo real</span>
+      <span>Reportes PDF para clientes</span>
+    </div>
+  </header>
+</div>
+
+<!-- METRICS STRIP -->
+<div class="metrics-strip">
+  <div class="metric-item">
+    <div class="metric-num">120<span>+</span></div>
+    <div class="metric-label">CEDEARs disponibles</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-num">8</div>
+    <div class="metric-label">Modelos cuantitativos</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-num">10<span>K</span></div>
+    <div class="metric-label">Simulaciones Montecarlo</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-num"><span>$</span>0</div>
+    <div class="metric-label">Para empezar</div>
+  </div>
+</div>
+
+<!-- PROBLEMA / SOLUCIÓN -->
+<section id="problema">
+  <div class="split">
+    <div>
+      <p class="section-tag">El problema</p>
+      <h2 class="section-title">Las herramientas de tu broker no alcanzan</h2>
+      <ul class="problem-list">
+        <li><span class="icon">📊</span><span>No hay optimización cuantitativa real — solo "carteras sugeridas" sin fundamento matemático</span></li>
+        <li><span class="icon">🔒</span><span>Datos atrapados en el broker — no podés analizar si tenés cuentas en varios</span></li>
+        <li><span class="icon">📉</span><span>Sin análisis de riesgo genuino: VaR, CVaR, drawdown máximo</span></li>
+        <li><span class="icon">🧾</span><span>Imposible generar reportes profesionales para mostrarte a clientes o socios</span></li>
+      </ul>
+    </div>
+    <div>
+      <p class="section-tag">La solución</p>
+      <h2 class="section-title">MQ26 trabaja para vos, no para el broker</h2>
+      <ul class="solution-list">
+        <li><span class="icon">⚗️</span><span>8 modelos de optimización: Sharpe, Sortino, CVaR, Kelly, Black-Litterman y más</span></li>
+        <li><span class="icon">🔓</span><span>Importá desde cualquier broker con CSV — Balanz, IOL, Cocos, IEB+</span></li>
+        <li><span class="icon">🛡️</span><span>Análisis de riesgo completo: VaR, CVaR, correlaciones, simulación Montecarlo</span></li>
+        <li><span class="icon">📄</span><span>Reporte PDF mensual listo para compartir con clientes en 1 click</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO INTERACTIVA -->
+<div class="demo-section" id="demo">
+  <div class="demo-inner">
+    <p class="section-tag">Demo interactiva</p>
+    <h2 class="section-title">Probá el optimizador ahora</h2>
+    <p style="color:var(--muted);font-size:1rem;margin-top:.5rem;">Sin registrarte. Con datos reales de mercado simulados.</p>
+
+    <div class="demo-card">
+      <div class="demo-controls">
+        <div class="demo-input-group">
+          <label>Modelo</label>
+          <select id="modelo">
+            <option value="sharpe">Máximo Sharpe</option>
+            <option value="sortino">Máximo Sortino</option>
+            <option value="cvar">Mínimo CVaR (95%)</option>
+            <option value="kelly">Kelly Fraccional</option>
+            <option value="paridad">Paridad de Riesgo</option>
+          </select>
+        </div>
+        <div class="demo-input-group">
+          <label>Universo</label>
+          <select id="universo">
+            <option value="tech">Tecnología (AAPL, MSFT, NVDA, META, AMZN)</option>
+            <option value="mixed">Diversificado (AAPL, KO, CVX, GLD, SPY)</option>
+            <option value="arg">Argentina + Global (VIST, PAMP, MELI, CEPU, SPY)</option>
+          </select>
+        </div>
+        <div class="demo-input-group">
+          <label>Perfil de riesgo</label>
+          <select id="perfil">
+            <option value="moderado">Moderado</option>
+            <option value="conservador">Conservador</option>
+            <option value="agresivo">Agresivo</option>
+          </select>
+        </div>
+        <button class="btn-run" onclick="runOptimizer()">⚡ Optimizar</button>
+      </div>
+
+      <div class="result-grid" id="resultGrid">
+        <div class="result-card">
+          <div class="result-label">Sharpe estimado</div>
+          <div class="result-value" id="sharpeVal">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-label">Retorno anual est.</div>
+          <div class="result-value green" id="retornoVal">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-label">Volatilidad anual</div>
+          <div class="result-value gold" id="volVal">—</div>
+        </div>
+        <div class="result-card">
+          <div class="result-label">CVaR 95%</div>
+          <div class="result-value" id="cvarVal" style="color:var(--red)">—</div>
+        </div>
+      </div>
+
+      <div>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:12px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;">Pesos óptimos sugeridos</p>
+        <div class="weights-bars" id="weightsBars"></div>
+      </div>
+
+      <p style="font-size:.75rem;color:var(--muted);margin-top:1.5rem;font-style:italic;">
+        ⚠️ Demo con datos simulados. No constituye asesoramiento de inversión.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- CARACTERÍSTICAS -->
+<section id="caracteristicas">
+  <p class="section-tag">Características</p>
+  <h2 class="section-title">Todo lo que necesitás en una sola terminal</h2>
+  <p class="section-sub">Diseñado específicamente para el mercado argentino. Sin concesiones.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">⚗️</div>
+      <h3>8 Modelos de Optimización</h3>
+      <p>Sharpe, Sortino, CVaR, Kelly multiactivo, Paridad de Riesgo, Min Drawdown, Black-Litterman y Multi-Objetivo con pesos personalizables.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Análisis de Riesgo Completo</h3>
+      <p>VaR y CVaR paramétrico e histórico, simulación Montecarlo con 10.000 escenarios, correlaciones y stress-testing.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🇦🇷</div>
+      <h3>Pensado para Argentina</h3>
+      <p>CCL y MEP en tiempo real, ratios de conversión de CEDEARs BYMA, inflación ARS integrada, Mod-23 para señales de entrada/salida.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">👥</div>
+      <h3>Multi-Cartera y Multi-Cliente</h3>
+      <p>Gestioná carteras de múltiples clientes desde un panel unificado. CRM integrado con perfil de riesgo y horizonte por cliente.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📄</div>
+      <h3>Reportes Profesionales</h3>
+      <p>Reporte PDF mensual personalizable para entregar a clientes. Incluye P&amp;L, composición, riesgo y señales del período.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔔</div>
+      <h3>Alertas en Telegram</h3>
+      <p>Notificaciones automáticas de señales MOD-23, objetivos próximos a vencer y desvíos de riesgo en tu portfolio.</p>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARATIVA -->
+<section id="comparativa" style="background:var(--surface);padding:80px 5vw;max-width:100%;">
+  <div style="max-width:1200px;margin:0 auto;">
+    <p class="section-tag">Comparativa</p>
+    <h2 class="section-title">MQ26 vs las alternativas</h2>
+    <div style="overflow-x:auto;">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>Característica</th>
+            <th>Balanz / IOL</th>
+            <th>Criteria / Cohen</th>
+            <th>PyPortfolioOpt (USA)</th>
+            <th>MQ26 ✦</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Optimización cuantitativa real</td>
+            <td class="cross">✗</td>
+            <td class="partial">Parcial</td>
+            <td class="check">✓</td>
+            <td class="check">✓ 8 modelos</td>
+          </tr>
+          <tr>
+            <td>CEDEARs y ratios BYMA nativos</td>
+            <td class="check">✓</td>
+            <td class="check">✓</td>
+            <td class="cross">✗</td>
+            <td class="check">✓ 120+</td>
+          </tr>
+          <tr>
+            <td>CCL / MEP integrado</td>
+            <td class="check">✓</td>
+            <td class="partial">Parcial</td>
+            <td class="cross">✗</td>
+            <td class="check">✓ Tiempo real</td>
+          </tr>
+          <tr>
+            <td>Independiente del broker</td>
+            <td class="cross">✗</td>
+            <td class="cross">✗</td>
+            <td class="check">✓</td>
+            <td class="check">✓</td>
+          </tr>
+          <tr>
+            <td>Multi-cartera / multi-cliente</td>
+            <td class="cross">✗</td>
+            <td class="cross">✗</td>
+            <td class="cross">✗</td>
+            <td class="check">✓ Ilimitado</td>
+          </tr>
+          <tr>
+            <td>Reportes PDF para clientes</td>
+            <td class="cross">✗</td>
+            <td class="partial">Básico</td>
+            <td class="cross">✗</td>
+            <td class="check">✓ Profesional</td>
+          </tr>
+          <tr>
+            <td>Señales de trading (MOD-23)</td>
+            <td class="cross">✗</td>
+            <td class="partial">Parcial</td>
+            <td class="cross">✗</td>
+            <td class="check">✓ Scoring propio</td>
+          </tr>
+          <tr>
+            <td>Precio</td>
+            <td>Incluido en broker</td>
+            <td>Incluido en broker</td>
+            <td>Open source (USA)</td>
+            <td class="check">Desde USD 15/mes</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="precios">
+  <p class="section-tag">Precios</p>
+  <h2 class="section-title">Sin compromisos. Cancelá cuando quieras.</h2>
+  <p class="section-sub">Todos los planes incluyen 30 días de prueba gratuita. Sin tarjeta de crédito.</p>
+
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <div class="pricing-tier">Inversor</div>
+      <div class="pricing-price"><strong>USD 15</strong><span> / mes</span></div>
+      <p class="pricing-desc">Para el inversor individual que quiere optimizar su propia cartera con rigor matemático.</p>
+      <ul class="pricing-features">
+        <li>1 cartera, hasta 40 activos</li>
+        <li>Optimizador completo (8 modelos)</li>
+        <li>Análisis de riesgo y Montecarlo</li>
+        <li>Señales MOD-23 y alertas</li>
+        <li>Importar CSV de cualquier broker</li>
+      </ul>
+      <a href="http://localhost:8502" class="pricing-btn" target="_blank" rel="noopener">Empezar gratis →</a>
+    </div>
+
+    <div class="pricing-card featured">
+      <div class="pricing-badge">MÁS POPULAR</div>
+      <div class="pricing-tier">Asesor Profesional</div>
+      <div class="pricing-price"><strong>USD 49</strong><span> / mes</span></div>
+      <p class="pricing-desc">Para asesores financieros que gestionan carteras de múltiples clientes.</p>
+      <ul class="pricing-features">
+        <li>Multi-cartera ilimitada</li>
+        <li>CRM de clientes con perfiles de riesgo</li>
+        <li>Reportes PDF profesionales para clientes</li>
+        <li>Alertas Telegram por cliente</li>
+        <li>Backtesting histórico</li>
+        <li>Benchmarking vs SPY y Merval</li>
+      </ul>
+      <a href="http://localhost:8502" class="pricing-btn" target="_blank" rel="noopener">Empezar gratis →</a>
+    </div>
+
+    <div class="pricing-card">
+      <div class="pricing-tier">Institucional</div>
+      <div class="pricing-price"><strong>USD 199</strong><span> / mes</span></div>
+      <p class="pricing-desc">Para family offices, ALyCs y equipos que necesitan SLA y personalización.</p>
+      <ul class="pricing-features">
+        <li>Todo lo del plan Asesor</li>
+        <li>Reporte white label (tu logo)</li>
+        <li>API de datos para integrar</li>
+        <li>Soporte prioritario con SLA</li>
+        <li>Usuarios ilimitados del equipo</li>
+        <li>Onboarding personalizado</li>
+      </ul>
+      <a href="mailto:contacto@estrategiacapitales.com" class="pricing-btn">Hablar con ventas →</a>
+    </div>
+  </div>
+
+  <div class="disclaimer-box">
+    <strong>Aviso legal:</strong> MQ26 es una herramienta de análisis cuantitativo. No constituye asesoramiento de inversión ni recomendación de compra/venta de valores. Las proyecciones son estimaciones basadas en datos históricos y no garantizan rendimientos futuros. El uso de la plataforma está sujeto a los Términos y Condiciones. El usuario es responsable de sus decisiones de inversión.
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<div class="cta-section">
+  <div class="cta-box">
+    <h2>¿Listo para optimizar tu cartera con ciencia?</h2>
+    <p>30 días gratis. Sin tarjeta. Cancelá cuando quieras.</p>
+    <a href="http://localhost:8502" class="btn-primary" target="_blank" rel="noopener">Empezar gratis ahora →</a>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <a href="#" class="nav-logo" style="display:inline;font-size:1rem;">MQ<span>26</span></a>
+    <span style="margin-left:1rem;">© 2026 Estrategia Capitales. Corrientes, Argentina.</span>
+  </div>
+  <div style="display:flex;gap:1.5rem;">
+    <a href="#" style="color:var(--muted);text-decoration:none;font-size:.8rem;">Términos y condiciones</a>
+    <a href="#" style="color:var(--muted);text-decoration:none;font-size:.8rem;">Privacidad</a>
+    <a href="mailto:contacto@estrategiacapitales.com" style="color:var(--muted);text-decoration:none;font-size:.8rem;">Contacto</a>
+  </div>
+</footer>
+
+<script>
+const PRESETS = {
+  tech: {
+    tickers: ['AAPL','MSFT','NVDA','META','AMZN'],
+    base_returns: [0.18, 0.22, 0.45, 0.28, 0.20],
+    base_vols: [0.24, 0.22, 0.42, 0.35, 0.28]
+  },
+  mixed: {
+    tickers: ['AAPL','KO','CVX','GLD','SPY'],
+    base_returns: [0.18, 0.08, 0.12, 0.09, 0.13],
+    base_vols: [0.24, 0.14, 0.22, 0.15, 0.16]
+  },
+  arg: {
+    tickers: ['VIST','PAMP','MELI','CEPU','SPY'],
+    base_returns: [0.52, 0.31, 0.24, 0.28, 0.13],
+    base_vols: [0.48, 0.38, 0.32, 0.40, 0.16]
+  }
+};
+
+const MODELO_ADJ = {
+  sharpe:   { wt: [0.32, 0.28, 0.20, 0.12, 0.08] },
+  sortino:  { wt: [0.28, 0.25, 0.22, 0.15, 0.10] },
+  cvar:     { wt: [0.18, 0.20, 0.15, 0.28, 0.19] },
+  kelly:    { wt: [0.38, 0.30, 0.18, 0.09, 0.05] },
+  paridad:  { wt: [0.22, 0.22, 0.20, 0.18, 0.18] }
+};
+
+const PERFIL_ADJ = {
+  conservador: { ret_mult: 0.7, vol_mult: 0.75 },
+  moderado:    { ret_mult: 1.0, vol_mult: 1.0 },
+  agresivo:    { ret_mult: 1.25, vol_mult: 1.3 }
+};
+
+function runOptimizer() {
+  const modelo   = document.getElementById('modelo').value;
+  const universo = document.getElementById('universo').value;
+  const perfil   = document.getElementById('perfil').value;
+
+  const preset = PRESETS[universo];
+  const mAdj   = MODELO_ADJ[modelo];
+  const pAdj   = PERFIL_ADJ[perfil];
+
+  const weights = mAdj.wt;
+  let portReturn = 0, portVol = 0;
+  for (let i = 0; i < weights.length; i++) {
+    portReturn += weights[i] * preset.base_returns[i];
+    portVol    += weights[i] * preset.base_vols[i];
+  }
+  portReturn *= pAdj.ret_mult;
+  portVol    *= pAdj.vol_mult;
+
+  const rfRate = 0.043;
+  const sharpe = (portReturn - rfRate) / portVol;
+  const cvar95 = portVol * 1.65 * 0.65;
+
+  animateValue('sharpeVal',  0, sharpe,     1200, v => v.toFixed(2));
+  animateValue('retornoVal', 0, portReturn, 1200, v => '+' + (v * 100).toFixed(1) + '%');
+  animateValue('volVal',     0, portVol,    1200, v => (v * 100).toFixed(1) + '%');
+  animateValue('cvarVal',    0, cvar95,     1200, v => '-' + (v * 100).toFixed(1) + '%');
+
+  const bars = document.getElementById('weightsBars');
+  bars.innerHTML = '';
+  preset.tickers.forEach((t, i) => {
+    const pct = (weights[i] * 100).toFixed(1);
+    const div = document.createElement('div');
+    div.className = 'weight-row';
+    div.innerHTML = `
+      <span class="weight-ticker">${t}</span>
+      <div class="weight-bar-bg"><div class="weight-bar" style="width:0%" data-target="${weights[i] * 100}"></div></div>
+      <span class="weight-pct">${pct}%</span>
+    `;
+    bars.appendChild(div);
+  });
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.weight-bar').forEach(bar => {
+      bar.style.width = bar.dataset.target + '%';
+    });
+  });
+}
+
+function animateValue(id, from, to, dur, fmt) {
+  const el = document.getElementById(id);
+  const start = performance.now();
+  function step(now) {
+    const p = Math.min((now - start) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(from + (to - from) * ease);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+window.addEventListener('DOMContentLoaded', () => setTimeout(runOptimizer, 600));
+</script>
+</body>
+</html>

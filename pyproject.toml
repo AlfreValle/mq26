@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "mq26-dss"
+version = "1.0.0"
+description = "MQ26 Terminal de Inversiones + DSS Alfredo Control Financiero"
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "Proprietary" }
+
+dependencies = [
+    "streamlit>=1.32.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "yfinance>=0.2.38",
+    "scipy>=1.11.0",
+    "plotly>=5.18.0",
+    "openpyxl>=3.1.0",
+    "sqlalchemy>=2.0.0",
+    "requests>=2.31.0",
+    "requests-cache>=1.1.0",
+    "python-dotenv>=1.0.0",
+    "psycopg2-binary>=2.9.0",
+    "scikit-learn>=1.3.0",
+    "feedparser>=6.0.0",
+    "python-dateutil>=2.8.0",
+    "alembic>=1.13.0",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+]
+otel = [
+    "opentelemetry-api>=1.24.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-mock>=3.11.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.5.0",
+    "ruff>=0.1.0",
+    "pandas-stubs>=2.0.0",
+    "fastapi>=0.110.0",
+    "httpx>=0.27.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "core*", "services*", "ui*", "1_Scripts_Motor*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B"]
+ignore = ["E501", "B008", "N806", "N803"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_return_any = false
+warn_unused_ignores = true
+exclude = ["1_Scripts_Motor/", "scripts/", "tests/"]
+
+# H06 — chequeo reforzado en módulos nuevos (core puro)
+[[tool.mypy.overrides]]
+module = [
+    "core.hrp_weights",
+    "core.deflated_sharpe",
+    "core.corporate_actions_proxy",
+    "core.after_tax",
+    "core.hypothesis_metrics",
+]
+disallow_untyped_defs = true
+
+[tool.coverage.run]
+omit = [
+    # Conectores externos que requieren red / credenciales reales
+    "services/cafci_connector.py",
+    "services/email_sender.py",
+    "core/notificaciones.py",
+    # Servicios de ejecución que requieren broker real
+    "services/ejecucion_service.py",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --cov=services --cov=core --cov-report=term-missing --cov-fail-under=75"

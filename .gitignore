@@ -1,0 +1,63 @@
+# Credenciales y configuración sensible
+.env
+*.env
+!.env.example
+
+# Entornos virtuales locales
+.venv/
+venv/
+
+# Cursor / OS
+.cursor/
+.DS_Store
+Thumbs.db
+
+# Archivos locales / empaquetados
+*.rar
+*.log
+
+# Bases de datos
+*.db
+*.sqlite
+yfinance_cache.sqlite
+yfinance_cache*
+
+# Archivos de datos y reportes
+*.xlsx
+*.csv
+
+# Datos maestros (incluye logs, DB local, CSVs)
+0_Data_Maestra/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Debug / sesiones locales
+debug-*.log
+
+# Testing y cobertura
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Landing comercial — datos de contacto locales
+commercial/landing/site.config.js

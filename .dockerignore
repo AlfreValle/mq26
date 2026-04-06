@@ -1,0 +1,59 @@
+# Control de versiones
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Tests y desarrollo
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Entorno local
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+
+# Datos locales y BD (NO van al contenedor de producción)
+0_Data_Maestra/*.db
+0_Data_Maestra/*.sqlite
+0_Data_Maestra/logs/
+0_Data_Maestra/.bench_cache/
+*.sqlite
+*.db
+
+# IDE y cursors
+.cursor/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archivos de Windows
+*.bat
+dev_check.bat
+start_mq26.bat
+
+# Streamlit config de desarrollo (Railway usa config.toml)
+.streamlit/mq26.toml
+
+# Logs y caché de yfinance
+*.log
+yfinance_cache.sqlite
