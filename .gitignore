@@ -61,3 +61,7 @@ htmlcov/
 
 # Landing comercial — datos de contacto locales
 commercial/landing/site.config.js
+
+# Basura en raíz (typos en terminal; no commitear)
+/git
+/it

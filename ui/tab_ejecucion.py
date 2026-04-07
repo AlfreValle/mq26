@@ -13,7 +13,16 @@ _log = get_logger(__name__)
 
 
 def render_tab_ejecucion(ctx: dict) -> None:
-    df_ag            = ctx["df_ag"]
+    df_ag            = ctx.get("df_ag")
+    if df_ag is None or df_ag.empty:
+        st.info(
+            "La mesa de ejecución necesita activos en cartera para generar órdenes."
+        )
+        st.markdown(
+            "**Próximo paso:** cargá posiciones en **📂 Cartera** primero."
+        )
+        return
+
     tickers_cartera  = ctx["tickers_cartera"]
     precios_dict     = ctx["precios_dict"]
     ccl              = ctx["ccl"]
@@ -57,7 +66,7 @@ def render_tab_ejecucion(ctx: dict) -> None:
 
         # ── SECCIÓN: INYECCIÓN DE CAPITAL CON OBJETIVO ───────────────────────
         if inyectar_capital:
-            st.markdown("---")
+            st.divider()
             st.markdown("### 💰 Nuevo Objetivo de Inversión")
             st.caption(
                 "Cada inyección de capital queda asociada a un objetivo con horizonte y motivo. "
@@ -212,7 +221,7 @@ def render_tab_ejecucion(ctx: dict) -> None:
 
         # ── TABLA DE OBJETIVOS ACTIVOS ────────────────────────────────────────
         if cliente_id:
-            st.markdown("---")
+            st.divider()
             st.markdown("### 📋 Objetivos de Inversión Activos")
             df_obj = dbm.obtener_objetivos_cliente(cliente_id)
             if df_obj.empty:
@@ -237,7 +246,7 @@ def render_tab_ejecucion(ctx: dict) -> None:
                 # Editar objetivos vencidos
                 obj_vencidos = df_obj[df_obj["Estado"] == "VENCIDO"]
                 if not obj_vencidos.empty:
-                    st.markdown("---")
+                    st.divider()
                     st.markdown("#### ✏️ Editar / Renovar objetivos vencidos")
                     for _, ov in obj_vencidos.iterrows():
                         with st.expander(f"Objetivo #{ov['ID']} — {ov['Motivo'][:50]} | Venció: {ov['Vencimiento']}"):
@@ -274,7 +283,7 @@ def render_tab_ejecucion(ctx: dict) -> None:
 
         # ── SECCIÓN: REBALANCEO CON ÁRBOL DE DECISIÓN ────────────────────────
         if hacer_rebalanceo:
-            st.markdown("---")
+            st.divider()
             st.markdown("### ⚖️ Rebalanceo — Árbol de Decisión")
             st.info("Genera órdenes si: (1) desviación ≥ 5% del peso ideal, "
                     "(2) alpha neto > 0 (ganancia esperada > costos de broker).")

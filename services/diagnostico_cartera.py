@@ -13,8 +13,9 @@ from typing import Any
 
 import pandas as pd
 
+from core.renta_fija_ar import es_fila_renta_fija_ar
+
 from core.diagnostico_types import (
-    AJUSTE_HORIZONTE_CORTO,
     BENCHMARK_RENDIMIENTO,
     CATEGORIAS_DEFENSIVAS,
     CLASIFICACION_ACTIVOS,
@@ -22,11 +23,17 @@ from core.diagnostico_types import (
     DiagnosticoResult,
     LIMITE_CONCENTRACION,
     ObservacionDiagnostico,
-    PISO_DEFENSIVO,
     PrioridadAccion,
     Semaforo,
+    UNIVERSO_RENTA_FIJA_AR,
     perfil_diagnostico_valido,
     semaforo_desde_score,
+)
+from core.perfil_allocation import (
+    RULESET_VERSION,
+    exceso_rv_muy_arriesgado,
+    target_rf_efectivo,
+    target_rv_efectivo,
 )
 
 _BONO_PREFIJOS = ("AL", "GD", "TX", "PR")
@@ -105,7 +112,13 @@ def _fraccion_peso(row: pd.Series) -> float:
     return max(0.0, f)
 
 
-def _pct_defensivo_actual(df_ag: pd.DataFrame, universo_df: pd.DataFrame | None) -> float:
+def _es_rf_fila(row: pd.Series, universo_df: pd.DataFrame | None) -> bool:
+    """Renta fija local (LETRAS, ON, soberanos) para el mix RF/RV del perfil."""
+    del universo_df
+    return es_fila_renta_fija_ar(row, UNIVERSO_RENTA_FIJA_AR)
+
+
+def _pct_rf_actual(df_ag: pd.DataFrame, universo_df: pd.DataFrame | None) -> float:
     if df_ag is None or df_ag.empty:
         return 0.0
     if "VALOR_ARS" in df_ag.columns:
@@ -114,7 +127,7 @@ def _pct_defensivo_actual(df_ag: pd.DataFrame, universo_df: pd.DataFrame | None)
             acc = 0.0
             for _, row in df_ag.iterrows():
                 va = float(pd.to_numeric(row.get("VALOR_ARS", 0), errors="coerce") or 0.0)
-                if _es_defensivo_fila(row, universo_df):
+                if _es_rf_fila(row, universo_df):
                     acc += va
             return acc / vt
     total = 0.0
@@ -122,17 +135,18 @@ def _pct_defensivo_actual(df_ag: pd.DataFrame, universo_df: pd.DataFrame | None)
     for _, row in df_ag.iterrows():
         w = _fraccion_peso(row)
         total += w
-        if _es_defensivo_fila(row, universo_df):
+        if _es_rf_fila(row, universo_df):
             acc += w
     return acc / total if total > 1e-12 else 0.0
 
 
+def _pct_defensivo_actual(df_ag: pd.DataFrame, universo_df: pd.DataFrame | None) -> float:
+    """Alias: fracción Renta Fija (campo histórico pct_defensivo_* en resultados)."""
+    return _pct_rf_actual(df_ag, universo_df)
+
+
 def _piso_defensivo_requerido(perfil: str, horizonte_label: str) -> float:
-    p = PISO_DEFENSIVO.get(perfil, PISO_DEFENSIVO["Moderado"])
-    h = str(horizonte_label or "").strip()
-    if h in AJUSTE_HORIZONTE_CORTO:
-        p = min(1.0, p + 0.10)
-    return p
+    return target_rf_efectivo(perfil_diagnostico_valido(perfil), horizonte_label)
 
 
 def _score_dim_cobertura(pct_actual: float, piso_req: float) -> float:
@@ -140,6 +154,34 @@ def _score_dim_cobertura(pct_actual: float, piso_req: float) -> float:
         return 100.0
     r = pct_actual / piso_req
     return _clip(min(r, 1.0) * 100.0, 0.0, 100.0)
+
+
+def _score_dim_alineacion_rf_rv(
+    perfil: str,
+    horizonte_label: str,
+    pct_rf: float,
+    pct_rv: float,
+) -> float:
+    """Paz mental: cercanía al target RF/RV del perfil (+ bandas RV Muy arriesgado)."""
+    p = perfil_diagnostico_valido(perfil)
+    trf = target_rf_efectivo(p, horizonte_label)
+    trv = target_rv_efectivo(p, horizonte_label)
+    err = max(abs(pct_rf - trf), abs(pct_rv - trv))
+    if err <= 0.05:
+        sc = 100.0
+    elif err <= 0.10:
+        sc = 72.0
+    elif err <= 0.15:
+        sc = 45.0
+    else:
+        sc = max(0.0, 100.0 - err * 200.0)
+    if p == "Muy arriesgado":
+        sev = exceso_rv_muy_arriesgado(pct_rv)
+        if sev == "rojo":
+            sc = min(sc, 32.0)
+        elif sev == "amarillo":
+            sc = min(sc, 58.0)
+    return float(_clip(sc, 0.0, 100.0))
 
 
 def _score_dim_concentracion(
@@ -279,6 +321,8 @@ def diagnosticar(
             observaciones=[obs],
             pct_defensivo_actual=0.0,
             pct_defensivo_requerido=_piso_defensivo_requerido(perfil_n, horizonte_label),
+            pct_rv_actual=0.0,
+            ruleset_version=RULESET_VERSION,
             titulo_semaforo="Tu cartera aún no tiene datos suficientes",
             resumen_ejecutivo=_trunc_text(
                 "No se encontraron posiciones. El semáforo refleja un diagnóstico limitado hasta que cargues tu cartera.",
@@ -298,9 +342,13 @@ def diagnosticar(
     d4 = _clip(d4, 0.0, 100.0)
 
     limite = LIMITE_CONCENTRACION.get(perfil_n, LIMITE_CONCENTRACION["Moderado"])
-    pct_def = _pct_defensivo_actual(df_ag, universo_df)
+    pct_rf = _pct_rf_actual(df_ag, universo_df)
+    pct_rv = max(0.0, min(1.0, 1.0 - pct_rf))
     piso = _piso_defensivo_requerido(perfil_n, horizonte_label)
-    d1 = _clip(_score_dim_cobertura(pct_def, piso), 0.0, 100.0)
+    trv = target_rv_efectivo(perfil_n, horizonte_label)
+    d1 = _clip(
+        _score_dim_alineacion_rf_rv(perfil_n, horizonte_label, pct_rf, pct_rv), 0.0, 100.0
+    )
 
     d2, excedentes = _score_dim_concentracion(df_ag, limite)
     d2 = _clip(d2, 0.0, 100.0)
@@ -320,7 +368,7 @@ def diagnosticar(
         total_valor = float(pd.to_numeric(df_ag["VALOR_ARS"], errors="coerce").fillna(0.0).sum())
     valor_usd = total_valor / ccl_f if ccl_f > 0 else 0.0
 
-    deficit_usd = max(0.0, (piso - pct_def) * valor_usd)
+    deficit_usd = max(0.0, (piso - pct_rf) * valor_usd)
 
     max_t, max_w = "", 0.0
     for _, row in df_ag.iterrows():
@@ -331,27 +379,65 @@ def diagnosticar(
 
     observaciones: list[ObservacionDiagnostico] = []
 
-    if pct_def + 1e-9 < piso:
-        gap_pct = (piso - pct_def) * 100.0
+    if pct_rf + 1e-9 < piso:
+        gap_pct = (piso - pct_rf) * 100.0
         pri = PrioridadAccion.CRITICA if gap_pct > 15 else PrioridadAccion.ALTA
         observaciones.append(
             ObservacionDiagnostico(
                 dimension="cobertura_defensiva",
                 icono="⚠️" if pri == PrioridadAccion.ALTA else "🔴",
-                titulo="Cobertura defensiva insuficiente",
+                titulo="Renta fija por debajo del objetivo",
                 texto_corto=_trunc_text(
-                    f"Tenés {pct_def*100:.0f}% defensivo; tu perfil requiere {piso*100:.0f}%.",
+                    f"Tenés {pct_rf*100:.0f}% en renta fija; tu perfil apunta a ~{piso*100:.0f}% (RF core).",
                     120,
                 ),
-                cifra_clave=f"{pct_def*100:.0f}% actual vs {piso*100:.0f}% requerido",
+                cifra_clave=f"{pct_rf*100:.0f}% RF vs ~{piso*100:.0f}% objetivo",
                 accion_sugerida=_trunc_text(
-                    f"Sumá USD {deficit_usd:,.0f} en anclas (GLD, INCOME, renta corta) en próximas compras.",
+                    "Sumá ON, bonos soberanos o letras (según tu assessor) para acercarte al mix RF/RV.",
                     120,
                 ),
                 prioridad=pri,
                 score_dimension=d1,
             )
         )
+
+    if perfil_n == "Muy arriesgado":
+        sev_rv = exceso_rv_muy_arriesgado(pct_rv)
+        if sev_rv == "rojo":
+            observaciones.append(
+                ObservacionDiagnostico(
+                    dimension="cobertura_defensiva",
+                    icono="🔴",
+                    titulo="Renta variable muy por encima del plan",
+                    texto_corto=_trunc_text(
+                        f"RV ~{pct_rv*100:.0f}% (referencia perfil ~{trv*100:.0f}%). Riesgo concentrado en equity.",
+                        120,
+                    ),
+                    cifra_clave=f"RV {pct_rv*100:.0f}%",
+                    accion_sugerida=_trunc_text(
+                        "Considerá tomar ganancias o sumar sostén en renta fija si tu horizonte no justifica este peso.",
+                        120,
+                    ),
+                    prioridad=PrioridadAccion.ALTA,
+                    score_dimension=d1,
+                )
+            )
+        elif sev_rv == "amarillo":
+            observaciones.append(
+                ObservacionDiagnostico(
+                    dimension="cobertura_defensiva",
+                    icono="🟠",
+                    titulo="Renta variable elevada vs objetivo",
+                    texto_corto=_trunc_text(
+                        f"RV ~{pct_rv*100:.0f}% (obj. ~{trv*100:.0f}%). Vigilá concentraciones.",
+                        120,
+                    ),
+                    cifra_clave=f"RV {pct_rv*100:.0f}%",
+                    accion_sugerida="Revisá stops y tamaño de posiciones en Cedears.",
+                    prioridad=PrioridadAccion.MEDIA,
+                    score_dimension=d1,
+                )
+            )
 
     for t_ex, w_ex in excedentes[:3]:
         imp = w_ex * 0.20 * 100.0
@@ -453,7 +539,8 @@ def diagnosticar(
         titulo_sem = "Tu cartera requiere atención prioritaria"
 
     resumen = _trunc_text(
-        f"Score {stotal:.0f}/100 ({sem.value}). Defensivo {pct_def*100:.0f}% sobre piso {piso*100:.0f}%. "
+        f"Score {stotal:.0f}/100 ({sem.value}). RF ~{pct_rf*100:.0f}% (obj. ~{piso*100:.0f}%) · "
+        f"RV ~{pct_rv*100:.0f}%. "
         f"{'Hay ' + str(len(excedentes)) + ' activo(s) sobre el límite de concentración. ' if excedentes else ''}"
         f"P&L USD acumulado {pnl_frac*100:.1f}%.",
         500,
@@ -471,8 +558,10 @@ def diagnosticar(
         score_rendimiento=d3,
         score_senales_salida=d4,
         observaciones=observaciones,
-        pct_defensivo_actual=pct_def,
+        pct_defensivo_actual=pct_rf,
         pct_defensivo_requerido=piso,
+        pct_rv_actual=pct_rv,
+        ruleset_version=RULESET_VERSION,
         deficit_defensivo_usd=deficit_usd,
         activo_mas_concentrado=max_t,
         pct_concentracion_max=max_w * 100.0,

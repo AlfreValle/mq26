@@ -957,3 +957,23 @@ hr {
 footer, [data-testid="stBottomBlockContainer"] {
   display: none !important;
 }
+
+/* ── Sprint 18 (I-81–I-87): separadores, foco, coherencia con tokens ───────
+   El toggle “Modo claro” inyecta style_retail_light.css (mismas variables :root). */
+[data-testid="stHorizontalBlock"] hr,
+[data-testid="column"] hr,
+hr {
+  border: none !important;
+  border-top: 1px solid var(--c-border) !important;
+  opacity: 1 !important;
+  margin: var(--space-4) 0 !important;
+}
+
+:where(button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--c-accent) !important;
+  outline-offset: 2px !important;
+}
+
+[data-testid="stMetric"] label {
+  color: var(--c-text-2) !important;
+}

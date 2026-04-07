@@ -1,6 +1,6 @@
 """
 tests/test_risk_var.py — Tests de calcular_var_cvar (Sprint 24)
-Sin red: mock streamlit/plotly; yfinance.download (usa core.cache_manager en runtime).
+Sin red: mock streamlit/plotly; se parchea services.risk_var.cache_yfinance_close_matrix.
 """
 from __future__ import annotations
 
@@ -60,16 +60,15 @@ def mock_streamlit_plotly_risk_var():
 
 @pytest.fixture
 def precios_historicos_mock():
-    """Close multi-ticker, índice B, ≥40 filas para pct_change ≥30."""
+    """Close multi-ticker, índice B, ≥40 filas para pct_change ≥30 (columnas planas como cache_yfinance)."""
     idx = pd.date_range("2023-01-03", periods=45, freq="B")
     rng = np.random.default_rng(42)
     rets_a = rng.normal(0, 0.02, len(idx))
     rets_b = rng.normal(0, 0.015, len(idx))
     px_a = 100 * np.cumprod(1 + rets_a)
     px_b = 200 * np.cumprod(1 + rets_b)
-    cols = pd.MultiIndex.from_tuples([("Close", "AAPL"), ("Close", "MSFT")])
     return pd.DataFrame(
-        np.column_stack([px_a, px_b]), index=idx, columns=cols
+        np.column_stack([px_a, px_b]), index=idx, columns=["AAPL", "MSFT"]
     )
 
 
@@ -78,17 +77,13 @@ def _import_risk_var():
     return rv
 
 
-def _fake_download_factory(close_df: pd.DataFrame):
-    def _fake(*_a, **_k):
-        return close_df
-
-    return _fake
-
-
 class TestCalcularVarCvar:
     def test_valor_total_cero_retorna_vacio(self, precios_historicos_mock):
         rv = _import_risk_var()
-        with patch("yfinance.download", _fake_download_factory(precios_historicos_mock)):
+        with patch(
+            "services.risk_var.cache_yfinance_close_matrix",
+            return_value=precios_historicos_mock,
+        ):
             out = rv.calcular_var_cvar(
                 tickers=["AAPL"],
                 cantidades={"AAPL": 0.0},
@@ -99,7 +94,10 @@ class TestCalcularVarCvar:
 
     def test_download_falla_retorna_vacio(self):
         rv = _import_risk_var()
-        with patch("yfinance.download", side_effect=ConnectionError("sin red")):
+        with patch(
+            "services.risk_var.cache_yfinance_close_matrix",
+            return_value=pd.DataFrame(),
+        ):
             out = rv.calcular_var_cvar(
                 tickers=["AAPL"],
                 cantidades={"AAPL": 10.0},
@@ -111,7 +109,8 @@ class TestCalcularVarCvar:
     def test_mock_ok_claves_y_convencion_signos(self, precios_historicos_mock):
         rv = _import_risk_var()
         with patch(
-            "yfinance.download", _fake_download_factory(precios_historicos_mock)
+            "services.risk_var.cache_yfinance_close_matrix",
+            return_value=precios_historicos_mock,
         ):
             out = rv.calcular_var_cvar(
                 tickers=["AAPL", "MSFT"],
@@ -146,7 +145,8 @@ class TestCalcularVarCvar:
         px = {"AAPL": 150.0, "MSFT": 300.0}
         ccl = 1200.0
         with patch(
-            "yfinance.download", _fake_download_factory(precios_historicos_mock)
+            "services.risk_var.cache_yfinance_close_matrix",
+            return_value=precios_historicos_mock,
         ):
             v95 = rv.calcular_var_cvar(
                 tickers=tickers,

@@ -1,0 +1,37 @@
+/*
+  MQ26 — Retail light overlay (inyectado después de style.css si MQ26_RETAIL_LIGHT=1).
+  Contraste orientativo AA para texto principal sobre fondo claro.
+*/
+:root {
+  --c-bg:           #f1f5f9;
+  --c-surface:      #ffffff;
+  --c-surface-2:    #e2e8f0;
+  --c-surface-3:    #cbd5e1;
+  --c-border:       rgba(15, 23, 42, 0.12);
+  --c-border-2:     rgba(15, 23, 42, 0.18);
+  --c-text:         #0f172a;
+  --c-text-2:       #334155;
+  --c-text-3:       #64748b;
+  --c-text-inv:     #f8fafc;
+  --c-accent:       #2563eb;
+  --c-accent-2:     #1d4ed8;
+  --c-accent-muted: rgba(37, 99, 235, 0.12);
+  --shadow-md:      0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+html, body {
+  background: var(--c-bg) !important;
+  color: var(--c-text) !important;
+}
+
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="block-container"] {
+  background: var(--c-bg) !important;
+  color: var(--c-text) !important;
+}
+
+[data-testid="stSidebar"] {
+  background: var(--c-surface) !important;
+  border-right: 1px solid var(--c-border) !important;
+}

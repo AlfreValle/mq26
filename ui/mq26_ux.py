@@ -14,13 +14,41 @@ import streamlit as st
 
 # ── MEJORA 51: Helper de colores por semáforo ─────────────────────────────────
 SEMAFORO_CONFIG = {
-    "verde":    {"color": "#10b981", "bg": "rgba(16,185,129,0.12)",
-                 "glow": "rgba(16,185,129,0.2)",  "label": "Cartera en orden"},
-    "amarillo": {"color": "#f59e0b", "bg": "rgba(245,158,11,0.12)",
+    "verde":    {"color": "var(--c-green)", "bg": "var(--c-green-muted)",
+                 "glow": "var(--c-green-glow)",  "label": "Cartera en orden"},
+    "amarillo": {"color": "var(--c-yellow)", "bg": "var(--c-yellow-muted)",
                  "glow": "rgba(245,158,11,0.15)", "label": "Hay ajustes recomendados"},
-    "rojo":     {"color": "#ef4444", "bg": "rgba(239,68,68,0.12)",
+    "rojo":     {"color": "var(--c-red)", "bg": "var(--c-red-muted)",
                  "glow": "rgba(239,68,68,0.15)",  "label": "Cartera necesita atención"},
 }
+
+
+def plotly_chart_layout_base(**overrides) -> dict:
+    """Layout Plotly alineado a tokens MQ26 (I-89; --c-text-2 ≈ 148,163,184)."""
+    base: dict = {
+        "plot_bgcolor": "rgba(0,0,0,0)",
+        "paper_bgcolor": "rgba(0,0,0,0)",
+        "font": dict(family="DM Sans, sans-serif", size=12, color="rgb(148, 163, 184)"),
+    }
+    base.update(overrides)
+    return base
+
+
+def hero_alignment_bar_html(pct: float, label: str = "Alineación con tu plan") -> str:
+    """Barra hero 0–100% (snapshot del motor; solo presentación)."""
+    p = max(0.0, min(100.0, float(pct)))
+    lab = html_module.escape(label)
+    return f"""
+    <div class="mq-hero-gauge mq-hub-stack">
+      <div style="font-size:0.72rem;font-weight:600;color:var(--c-text-3);
+                  text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem;">{lab}</div>
+      <div class="mq26-progress-bar-container" style="height:10px;border-radius:6px;">
+        <div class="mq26-progress-bar mq26-progress-verde" style="width:{p:.1f}%;max-width:100%;"></div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:600;
+                  color:var(--c-text);margin-top:0.4rem;">{p:.0f} / 100</div>
+    </div>
+    """
 
 
 def semaforo_html(valor: str, score: float | None = None,
@@ -142,12 +170,14 @@ def topline_html(cartera: str, cliente: str, perfil: str,
     else:
         pnl_cls, pnl_sign = "mq-topline__pnl--mid", ""
 
-    perfil_map = {
-        "Conservador": "#10b981", "Moderado": "#f59e0b",
-        "Arriesgado": "#ef4444",  "Muy arriesgado": "#dc2626",
-        "Agresivo": "#ef4444",
+    perfil_skin = {
+        "Conservador": ("var(--c-green-muted)", "var(--c-green)"),
+        "Moderado": ("var(--c-yellow-muted)", "var(--c-yellow)"),
+        "Arriesgado": ("var(--c-red-muted)", "var(--c-red)"),
+        "Muy arriesgado": ("var(--c-red-muted)", "var(--c-red)"),
+        "Agresivo": ("var(--c-red-muted)", "var(--c-red)"),
     }
-    p_color = perfil_map.get(perfil, "#3b82f6")
+    bg_c, fg_c = perfil_skin.get(perfil, ("var(--c-accent-muted)", "var(--c-accent)"))
 
     pos_txt = f"· {n_pos} pos." if n_pos else ""
     return f"""
@@ -156,9 +186,8 @@ def topline_html(cartera: str, cliente: str, perfil: str,
             <span class="mq-topline__portfolio">{_html.escape(cartera)}</span>
             <span class="mq-topline__client">{_html.escape(cliente)}</span>
             <span style="
-                background:rgba({','.join(str(int(p_color.lstrip('#')[i:i+2],16))
-                                for i in (0,2,4))},0.15);
-                color:{p_color};
+                background:{bg_c};
+                color:{fg_c};
                 font-size:0.62rem;font-weight:600;
                 padding:1px 7px;border-radius:999px;
                 text-transform:uppercase;letter-spacing:0.05em;
@@ -394,19 +423,29 @@ def highlight_pnl_target_stop(df: pd.DataFrame,
 def fig_torta_ideal(perfil: str, ideal: dict[str, float]):
     """
     Dona con la distribución semilla (CARTERA_IDEAL) sugerida para el perfil.
+    Incluye el bucket agregado _RENTA_AR como “Renta fija AR (otros)” en la torta SSOT.
     """
     import plotly.graph_objects as go
 
-    labels = [k for k in ideal.keys() if not str(k).startswith("_")]
-    vals = [max(0.0, float(ideal[k])) for k in labels]
+    _bucket_labels = {"_RENTA_AR": "Renta fija AR (otros)"}
+
+    def _label(k: str) -> str:
+        if str(k).startswith("_"):
+            return _bucket_labels.get(k, str(k).lstrip("_"))
+        return str(k)
+
+    labels = [_label(k) for k in ideal.keys()]
+    vals = [max(0.0, float(ideal[k])) for k in ideal.keys()]
     total = sum(vals)
     if total <= 0 or not labels:
         fig = go.Figure()
         fig.update_layout(
-            title=dict(text=f"Distribución semilla — {perfil}", font=dict(size=14)),
-            height=240,
-            margin=dict(t=40, b=10, l=10, r=10),
-            annotations=[dict(text="Sin pesos", x=0.5, y=0.5, showarrow=False)],
+            **plotly_chart_layout_base(
+                height=280,
+                title=dict(text=f"Distribución semilla — {perfil}", font=dict(size=14)),
+                margin=dict(t=40, b=10, l=10, r=10),
+                annotations=[dict(text="Sin pesos", x=0.5, y=0.5, showarrow=False)],
+            ),
         )
         return fig
 
@@ -418,19 +457,19 @@ def fig_torta_ideal(perfil: str, ideal: dict[str, float]):
                 hole=0.45,
                 textinfo="label+percent",
                 hoverinfo="label+percent",
-                marker=dict(line=dict(color="#000000", width=1)),
+                marker=dict(line=dict(color="rgba(15,23,42,0.35)", width=1)),
             )
         ]
     )
     fig.update_layout(
-        title=dict(
-            text=f"Distribución semilla sugerida — Perfil {perfil}",
-            font=dict(size=14),
+        **plotly_chart_layout_base(
+            title=dict(
+                text=f"Distribución semilla sugerida — Perfil {perfil}",
+                font=dict(size=14),
+            ),
+            margin=dict(t=40, b=10, l=10, r=10),
+            height=280,
+            showlegend=False,
         ),
-        margin=dict(t=40, b=10, l=10, r=10),
-        height=320,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
     )
     return fig

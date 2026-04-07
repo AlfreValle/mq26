@@ -10,6 +10,63 @@ import streamlit as st
 from core.auth import has_feature
 
 
+
+def _render_historial_snapshots(ctx: dict) -> None:
+    """Historial de snapshots de optimización del cliente/cartera activa."""
+    from services.portfolio_snapshot import listar_snapshots
+    import plotly.graph_objects as go
+
+    cid = ctx.get("cliente_id")
+    cartera = str(ctx.get("cartera_activa", "") or "")
+    snaps = listar_snapshots(cartera=cartera, cliente_id=cid, limit=20)
+
+    if snaps.empty:
+        st.info(
+            "Sin historial de optimizaciones todavía. "
+            "Ejecutá al menos una optimización en el tab correspondiente."
+        )
+        return
+
+    st.markdown("### Comparar estrategias anteriores")
+    st.caption("Compará los pesos recomendados en distintas fechas.")
+    tabla = snaps[["id", "modelo", "timestamp"]].copy()
+    tabla.columns = ["ID", "Modelo", "Fecha"]
+    st.dataframe(tabla, use_container_width=True, hide_index=True)
+
+    ids_disp = snaps["id"].tolist()
+    if len(ids_disp) >= 2:
+        c1, c2 = st.columns(2)
+        snap_a_id = c1.selectbox("Snapshot A", ids_disp, index=0, key="snap_cmp_a")
+        snap_b_id = c2.selectbox("Snapshot B", ids_disp, index=1, key="snap_cmp_b")
+
+        row_a = snaps[snaps["id"] == snap_a_id].iloc[0]
+        row_b = snaps[snaps["id"] == snap_b_id].iloc[0]
+        pesos_a = row_a["pesos"] if isinstance(row_a["pesos"], dict) else {}
+        pesos_b = row_b["pesos"] if isinstance(row_b["pesos"], dict) else {}
+
+        tickers_all = sorted(set(pesos_a) | set(pesos_b))
+        vals_a = [round(pesos_a.get(t, 0) * 100, 2) for t in tickers_all]
+        vals_b = [round(pesos_b.get(t, 0) * 100, 2) for t in tickers_all]
+
+        fig = go.Figure(data=[
+            go.Bar(name=f"A: {row_a['modelo']}", x=tickers_all,
+                   y=vals_a, marker_color="#3b82f6"),
+            go.Bar(name=f"B: {row_b['modelo']}", x=tickers_all,
+                   y=vals_b, marker_color="#10b981"),
+        ])
+        fig.update_layout(
+            barmode="group", height=320,
+            title="Comparación de pesos (%)",
+            font=dict(family="DM Sans, sans-serif", size=12),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            yaxis=dict(ticksuffix="%"),
+            legend=dict(orientation="h", y=-0.2),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+
+
 def render_tab_reporte(ctx: dict) -> None:
     df_ag            = ctx["df_ag"]
     metricas         = ctx.get("metricas", {})
@@ -32,7 +89,12 @@ def render_tab_reporte(ctx: dict) -> None:
     modo_pres = st.session_state.get("modo_presentacion", False)
     col_hdr1, col_hdr2 = st.columns([4, 1])
     with col_hdr1:
-        st.subheader("📄 Reporte Profesional para el Cliente")
+        _rpt_titulo = (
+            "Mi informe de inversiones"
+            if str(ctx.get("user_role", "")).lower() == "inversor"
+            else "Informe para el cliente"
+        )
+        st.subheader(_rpt_titulo)
     with col_hdr2:
         if st.button("🎭 Modo Presentación" if not modo_pres else "✕ Cerrar Presentación",
                      key="btn_modo_pres", use_container_width=True):
@@ -66,9 +128,12 @@ def render_tab_reporte(ctx: dict) -> None:
         "Usá **Ctrl+P → Guardar como PDF** para imprimir."
     )
 
+    _render_historial_snapshots(ctx)
+
     # ── SECCIÓN: OBJETIVOS DEL CLIENTE ───────────────────────────────────────
-    st.markdown("---")
-    st.markdown("### 🎯 Objetivos de Inversión del Cliente")
+    st.divider()
+    st.markdown("### 🎯 Objetivos y metas")
+    st.caption("Cuándo y cómo debería salir de cada posición según el plan.")
 
     df_obj = pd.DataFrame()
     if cliente_id:
@@ -139,7 +204,7 @@ def render_tab_reporte(ctx: dict) -> None:
                                 st.rerun()
 
     # ── SECCIÓN: RECOMENDACIONES CONDICIONALES ───────────────────────────────
-    st.markdown("---")
+    st.divider()
     st.markdown("### 💡 Recomendaciones de la Sesión")
 
     tiene_inyeccion = "df_compras_inyeccion" in st.session_state
@@ -185,7 +250,7 @@ def render_tab_reporte(ctx: dict) -> None:
             st.success("✅ Sesión combinada: Rebalanceo + Inyección de capital. Ambas recomendaciones incluidas en el reporte.")
 
     # ── CONFIGURACIÓN Y GENERACIÓN DEL REPORTE HTML ──────────────────────────
-    st.markdown("---")
+    st.divider()
     st.markdown("### 📄 Configurar y Generar Reporte HTML")
 
     if df_ag.empty:
@@ -461,7 +526,7 @@ def render_tab_reporte(ctx: dict) -> None:
             )
 
     # ── SECCIÓN: REPORTE MENSUAL (H6) ────────────────────────────────────────
-    st.markdown("---")
+    st.divider()
     st.markdown("### 📅 Reporte Mensual Automático")
     st.caption("Genera un resumen del mes: retorno del período, operaciones, objetivos alcanzados, comparación vs inflación y Merval.")
 
@@ -541,7 +606,7 @@ def render_tab_reporte(ctx: dict) -> None:
         _extra_tabs.append("comparador")
 
     if _extra_names:
-        st.markdown("---")
+        st.divider()
         _subtabs = st.tabs(_extra_names)
         _tab_map = dict(zip(_extra_tabs, _subtabs))
 

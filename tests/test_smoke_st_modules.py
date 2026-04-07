@@ -20,7 +20,11 @@ def mock_st_global():
     mock_st = MagicMock()
     mock_st.session_state = {}
     mock_st.cache_data = MagicMock(return_value=lambda f: f)
-    mock_st.columns.side_effect = lambda *a, **k: tuple(MagicMock() for _ in range(5))
+    def _mock_columns(*a, **k):
+        n = int(a[0]) if a and isinstance(a[0], int) else 5
+        return tuple(MagicMock() for _ in range(n))
+
+    mock_st.columns.side_effect = _mock_columns
     original = sys.modules.get("streamlit")
     sys.modules["streamlit"] = mock_st
     yield mock_st
@@ -334,5 +338,73 @@ def test_tab_estudio_importa_diagnostico():
 
     assert callable(diagnosticar)
     assert perfil_diagnostico_valido("Arriesgado") in ("Arriesgado", "Moderado")
+
+
+class TestAdminAndCarteraSmoke:
+    def test_render_tab_admin_super_admin(self, mock_st_global):
+        import importlib
+
+        import ui.tab_admin as tab_admin_mod
+
+        importlib.reload(tab_admin_mod)
+
+        mock_st_global.tabs.side_effect = lambda *a, **k: tuple(
+            MagicMock() for _ in range(len(a[0]) if a and hasattr(a[0], "__len__") else 6)
+        )
+        # st.button() como MagicMock es truthy y dispara guardar_recomendacion + json.dumps.
+        mock_st_global.button.return_value = False
+        ctx = {
+            "user_role": "super_admin",
+            "metricas": {"x": 1},
+            "df_clientes": pd.DataFrame(columns=["ID", "Nombre"]),
+            "tenant_id": "default",
+        }
+        tab_admin_mod.render_tab_admin(ctx)
+        mock_st_global.markdown.assert_called()
+        assert any(
+            call.args and "Panel de administración" in str(call.args[0])
+            for call in mock_st_global.markdown.call_args_list
+        )
+
+    def test_resolver_precios_con_origen_live_y_sin_dato(self):
+        from services.cartera_service import resolver_precios_con_origen
+
+        out = resolver_precios_con_origen(
+            ["SPY", "NOEXISTE999"],
+            {"SPY": 1500.0},
+            ccl=1200.0,
+            universo_df=None,
+        )
+        assert out["SPY"][1] == "live"
+        assert out["NOEXISTE999"][1] == "sin_dato"
+
+
+def test_dashboard_estudio_existe():
+    import ui.tab_estudio as te
+
+    assert hasattr(te, "_render_dashboard_estudio"), (
+        "_render_dashboard_estudio no encontrada en tab_estudio"
+    )
+
+
+def test_glosario_riesgo_existe():
+    import ui.tab_riesgo as tr
+
+    assert hasattr(tr, "_GLOSARIO_RIESGO"), "_GLOSARIO_RIESGO no encontrado en tab_riesgo"
+    assert len(tr._GLOSARIO_RIESGO) >= 5
+
+
+def test_validar_tickers_importa():
+    import ui.carga_activos as ca
+
+    assert hasattr(ca, "_validar_tickers")
+    assert hasattr(ca, "_label_cedear")
+
+
+def test_notas_asesor_funciones():
+    from core.db_manager import guardar_notas_asesor, obtener_notas_asesor
+
+    assert callable(guardar_notas_asesor)
+    assert callable(obtener_notas_asesor)
 
 

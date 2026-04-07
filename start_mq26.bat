@@ -32,6 +32,11 @@ echo  (La primera carga puede demorar ~10 seg mientras descarga precios)
 echo  (Cerrá esta ventana para detener la aplicación)
 echo.
 
+:: Si el puerto 8502 quedó ocupado por un Streamlit viejo, lo cerramos (vale en Windows ES/EN)
+echo  Liberando puerto 8502 si hace falta...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& { $x = Get-NetTCPConnection -LocalPort 8502 -State Listen -ErrorAction SilentlyContinue; if ($x) { $x | ForEach-Object { Write-Host ('   Cerrando PID ' + $_.OwningProcess); Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } } }"
+timeout /t 2 /nobreak >nul
+
 :: Abrir el navegador después de 5 segundos (MQ26 tarda más por yfinance)
 start /b cmd /c "timeout /t 5 /nobreak >nul && start http://localhost:8502"
 

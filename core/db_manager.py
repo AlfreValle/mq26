@@ -91,6 +91,7 @@ class Cliente(Base):
     activo          = Column(Boolean, default=True)
     created_at      = Column(DateTime, default=dt.datetime.utcnow)
     tenant_id       = Column(String(200), nullable=False, default="default", index=True)
+    notas_asesor    = Column(Text, default="")
     transacciones   = relationship("Transaccion", back_populates="cliente")
     objetivos       = relationship("ObjetivosInversion", back_populates="cliente")
 
@@ -249,6 +250,47 @@ class ScoreHistorico(Base):
     score_total       = Column(Float)
 
 
+def upsert_score_historico(
+    ticker: str,
+    fecha: dt.date,
+    score_tecnico: float,
+    score_fundamental: float,
+    score_total: float,
+) -> None:
+    """
+    Inserta o actualiza el score del día para un ticker (un registro por ticker+fecha).
+    Sin depender de UNIQUE en SQLite: busca fila existente y actualiza o inserta.
+    """
+    t = (ticker or "").strip().upper()[:20]
+    if not t:
+        return
+    with get_session() as s:
+        row = (
+            s.query(ScoreHistorico)
+            .filter(ScoreHistorico.ticker == t, ScoreHistorico.fecha == fecha)
+            .first()
+        )
+        if row:
+            row.score_tecnico = float(score_tecnico)
+            row.score_fundamental = float(score_fundamental)
+            row.score_total = float(score_total)
+        else:
+            s.add(
+                ScoreHistorico(
+                    ticker=t,
+                    fecha=fecha,
+                    score_tecnico=float(score_tecnico),
+                    score_fundamental=float(score_fundamental),
+                    score_total=float(score_total),
+                )
+            )
+        try:
+            s.commit()
+        except Exception:
+            s.rollback()
+            raise
+
+
 # ─── Usuarios de aplicación (login MQ26 desde BD + alcance de clientes) ──────
 _ROLES_APP_USER = frozenset({"super_admin", "asesor", "estudio", "inversor"})
 _RAMAS_APP_USER = frozenset({"profesional", "retail"})
@@ -318,6 +360,19 @@ def _migrar_columnas_nuevas():
                 conn.commit()
         except Exception as _e:
             logger.warning("Migración horizonte_label: %s", _e)
+
+        # ── notas_asesor en clientes (Sprint 13) ───────────────────────────
+        try:
+            insp_na = inspect(conn)
+            if "clientes" in insp_na.get_table_names():
+                cols_na = [c["name"] for c in insp_na.get_columns("clientes")]
+                if "notas_asesor" not in cols_na:
+                    conn.execute(text(
+                        "ALTER TABLE clientes ADD COLUMN notas_asesor TEXT DEFAULT ''"
+                    ))
+                    conn.commit()
+        except Exception as _e:
+            logger.warning("Migración clientes.notas_asesor: %s", _e)
 
         # ── tenant_id en clientes (multi-tenant SaaS) ──────────────────────
         try:
@@ -1184,6 +1239,30 @@ def list_global_param_audit(
     except Exception as _e:
         logger.warning("list_global_param_audit: %s", _e)
         return []
+
+
+
+
+def guardar_notas_asesor(cliente_id: int, notas: str) -> None:
+    """Guarda notas privadas del asesor para un cliente."""
+    _migrar_columnas_nuevas()
+    with get_session() as s:
+        s.execute(
+            text("UPDATE clientes SET notas_asesor = :n WHERE id = :id"),
+            {"n": str(notas or "")[:2000], "id": int(cliente_id)},
+        )
+        s.commit()
+
+
+def obtener_notas_asesor(cliente_id: int) -> str:
+    """Retorna las notas del asesor para un cliente."""
+    _migrar_columnas_nuevas()
+    with get_session() as s:
+        row = s.execute(
+            text("SELECT notas_asesor FROM clientes WHERE id = :id"),
+            {"id": int(cliente_id)},
+        ).fetchone()
+    return str(row[0] or "") if row else ""
 
 
 def obtener_config(clave: str, default=None):

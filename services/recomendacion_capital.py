@@ -14,7 +14,6 @@ import pandas as pd
 
 from core.diagnostico_types import (
     CARTERA_IDEAL,
-    CATEGORIAS_DEFENSIVAS,
     CLASIFICACION_ACTIVOS,
     CategoriaActivo,
     ItemRecomendacion,
@@ -24,23 +23,15 @@ from core.diagnostico_types import (
     RecomendacionResult,
     perfil_diagnostico_valido,
 )
-from services.diagnostico_cartera import _es_defensivo_fila, _piso_defensivo_requerido
+from core.perfil_allocation import target_rv_efectivo
+from core.renta_fija_ar import es_renta_fija
+from services.diagnostico_cartera import _pct_rf_actual, _piso_defensivo_requerido
+from services.favoritos_mes import aplicar_prioridad_favoritos, load_favoritos_mes
 
 
 def _pct_defensivo_from_df(df_ag: pd.DataFrame, universo_df: pd.DataFrame | None) -> float:
-    if df_ag is None or df_ag.empty:
-        return 0.0
-    if "VALOR_ARS" not in df_ag.columns:
-        return 0.0
-    vt = float(pd.to_numeric(df_ag["VALOR_ARS"], errors="coerce").fillna(0.0).sum())
-    if vt <= 0:
-        return 0.0
-    acc = 0.0
-    for _, row in df_ag.iterrows():
-        va = float(pd.to_numeric(row.get("VALOR_ARS", 0), errors="coerce") or 0.0)
-        if _es_defensivo_fila(row, universo_df):
-            acc += va
-    return acc / vt
+    """Fracción renta fija (campo histórico pct_defensivo_*)."""
+    return _pct_rf_actual(df_ag, universo_df)
 
 
 def _renta_ar_peso_actual(df_ag: pd.DataFrame, universo_df: pd.DataFrame | None) -> float:
@@ -98,8 +89,8 @@ def _mod23_score_100(ticker: str, df_analisis: pd.DataFrame | None) -> float:
 
 
 def _es_compra_defensiva(ticker: str) -> bool:
-    cat = CLASIFICACION_ACTIVOS.get(ticker.upper(), CategoriaActivo.OTRO)
-    return cat in CATEGORIAS_DEFENSIVAS
+    """Prioridad “core” para cubrir déficit RF: instrumentos de renta fija cotizables."""
+    return es_renta_fija(ticker)
 
 
 def _alerta_mercado(market_stress: dict[str, Any] | None) -> tuple[bool, str]:
@@ -127,6 +118,7 @@ def recomendar(
     df_analisis: pd.DataFrame | None = None,
     market_stress: dict[str, Any] | None = None,
     cliente_nombre: str = "",
+    favoritos_mes: dict[str, Any] | None = None,
 ) -> RecomendacionResult:
     fecha = date.today().isoformat()
     perfil_n = perfil_diagnostico_valido(perfil)
@@ -164,6 +156,10 @@ def recomendar(
     if df_ag is None:
         df_ag = pd.DataFrame()
 
+    fav_doc = load_favoritos_mes() if favoritos_mes is None else favoritos_mes
+    fav_rf = list(fav_doc.get("rf") or [])
+    fav_rv = list(fav_doc.get("rv") or [])
+
     ideal = CARTERA_IDEAL.get(perfil_n, CARTERA_IDEAL["Moderado"])
     total_valor = float(pd.to_numeric(df_ag["VALOR_ARS"], errors="coerce").fillna(0.0).sum()) if not df_ag.empty else 0.0
 
@@ -181,10 +177,13 @@ def recomendar(
 
     piso = _piso_defensivo_requerido(perfil_n, horizonte_label)
     if diagnostico is not None:
-        pct_def_pre = float(getattr(diagnostico, "pct_defensivo_actual", _pct_defensivo_from_df(df_ag, universo_df)))
+        pct_def_pre = float(
+            getattr(diagnostico, "pct_defensivo_actual", _pct_defensivo_from_df(df_ag, universo_df))
+        )
     else:
         pct_def_pre = _pct_defensivo_from_df(df_ag, universo_df)
     deficit_def = pct_def_pre + 1e-9 < piso
+    target_rv_goal = target_rv_efectivo(perfil_n, horizonte_label)
 
     limite = LIMITE_CONCENTRACION.get(perfil_n, 0.25)
     concentrado = ""
@@ -228,6 +227,7 @@ def recomendar(
             [t for t in delta_ideal if _es_compra_defensiva(t)],
             key=lambda x: (-delta_ideal[x], precios_dict.get(x, 1e18) or 1e18),
         )
+        defs = aplicar_prioridad_favoritos(defs, fav_rf)
         _add_tier(PrioridadAccion.CRITICA, defs, delta_ideal)
 
     if hay_concentracion:
@@ -241,10 +241,18 @@ def recomendar(
                 candidatos.append((t, PrioridadAccion.ALTA, delta_ideal[t]))
                 seen_t.add(t)
 
-    rest_ideal = sorted(
-        [t for t in delta_ideal if t not in {c[0] for c in candidatos}],
-        key=lambda x: (-delta_ideal[x], -_mod23_score_100(x, df_analisis)),
-    )
+    rest_keys = [t for t in delta_ideal if t not in {c[0] for c in candidatos}]
+    if target_rv_goal >= 0.55:
+        rest_ideal = sorted(
+            rest_keys,
+            key=lambda x: (-_mod23_score_100(x, df_analisis), -delta_ideal[x]),
+        )
+    else:
+        rest_ideal = sorted(
+            rest_keys,
+            key=lambda x: (-delta_ideal[x], -_mod23_score_100(x, df_analisis)),
+        )
+    rest_ideal = aplicar_prioridad_favoritos(rest_ideal, fav_rv)
     for t in rest_ideal:
         candidatos.append((t, PrioridadAccion.MEDIA, delta_ideal[t]))
 
@@ -320,14 +328,14 @@ def recomendar(
             )
         )
 
-    monto_def_compras = sum(i.monto_ars for i in compras if _es_compra_defensiva(i.ticker))
-    valor_def_pre = pct_def_pre * total_valor
-    pct_post = (valor_def_pre + monto_def_compras) / valor_post if valor_post > 0 else pct_def_pre
+    monto_rf_compras = sum(i.monto_ars for i in compras if es_renta_fija(i.ticker))
+    valor_rf_pre = pct_def_pre * total_valor
+    pct_post = (valor_rf_pre + monto_rf_compras) / valor_post if valor_post > 0 else pct_def_pre
 
-    delta_bal = f"Defensivo: {pct_def_pre*100:.0f}% → {pct_post*100:.0f}% | Concentración: ajuste vía nuevas líneas"[:200]
+    delta_bal = f"Renta fija: {pct_def_pre*100:.0f}% → {pct_post*100:.0f}% | concentración vía líneas nuevas"[:200]
 
     resumen = _trunc(
-        f"Con ${cap:,.0f} ARS podés ejecutar {len(compras)} compra(s). Defensivo proyectado {pct_post*100:.0f}%.",
+        f"Con ${cap:,.0f} ARS podés ejecutar {len(compras)} compra(s). RF proyectada ~{pct_post*100:.0f}%.",
         200,
     )
 
@@ -355,7 +363,7 @@ def _trunc(s: str, n: int) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
-def _impacto_str(ticker: str, defensivo: bool) -> str:
-    if defensivo:
-        return f"Defensivo ↑ por compra en {ticker}"
-    return f"Diversificación ↑ en {ticker}"
+def _impacto_str(ticker: str, core_rf: bool) -> str:
+    if core_rf:
+        return f"Renta fija ↑ por compra en {ticker}"
+    return f"Renta variable / diversificación ↑ en {ticker}"

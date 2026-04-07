@@ -80,3 +80,35 @@ python scripts/export_portability_bundle.py
 - [ ] Cliente demo → cartera → informe (flujo mínimo).
 - [ ] Landing con CTA real: copiar `commercial/landing/site.config.example.js` → `site.config.js` y completar (guía [`docs/commercial/DEPLOY_LANDING.md`](commercial/DEPLOY_LANDING.md)); no commitear `site.config.js` si contiene datos privados.
 - [ ] Monitor externo (UptimeRobot u otro) con primer ping OK.
+
+## Scores históricos (batch diario)
+
+La tabla `scores_historicos` guarda, por ticker y fecha, `score_tecnico`, `score_fundamental` y `score_total` (motor MOD-23). El upsert evita duplicar la misma fecha+ticker.
+
+**Job local o cron (ejemplo 07:00):**
+
+```bash
+cd /ruta/MQ26_V7
+python scripts/actualizar_scores_diario.py
+```
+
+**Sin universo en BD** (solo prueba o lista corta):
+
+```bash
+set MQ26_SCORES_TICKERS=GGAL,MELI,BMA
+python scripts/actualizar_scores_diario.py
+```
+
+**Dry-run** (no escribe ni llama al motor de precios):
+
+```bash
+python scripts/actualizar_scores_diario.py --dry-run --limit 10
+```
+
+**Reporte HTML** para revisión o adjunto interno:
+
+```bash
+python scripts/reporte_scores_html.py --out reportes/scores_ultimos.html --days 30
+```
+
+En Railway, programar el mismo comando vía **Cron** con el working directory del servicio; si la BD es efímera, montar volumen o usar `DATABASE_URL` persistente para que el historial no se pierda en cada deploy.

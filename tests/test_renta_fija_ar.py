@@ -41,6 +41,10 @@ class TestEsFilaRentaFijaAr:
         row = pd.Series({"TICKER": "MSFT", "TIPO": "CEDEAR"})
         assert es_fila_renta_fija_ar(row, _univ_sample()) is False
 
+    def test_tipo_boncer_cuenta_rf(self):
+        row = pd.Series({"TICKER": "TX26", "TIPO": "BONCER"})
+        assert es_fila_renta_fija_ar(row, {}) is True
+
 
 class TestTirPonderadaCartera:
     def test_vacio_none(self):

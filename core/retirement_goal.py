@@ -39,7 +39,7 @@ def _daily_to_monthly(r_diarios: np.ndarray) -> np.ndarray:
     return np.array(meses, dtype=float)
 
 
-def simulate_retirement(
+def _simulate_retirement_montecarlo(
     aporte_mensual: float,
     n_meses_acum: int,
     retiro_mensual: float,
@@ -77,3 +77,73 @@ def simulate_retirement(
         "p90":            float(np.percentile(vals, 90)),
         "prob_no_agotar": float(np.mean(vals > 0)),
     }
+
+
+def _simulate_retirement_simple(
+    capital_inicial_usd: float = 0.0,
+    aporte_mensual_usd: float = 0.0,
+    retorno_anual: float = 0.0,
+    meses: int = 0,
+) -> dict:
+    """Proyección determinística: aporte mensual + retorno anual compuesto mensual."""
+    rm = (1.0 + float(retorno_anual)) ** (1.0 / 12.0) - 1.0
+    cap = float(capital_inicial_usd)
+    ap = float(aporte_mensual_usd)
+    for _ in range(int(max(0, meses))):
+        cap = (cap + ap) * (1.0 + rm)
+    return {"capital_final_usd": float(cap)}
+
+
+def simulate_retirement(
+    aporte_mensual: float | None = None,
+    n_meses_acum: int | None = None,
+    retiro_mensual: float | None = None,
+    n_meses_desacum: int | None = None,
+    retornos_diarios: np.ndarray | None = None,
+    n_sim: int = 5000,
+    *,
+    capital_inicial_usd: float | None = None,
+    aporte_mensual_usd: float | None = None,
+    retorno_anual: float | None = None,
+    meses: int | None = None,
+) -> dict:
+    """
+    Montecarlo si `retornos_diarios` está presente; si no, proyección simple
+    cuando se pasan los kwargs de capital/meses/retorno.
+    """
+    if retornos_diarios is not None:
+        return _simulate_retirement_montecarlo(
+            float(aporte_mensual or 0.0),
+            int(n_meses_acum or 0),
+            float(retiro_mensual or 0.0),
+            int(n_meses_desacum or 0),
+            retornos_diarios,
+            n_sim=n_sim,
+        )
+    simple_args = (
+        capital_inicial_usd is not None
+        or meses is not None
+        or retorno_anual is not None
+        or aporte_mensual_usd is not None
+    )
+    if simple_args:
+        amu = float(
+            aporte_mensual_usd
+            if aporte_mensual_usd is not None
+            else (aporte_mensual or 0.0)
+        )
+        return _simulate_retirement_simple(
+            capital_inicial_usd=float(capital_inicial_usd or 0.0),
+            aporte_mensual_usd=amu,
+            retorno_anual=float(retorno_anual or 0.0),
+            meses=int(meses or 0),
+        )
+    arr = np.asarray(retornos_diarios if retornos_diarios is not None else [], dtype=float)
+    return _simulate_retirement_montecarlo(
+        float(aporte_mensual or 0.0),
+        int(n_meses_acum or 0),
+        float(retiro_mensual or 0.0),
+        int(n_meses_desacum or 0),
+        arr,
+        n_sim=n_sim,
+    )

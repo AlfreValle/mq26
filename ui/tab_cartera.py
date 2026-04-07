@@ -9,18 +9,74 @@ import plotly.express as px
 import streamlit as st
 
 
+def _render_cobertura_precios(ctx: dict) -> None:
+    """Badges LIVE / parcial / estimado según cobertura de precios (+ detalle accionable)."""
+    coverage = float(ctx.get("price_coverage_pct", 0) or 0)
+    sin_precio = ctx.get("tickers_sin_precio", []) or []
+    _va = ctx.get("valoracion_audit") or {}
+    _por_tipo = _va.get("por_tipo") or {}
+    # ── Badges de cobertura de precios (D27 Must) ─────────────────────────
+    if coverage >= 95:
+        st.markdown(
+            '<span class="mq-pill mq-pill--ok">● LIVE</span>'
+            '<span style="font-size:0.72rem;color:var(--c-text-3);margin-left:8px;">'
+            f"{coverage:.0f}% del valor con precio en tiempo real</span>",
+            unsafe_allow_html=True,
+        )
+    elif coverage >= 60:
+        st.markdown(
+            '<span class="mq-pill mq-pill--warn">◐ PARCIAL</span>'
+            '<span style="font-size:0.72rem;color:var(--c-text-3);margin-left:8px;">'
+            f"{coverage:.0f}% live · resto: último precio conocido</span>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<span class="mq-pill mq-pill--bad">○ ESTIMADO</span>'
+            '<span style="font-size:0.72rem;color:var(--c-text-3);margin-left:8px;">'
+            f"Solo {coverage:.0f}% live</span>",
+            unsafe_allow_html=True,
+        )
+    if _por_tipo:
+        _partes = [
+            f"{t}: {info.get('pct_valor_live', 0):.0f}%"
+            for t, info in sorted(_por_tipo.items())
+            if info.get("pct_valor_live", 100) < 95
+        ]
+        if _partes:
+            st.caption("Por tipo: " + " · ".join(_partes))
+    # ── Tickers sin precio: errores accionables (U45 Must) ────────────────
+    if sin_precio:
+        with st.expander(
+            f"⚠ {len(sin_precio)} activo(s) sin cotización live", expanded=False
+        ):
+            st.markdown(
+                "Estos activos usan el **último precio conocido**. "
+                "El valor total puede diferir del precio de mercado actual."
+            )
+            for _t in sin_precio[:10]:
+                _c1, _c2 = st.columns([2, 8])
+                _c1.code(_t)
+                _c2.caption(
+                    "Sin precio en yfinance. Valorado con último PPC conocido."
+                )
+            if len(sin_precio) > 10:
+                st.caption(f"... y {len(sin_precio) - 10} más.")
+            st.info(
+                "Para precios en tiempo real de acciones locales y ONs, "
+                "configurá `MQ26_BYMA_API_URL` en el `.env` cuando tengas "
+                "acceso a un proveedor BYMA."
+            )
+
+
 def render_tab_cartera(ctx: dict) -> None:
-    df_ag           = ctx["df_ag"]
+    df_ag           = ctx.get("df_ag")
+    if df_ag is None:
+        df_ag = pd.DataFrame()
     tickers_cartera = ctx["tickers_cartera"]
-    # S2: semáforo de cobertura de precios (paso 1 del workflow)
     coverage = ctx.get("price_coverage_pct", 100.0)
     sin_precio = ctx.get("tickers_sin_precio", [])
-    if coverage < 95:
-        st.warning(f"⚠️ **Cobertura:** {coverage:.0f}% | Sin precio: {', '.join(sin_precio) or '—'}")
-    elif coverage >= 100 or (coverage == 100.0 and not sin_precio):
-        st.success("✅ Todos los precios en tiempo real (LIVE)")
-    else:
-        st.info(f"📡 **Cobertura:** {coverage:.0f}% | Algunos precios desde fallback")
+    _render_cobertura_precios(ctx)
     precios_dict    = ctx["precios_dict"]
     ccl             = ctx["ccl"]
     cartera_activa  = ctx["cartera_activa"]
@@ -44,11 +100,11 @@ def render_tab_cartera(ctx: dict) -> None:
     _is_viewer      = str(ctx.get("user_role", "admin")).lower() == "viewer"
 
     sub_pos, sub_rendtipo, sub_historial, sub_multi, sub_lm = st.tabs([
-        "📊 Posición Neta",
-        "📈 Rendimiento por Tipo",
-        "📅 Historial Timeline",
-        "🌐 Vista Consolidada",
-        "📒 Libro Mayor",
+        "📊 Posición actual",
+        "📈 Rendimiento",
+        "📅 Historial",
+        "🌐 Vista consolidada",
+        "📋 Libro mayor",
     ])
 
     # ══════════════════════════════════════════════════════════════════
@@ -86,12 +142,18 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
                           cliente_perfil):
     """Sub-tab 1: Posicion Neta - P&L en Tiempo Real + Motor Salida + Kelly."""
     import pandas as pd
-    st.subheader("📊 Posición Neta — P&L en Tiempo Real")
+    st.subheader("Mis activos")
+    st.caption(
+        "Valor actual, precio de compra, ganancia o pérdida de cada posición.",
+    )
 
     if cartera_activa == "-- Todas las carteras --":
         st.info("Seleccioná una cartera en el panel lateral.")
     elif df_ag.empty:
-        st.warning("La cartera seleccionada no tiene posiciones.")
+        st.info(
+            "Todavía no hay activos en esta cartera. "
+            "Importá desde tu broker o cargá tus posiciones en **Libro mayor → Importar del broker**."
+        )
     else:
         df_pos = df_ag.copy()
         # Vista principal en pesos BYMA: PPC_ARS, PRECIO_ARS y Target en la misma unidad.
@@ -110,6 +172,28 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
             "cargá PPC y precio con la **misma convención**. Columna opcional `LAMINA_VN` en el "
             "transaccional para documentar la unidad."
         )
+
+        if sin_precio:
+            with st.expander(
+                f"⚠ {len(sin_precio)} ticker(s) sin precio en tiempo real", expanded=False
+            ):
+                st.markdown(
+                    "Estos activos usan el **último precio conocido** (fecha de compra u "
+                    "otro fallback). El valor total de la cartera puede diferir del real."
+                )
+                for t in sin_precio:
+                    c1, c2 = st.columns([3, 7])
+                    c1.code(t)
+                    c2.caption(
+                        "CEDEAR o activo local sin cotización disponible en yfinance. "
+                        "Podés actualizar manualmente el precio desde Tab Cartera → Editar."
+                    )
+                st.info(
+                    "Para precios en tiempo real de activos locales, configurá "
+                    "MQ26_BYMA_API_URL en el .env cuando tengas acceso a un "
+                    "proveedor de datos BYMA."
+                )
+
 
         # ── Enriquecer con scores MOD-23 ────────────────────────────────
         score_map  = {}
@@ -188,6 +272,24 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
         df_pos["Progreso %"]  = progresos
         df_pos["Señal"]       = senales
 
+        rec_px = ctx.get("precio_records") or {}
+
+        def _label_fuente_precio(tk) -> str:
+            from core.price_engine import PriceSource
+            r = rec_px.get(str(tk).upper().strip())
+            if r is None:
+                return "—"
+            src = getattr(r, "source", None)
+            if src in (PriceSource.LIVE_YFINANCE, PriceSource.LIVE_BYMA):
+                return "Live"
+            if src in (PriceSource.FALLBACK_PPC, PriceSource.FALLBACK_HARD, PriceSource.FALLBACK_BD):
+                return "Guardado"
+            if src == PriceSource.MISSING:
+                return "Sin dato"
+            return getattr(src, "label", str(src)) if src else "—"
+
+        df_pos["FUENTE_PRECIO"] = df_pos["TICKER"].astype(str).map(_label_fuente_precio)
+
         # ── Banner CCL histórico vs actual ────────────────────────────────
         usa_historico = "INV_ARS_HISTORICO" in df_pos.columns and (df_pos.get("INV_ARS_HISTORICO", 0) > 0).any()
         if usa_historico:
@@ -196,7 +298,7 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
             st.warning("⚠️ INV_ARS calculado con CCL actual (sin fechas de compra). El costo en pesos puede diferir del valor real pagado.")
 
         cols_show = [
-            "TICKER", "TIPO", "CANTIDAD_TOTAL", "PPC_ARS", "PRECIO_ARS",
+            "TICKER", "TIPO", "CANTIDAD_TOTAL", "PPC_ARS", "PRECIO_ARS", "FUENTE_PRECIO",
             "Target ARS", "Progreso %", "Señal",
             "VALOR_ARS", "INV_ARS", "PNL_ARS", "PNL_%", "PNL_%_USD", "PESO_%", "SCORE", "ESTADO",
         ]
@@ -220,7 +322,7 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
 
         rename_cols = {
             "TIPO":                 "Tipo",
-            "PPC_ARS":              "PPC (ARS)",
+            "PPC_ARS":              "Precio de compra (ARS)",
             "PRECIO_ARS":           "Px Actual (ARS)",
             "Target ARS":           "Target (ARS)",
             "Equiv USD/ud":         "Equiv. USD",
@@ -233,10 +335,28 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
             "PNL_%_USD":            "P&L % USD",
             "PESO_%":               "Peso %",
             "CANTIDAD_TOTAL":       "Cantidad",
+            "FUENTE_PRECIO":         "Fuente px",
         }
 
         # C1 + C5: Tabla con column_config de Streamlit (ProgressColumn, NumberColumn, etc.)
         df_display = df_pos[cols_show].rename(columns=rename_cols).copy()
+
+        _ESTADO_LABELS = {
+            "COMPRAR": "🟢 Acumular",
+            "ACUMULAR": "🟡 Mantener / sumar",
+            "MANTENER": "⚪ Observar",
+            "REDUCIR": "🟠 Reducir",
+            "SALIR": "🔴 Evaluar salida",
+        }
+        if "ESTADO" in df_display.columns:
+            def _map_estado(x):
+                s = str(x).strip().upper()
+                for k, v in _ESTADO_LABELS.items():
+                    if k in s or s.endswith(k):
+                        return v
+                return str(x)
+
+            df_display["ESTADO"] = df_display["ESTADO"].map(_map_estado)
 
         # Asegurar que "Progreso %" es numérico para ProgressColumn
         if "Progreso %" in df_display.columns:
@@ -261,9 +381,11 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
             "Tipo": st.column_config.TextColumn(
                 "Tipo", width="small", help="CEDEAR, acción local, bono, etc."
             ),
-            "PPC (ARS)": st.column_config.NumberColumn(
-                "PPC (ARS)", format="$%.2f", width="medium",
-                help="Precio de compra en pesos (misma unidad que cotiza BYMA)",
+            "Precio de compra (ARS)": st.column_config.NumberColumn(
+                "Precio de compra (ARS)",
+                format="$ %.0f",
+                width="medium",
+                help="Precio promedio al que compraste este activo.",
             ),
             "Px Actual (ARS)": st.column_config.NumberColumn(
                 "Px Actual (ARS)", format="$%.2f", width="medium",
@@ -405,7 +527,8 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
                     )
 
         if alertas_conc:
-            st.markdown("#### ⚠️ Alertas de Concentración")
+            st.markdown("#### ⚠️ Activos con mucho peso en tu cartera")
+            st.caption("Si un solo activo representa demasiado, aumentás el riesgo.")
             for alerta in alertas_conc:
                 st.warning(alerta)
         else:
@@ -418,7 +541,10 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
 
         alertas_venta = m23svc.detectar_alertas_venta(df_analisis, tickers_cartera)
         for alerta in alertas_venta:
-            st.error(f"🔴 SEÑAL MOD-23: {alerta['ticker']} score={alerta['score']:.1f} — considerar venta")
+            st.warning(
+                f"📉 Alerta en **{alerta['ticker']}**: el análisis técnico sugiere revisar "
+                f"esta posición. Score actual: {alerta['score']:.0f}/100."
+            )
             ab.alerta_senal_venta(alerta["ticker"], alerta["score"], alerta["estado"], prop_nombre)
 
         # ── Exportar ──────────────────────────────────────────────────────
@@ -428,15 +554,16 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
             "📥 Exportar Posición Neta a Excel",
         )
 
-        # ── Kelly Criterion — Sizing Óptimo ──────────────────────────────
-        st.divider()
-        st.markdown("### 🎯 Kelly Criterion — Sizing Óptimo por Posición")
-        st.caption(
-            f"Perfil: **{cliente_perfil}** | "
-            f"Fracción Kelly: 25% (conservador) | Capital total: "
-            f"${metricas.get('total_valor', 0):,.0f} ARS"
-        )
-        if kelly_rows:
+        # ── Kelly Criterion — Sizing Óptimo (solo perfil profesional) ────
+        if str(ctx.get("user_role", "")).lower() != "inversor":
+            st.divider()
+            st.markdown("### 🎯 Kelly Criterion — Sizing Óptimo por Posición")
+            st.caption(
+                f"Perfil: **{cliente_perfil}** | "
+                f"Fracción Kelly: 25% (conservador) | Capital total: "
+                f"${metricas.get('total_valor', 0):,.0f} ARS"
+            )
+        if str(ctx.get("user_role", "")).lower() != "inversor" and kelly_rows:
             df_kelly = pd.DataFrame(kelly_rows)
             st.dataframe(
                 df_kelly, use_container_width=True,
@@ -455,7 +582,7 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
                 },
             )
             with st.expander("ℹ️ ¿Cómo interpretar el Kelly Criterion?"):
-                st.markdown("""
+                st.markdown(r"""
 El **Kelly Criterion** calcula el tamaño óptimo de posición que maximiza el crecimiento del capital a largo plazo.
 
 **Fórmula:** `Kelly = (p × b − q) / b` donde:
@@ -469,10 +596,9 @@ Se usa el **25% del Kelly completo** para mayor seguridad. Un Kelly > 10% por po
 
 def _render_rendimiento_tipo(ctx, df_ag, cartera_activa, ccl, cs, _boton_exportar):
     """Sub-tab 2: Rendimiento por Tipo de Activo BYMA."""
-    st.subheader("📈 Rendimiento por Tipo de Activo BYMA")
+    st.subheader("Cómo rindió cada parte de la cartera")
     st.caption(
-        "Análisis desagregado por clase de instrumento: CEDEARs, Acciones Locales, "
-        "Bonos, Letras, FCIs, ONs. Incluye CAGR (tasa anualizada) y contribución al P&L total."
+        "Comparativa por tipo de activo: acciones, bonos, fondos, etc.",
     )
 
     if cartera_activa == "-- Todas las carteras --":
@@ -868,9 +994,9 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
     _viewer_readonly = str(ctx.get("user_role", "admin")).lower() == "viewer"
     from datetime import datetime
     sub_lm_imp, sub_lm_op, sub_lm_gmail = st.tabs([
-        "📥 Importar comprobante",
-        "📋 Libro de Operaciones",
-        "📧 Gmail / Correos",
+        "📥 Importar del broker",
+        "📋 Mis operaciones",
+        "📧 Importar desde email",
     ])
 
     ruta_maestra = BASE_DIR / "0_Data_Maestra" / "Maestra_Inversiones.xlsx"
@@ -950,7 +1076,9 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
         st.markdown("#### 📋 Libro Mayor de Operaciones")
         st.caption(
             "Planilla de operaciones con columnas exactas para importar/exportar. "
-            "Podés editar directamente y guardar cambios."
+            "Podés editar directamente y guardar cambios. "
+            "El precio va **por defecto en pesos (ARS)**; si pagaste en **USD MEP**, elegí esa moneda "
+            "(se usa el **CCL** de la barra lateral para convertir)."
         )
 
         # MQ2-S10: validación de unicidad de cartera al agregar nueva
@@ -978,8 +1106,10 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
             _trans_filtrado = _trans.copy() if not _trans.empty else pd.DataFrame()
 
         # Normalizar a las columnas exactas del plan
-        _cols_op = ["Propietario", "Cartera", "Ticker", "Tipo", "Tipo_Instrumento", "Cantidad",
-                    "Precio_ARS_Compra", "Fecha", "Gastos_Operacion"]
+        _cols_op = [
+            "Propietario", "Cartera", "Ticker", "Tipo", "Tipo_Instrumento", "Cantidad",
+            "Moneda_Precio", "Precio_ARS_Compra", "Fecha", "Gastos_Operacion",
+        ]
         if not _trans_filtrado.empty:
             # Mapear columnas del CSV interno a las del libro mayor
             _df_op = pd.DataFrame()
@@ -1010,9 +1140,28 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
             _df_op["Tipo"] = _tipo_op_list
             _df_op["Tipo_Instrumento"] = _tipo_inst_list
             _df_op["Cantidad"] = _cant_raw.abs().astype(int)
-            _df_op["Precio_ARS_Compra"] = _trans_filtrado.get(
-                "PPC_ARS", _trans_filtrado.get("PPC_USD", pd.Series(0.0, index=_trans_filtrado.index))
-            )
+            _mp_csv = _trans_filtrado.get(
+                "MONEDA_PRECIO",
+                pd.Series([""] * len(_trans_filtrado)),
+            ).astype(str).str.strip().str.upper()
+            _ppc_a = pd.to_numeric(
+                _trans_filtrado.get("PPC_ARS", 0), errors="coerce"
+            ).fillna(0.0)
+            _ppc_u = pd.to_numeric(
+                _trans_filtrado.get("PPC_USD", 0), errors="coerce"
+            ).fillna(0.0)
+            _monedas: list[str] = []
+            _precios: list[float] = []
+            for _i in range(len(_trans_filtrado)):
+                _m = str(_mp_csv.iloc[_i]).strip().upper()
+                if _m in ("USD_MEP", "USD MEP", "MEP"):
+                    _monedas.append("USD MEP")
+                    _precios.append(float(_ppc_u.iloc[_i]))
+                else:
+                    _monedas.append("ARS")
+                    _precios.append(float(_ppc_a.iloc[_i]))
+            _df_op["Moneda_Precio"] = _monedas
+            _df_op["Precio_ARS_Compra"] = _precios
             # Fecha: convertir a datetime.date para compatibilidad con DateColumn
             _fecha_col = "FECHA_COMPRA" if "FECHA_COMPRA" in _trans_filtrado.columns else "FECHA"
             _df_op["Fecha"] = pd.to_datetime(
@@ -1048,8 +1197,17 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
                                         ], width="medium"),
                 "Cantidad":          st.column_config.NumberColumn("Cantidad",
                                         min_value=1, step=1, width="small"),
-                "Precio_ARS_Compra": st.column_config.NumberColumn("Precio ARS Compra",
-                                        format="$%.2f", min_value=0.0),
+                "Moneda_Precio":     st.column_config.SelectboxColumn(
+                                        "Moneda precio",
+                                        options=["ARS", "USD MEP"],
+                                        width="small",
+                                        help="ARS = pesos por cuotaparte (BYMA). USD MEP = dólares contado con liqui.",
+                                    ),
+                "Precio_ARS_Compra": st.column_config.NumberColumn(
+                                        "Precio unitario",
+                                        format="$%.2f", min_value=0.0,
+                                        help="En ARS o en USD MEP según la columna Moneda.",
+                                    ),
                 "Fecha":             st.column_config.DateColumn("Fecha",
                                         format="YYYY-MM-DD", width="medium"),
                 "Gastos_Operacion":  st.column_config.NumberColumn("Gastos Operación",
@@ -1112,18 +1270,25 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
                             if _q == 0:
                                 continue
                             _q = -abs(_q) if _tipo_op == "VENTA" else abs(_q)
-                            _ppc_ars = float(
+                            _px_raw = float(
                                 pd.to_numeric(
                                     _r.get("Precio_ARS_Compra", 0), errors="coerce"
                                 )
                                 or 0.0
                             )
-                            if _ppc_ars <= 0:
+                            _moneda_r = str(_r.get("Moneda_Precio", "ARS") or "ARS").strip().upper()
+                            _es_mep = _moneda_r in ("USD MEP", "USD_MEP", "MEP")
+                            if _px_raw <= 0:
                                 st.warning(
-                                    f"{_tick}: precio ARS debe ser > 0 — fila omitida."
+                                    f"{_tick}: precio unitario debe ser > 0 — fila omitida."
                                 )
                                 continue
-                            _ppc_usd = round(_ppc_ars / _ccl_lm, 6)
+                            if _es_mep:
+                                _ppc_usd = round(_px_raw, 6)
+                                _ppc_ars = round(_ppc_usd * _ccl_lm, 4)
+                            else:
+                                _ppc_ars = round(_px_raw, 4)
+                                _ppc_usd = round(_ppc_ars / _ccl_lm, 6)
                             _fecha_v = _r.get("Fecha")
                             if pd.isna(_fecha_v):
                                 st.warning(f"{_tick}: fecha inválida — fila omitida.")
@@ -1154,6 +1319,7 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
                                 "PPC_ARS": round(_ppc_ars, 4),
                                 "TIPO": _ti,
                                 "GASTOS": _g,
+                                "MONEDA_PRECIO": "USD_MEP" if _es_mep else "ARS",
                             })
                         if not _rows_lm:
                             st.error("No quedaron filas válidas para persistir.")
@@ -1235,7 +1401,7 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
         if "gmail_mensajes_bull" not in st.session_state:
             st.session_state["gmail_mensajes_bull"] = []
 
-        st.markdown("---")
+        st.divider()
         st.markdown("#### 📋 Pegá el cuerpo de un correo manualmente")
         col_p1, col_p2 = st.columns(2)
         with col_p1:

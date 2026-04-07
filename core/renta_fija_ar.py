@@ -14,7 +14,11 @@ import pandas as pd
 
 from core.diagnostico_types import UNIVERSO_RENTA_FIJA_AR
 
-TIPOS_RF = frozenset({"ON", "ON_USD", "BONO", "BONO_USD", "LETRA", "LECAP", "LEDE"})
+# BONCER/BOPREAL/DUAL/USD_LINKED: familias panel BYMA (ver core/rf_panel_taxonomy.py).
+TIPOS_RF = frozenset({
+    "ON", "ON_USD", "BONO", "BONO_USD", "LETRA", "LECAP", "LEDE",
+    "BONCER", "BOPREAL", "DUAL", "USD_LINKED",
+})
 
 INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
     "PN43O": {

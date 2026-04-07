@@ -55,7 +55,8 @@ if str(BASE_DIR) not in sys.path:
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(BASE_DIR / ".env")
+    # override=True: si en PowerShell quedó MQ26_PASSWORD=otra (p. ej. tests), el .env debe ganar en local.
+    load_dotenv(BASE_DIR / ".env", override=True)
 except ImportError:
     pass
 
@@ -143,7 +144,7 @@ if DEMO_MODE:
 st.set_page_config(
     page_title="MQ26 | Terminal de inversiones",
     layout="wide",
-    page_icon="📊",
+    page_icon="📈",
     initial_sidebar_state="expanded",
 )
 
@@ -216,12 +217,42 @@ def _boton_exportar(df: pd.DataFrame, nombre: str, label: str = "📥 Exportar E
 def _inject_css():
     # MQ-S9: Meta tags de seguridad removidas — no funcionan inyectadas via Streamlit.
     # Configurar en el reverse proxy (nginx/Railway) para producción.
+    #
+    # Sprint 18: una sola inyección de <style> por rerun. Inyect CSS del modo claro aquí
+    # (según toggle en session_state o rol/env), NUNCA con otro st.markdown(<style>) más
+    # abajo — duplicar bloques de estilo rompe la reconciliación de React (removeChild).
 
     _css_path = BASE_DIR / "assets" / "style.css"
     _extra_css = _css_path.read_text(encoding="utf-8") if _css_path.exists() else ""
+    _light_path = BASE_DIR / "assets" / "style_retail_light.css"
+    _light_css = ""
+    try:
+        from core.auth import get_user_role as _get_user_role_css
+        from ui.mq26_theme import inject_theme_css_fragments, use_retail_light_theme
+
+        _extra_css += inject_theme_css_fragments()
+        _logged = bool(
+            st.session_state.get("mq26_auth")
+            or (st.session_state.get("authentication_status") is True)
+        )
+        if _logged:
+            if "mq_light_mode" not in st.session_state:
+                st.session_state["mq_light_mode"] = bool(
+                    _get_user_role_css("mq26") == "inversor"
+                )
+            _use_light = bool(st.session_state["mq_light_mode"])
+        else:
+            _use_light = use_retail_light_theme()
+        if _use_light and _light_path.exists():
+            _light_css = _light_path.read_text(encoding="utf-8")
+    except Exception:
+        pass
     # Consolidar en UNA sola llamada para evitar conflictos de reconciliación React.
     # El watermark se maneja exclusivamente via CSS (.stApp::after) en style.css.
-    st.markdown(f"<style>{_extra_css}</style>", unsafe_allow_html=True)
+    st.markdown(
+        f"<style>{_extra_css}{_light_css}</style>",
+        unsafe_allow_html=True,
+    )
 
 _inject_css()
 
@@ -245,6 +276,11 @@ if _auth is None and not (APP_PASSWORD or "").strip():
 if _auth is not None:
     # Modo SaaS: login individual por asesor
     st.caption(LOGIN_LEGAL_DISCLAIMER_ES)
+    st.markdown(
+        "<p style='color:#94a3b8;font-size:0.95rem;margin:0.25rem 0 0.75rem 0;text-align:center;'>"
+        "Tu cartera de inversiones, ordenada.</p>",
+        unsafe_allow_html=True,
+    )
     _name, _auth_ok, _username = login_saas(_auth)
     if not _auth_ok:
         if _auth_ok is False:
@@ -267,7 +303,7 @@ else:
     # Modo local: auth legacy con contraseña única (sin cambios)
     if not check_password(
         'mq26', 'MQ26 — Terminal de Inversiones',
-        subtitle='Optimizador Institucional BYMA',
+        subtitle='Tu cartera de inversiones, ordenada.',
         icon='📈',
         password_env=APP_PASSWORD,
         viewer_password_env=MQ26_VIEWER_PASSWORD,
@@ -352,8 +388,17 @@ _cached_clientes_ingreso = cached_clientes_df
 
 # ─── PANTALLA DE INGRESO (v9 Quant Dark — tenant + RBAC) ─────────────────────
 def _pantalla_ingreso():
+    from datetime import datetime as _dt_footer
+
     _ing_role = get_user_role("mq26")
-    _puede_alta_cliente = _ing_role in ("super_admin", "asesor")
+    _puede_alta_cliente = _ing_role in ("super_admin", "asesor", "inversor")
+    _lbl_nuevo = "Mi perfil de inversión" if _ing_role == "inversor" else "Nuevo cliente"
+    _PERFIL_AYUDA = {
+        "Conservador": "Priorizás no perder. Preferís seguridad sobre rendimiento.",
+        "Moderado": "Buscás equilibrio. Aceptás algo de volatilidad por mejor retorno.",
+        "Arriesgado": "Priorizás rendimiento. Tolerás que el valor fluctúe bastante.",
+        "Muy arriesgado": "Buscás máximo potencial. Tu cartera puede variar mucho.",
+    }
 
     st.markdown(
         """
@@ -364,9 +409,9 @@ def _pantalla_ingreso():
             font-size:1.5rem;margin-bottom:1.25rem;">📈</div>
         <h1 style="font-family:'DM Sans',sans-serif;font-size:1.5rem;font-weight:600;
             letter-spacing:-0.03em;color:#f1f5f9;margin:0 0 0.4rem 0;">
-            MQ26 Terminal</h1>
+            Master Quant</h1>
         <p style="font-size:0.8125rem;color:#4b5563;margin:0;letter-spacing:0.01em;">
-            Seleccioná un cliente para comenzar el análisis</p>
+            ¿Con qué cartera trabajamos hoy?</p>
     </div>
     """,
         unsafe_allow_html=True,
@@ -406,14 +451,14 @@ def _pantalla_ingreso():
                     "y la contraseña correspondiente, y creá al menos un cliente."
                 )
         else:
-            opciones_cli = ["— Elegir cliente —"] + df_cli["Nombre"].tolist()
+            opciones_cli = ["Elegí tu cartera..."] + df_cli["Nombre"].tolist()
             sel = st.selectbox(
                 "Cliente",
                 opciones_cli,
                 key="ing_sel_cliente",
                 label_visibility="collapsed",
             )
-            if sel != "— Elegir cliente —":
+            if sel != "Elegí tu cartera...":
                 row = df_cli[df_cli["Nombre"] == sel].iloc[0]
                 sel_esc = html.escape(sel)
                 perfil_raw = str(row.get("Perfil", ""))
@@ -492,10 +537,10 @@ def _pantalla_ingreso():
 
     with col_nuevo:
         st.markdown(
-            """
+            f"""
         <p style="font-size:0.72rem;font-weight:600;color:#4b5563;
             text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.75rem;">
-            Nuevo cliente</p>""",
+            {html.escape(_lbl_nuevo)}</p>""",
             unsafe_allow_html=True,
         )
         if not _puede_alta_cliente:
@@ -503,11 +548,6 @@ def _pantalla_ingreso():
                 st.info(
                     "El rol **estudio** (contraseña de visor / solo lectura) no puede registrar "
                     "clientes nuevos en la base de datos."
-                )
-            elif _ing_role == "inversor":
-                st.info(
-                    "El rol **inversor** no puede registrar clientes nuevos; solo podés operar "
-                    "sobre clientes que ya existan."
                 )
             else:
                 st.info("Tu rol actual no puede registrar clientes nuevos.")
@@ -532,19 +572,25 @@ def _pantalla_ingreso():
                         ["1 mes", "3 meses", "6 meses", "1 año", "3 años", "+5 años"],
                         index=3,
                     )
-                col_c, col_d = st.columns(2)
-                with col_c:
-                    nc_tipo = st.selectbox("Tipo", ["Persona", "Empresa"])
-                with col_d:
-                    nc_capital = st.number_input(
-                        "Capital inicial (USD)",
-                        min_value=0.0,
-                        value=10_000.0,
-                        step=1_000.0,
-                        format="%.0f",
-                    )
+                st.caption(_PERFIL_AYUDA.get(nc_perfil, ""))
+                if _ing_role != "inversor":
+                    col_c, col_d = st.columns(2)
+                    with col_c:
+                        nc_tipo = st.selectbox("Tipo", ["Persona", "Empresa"])
+                    with col_d:
+                        nc_capital = st.number_input(
+                            "Capital inicial (USD)",
+                            min_value=0.0,
+                            value=10_000.0,
+                            step=1_000.0,
+                            format="%.0f",
+                        )
+                else:
+                    nc_tipo = "Persona"
+                    nc_capital = 0.0
+                _btn_crear = "Crear mi perfil" if _ing_role == "inversor" else "Crear cliente"
                 submitted = st.form_submit_button(
-                    "Crear cliente",
+                    _btn_crear,
                     type="primary",
                     use_container_width=True,
                 )
@@ -571,11 +617,17 @@ def _pantalla_ingreso():
                         st.success(f"✓ {nc_nombre.strip()} creado")
                         st.rerun()
 
+    st.caption(
+        "📌 Master Quant es una herramienta de análisis. "
+        "No brinda asesoramiento personalizado de inversión. "
+        "Verificá siempre en tu broker antes de operar."
+    )
+    _yfooter = _dt_footer.now().year
     st.markdown(
-        """
-    <div style="text-align:center;padding-top:3rem;padding-bottom:1rem;">
+        f"""
+    <div style="text-align:center;padding-top:2rem;padding-bottom:1rem;">
         <span style="font-size:0.65rem;color:#1f2937;letter-spacing:0.08em;">
-            MQ26 · V8 · BYMA/CEDEARs</span>
+            Master Quant · {_yfooter}</span>
     </div>
     """,
         unsafe_allow_html=True,
@@ -626,10 +678,14 @@ def cached_metricas_resumen(df_serialized: str, ccl: float, cartera_key: str) ->
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 st.sidebar.markdown("## 📈 MQ26 — Inversiones")
+# Modo claro arriba (inversor: default claro vía session_state en _inject_css)
+st.sidebar.toggle("☀️ Modo claro", key="mq_light_mode")
+
+_mq26_role = get_user_role("mq26")
 _login_u = st.session_state.get("mq26_login_user", "")
-if _login_u:
-    st.sidebar.caption(f"Sesión: **{_login_u}** · rol {get_user_role('mq26')}")
-_mq26_viewer = get_user_role("mq26") in ("estudio", "inversor")
+if _login_u and _mq26_role == "super_admin":
+    st.sidebar.caption(f"Sesión: **{_login_u}** · rol {_mq26_role}")
+_mq26_viewer = _mq26_role in ("estudio", "inversor")
 if _mq26_viewer:
     st.sidebar.info(
         "👁️ **Solo lectura**: sincronización, credenciales y escrituras a BD están deshabilitadas."
@@ -652,58 +708,80 @@ if st.sidebar.button("🔒 Cerrar sesión", key="btn_cerrar_sesion_mq", use_cont
     st.session_state.clear()
     st.rerun()
 
-st.sidebar.markdown("---")
+st.sidebar.divider()
 
 info_bd = dbm.info_backend()
 backend_label = "🟢 PostgreSQL" if info_bd["backend"] == "postgresql" else "🟡 SQLite Local"
 st.sidebar.caption(f"BD: {backend_label}")
 
-# MQ2-D3: toggle modo claro/oscuro (CSS puro — sin <script> que rompe React DOM)
-_light_mode = st.sidebar.toggle("☀️ Modo claro", key="mq_light_mode", value=False)
-if _light_mode:
-    st.markdown("""
-    <style>
-        .stApp, [data-testid="stAppViewContainer"] {
-            background-color: #FAFAFA !important;
-            color: #1A1A2E !important;
-        }
-        .stSidebar, [data-testid="stSidebar"] > div {
-            background-color: #F0F0F5 !important;
-            color: #1A1A2E !important;
-        }
-        p, span, label, .stMarkdown, h1, h2, h3, h4 {
-            color: #1A1A2E !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
 ccl = cached_ccl()
-st.sidebar.metric("💵 Dólar CCL/MEP", f"${ccl:,.0f}")
-st.sidebar.markdown("---")
+st.sidebar.markdown(
+    f"""
+<div style="padding:0.5rem 0;">
+    <div style="font-size:0.65rem;color:var(--c-text-3, #94a3b8);text-transform:uppercase;
+                letter-spacing:0.06em;">Dólar hoy (CCL)</div>
+    <div style="font-family:'DM Mono',monospace;font-size:1.2rem;font-weight:600;
+                color:var(--c-text, #f1f5f9);">${ccl:,.0f}</div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 _cliente_id     = st.session_state.get("cliente_id")
 _cliente_nombre = st.session_state.get("cliente_nombre", "")
 _cliente_perfil = st.session_state.get("cliente_perfil", "Moderado")
 _horiz_label    = st.session_state.get("cliente_horizonte_label", "1 año")
 
-st.sidebar.markdown(f"**👤 {_cliente_nombre}**")
-st.sidebar.caption(f"Perfil: {_cliente_perfil}  |  Horizonte: {_horiz_label}")
-if st.sidebar.button("🔄 Cambiar cliente", key="btn_cambiar_cliente", use_container_width=True):
-    for k in ["cliente_id","cliente_nombre","cliente_perfil","cliente_horizonte_label"]:
-        st.session_state.pop(k, None)
-    st.rerun()
-st.sidebar.markdown("---")
+if _mq26_role == "estudio":
+    _n_rojos_sb = int(st.session_state.get("dashboard_n_rojos", 0) or 0)
+    if _n_rojos_sb > 0:
+        st.sidebar.error(f"🔴 {_n_rojos_sb} cliente(s) necesitan atención")
+    st.sidebar.divider()
+
+_nombre_corto_sb = _cliente_nombre.split("|")[0].strip() if _cliente_nombre else ""
+st.sidebar.markdown(
+    f"""
+<div style="padding:0.25rem 0 0.5rem 0;">
+    <div style="font-size:0.875rem;font-weight:600;color:var(--c-text, #f1f5f9);">
+        👤 {html.escape(_nombre_corto_sb or "—")}
+    </div>
+    <div style="font-size:0.72rem;color:var(--c-text-3, #94a3b8);margin-top:2px;">
+        {html.escape(str(_cliente_perfil))} · {html.escape(str(_horiz_label))}
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+if _mq26_role != "inversor":
+    if st.sidebar.button("🔄 Cambiar cliente", key="btn_cambiar_cliente", use_container_width=True):
+        for k in ["cliente_id", "cliente_nombre", "cliente_perfil", "cliente_horizonte_label"]:
+            st.session_state.pop(k, None)
+        st.rerun()
+
+st.sidebar.divider()
 
 horizonte_dias = dbm.HORIZONTE_DIAS.get(_horiz_label, 365)
-n_escenarios   = st.sidebar.selectbox("Simulaciones MC:", [1000, 3000, 5000, 10000], index=2)
-capital_nuevo  = float(st.session_state.get("capital_inyectado_mq26", 0.0))
-st.sidebar.markdown("---")
+_mc_niveles = [1000, 3000, 5000, 10000]
+st.session_state.setdefault("mc_n_escenarios_select", 3000)
+st.session_state.setdefault("mc_n_escenarios_select", 3000)
+if _mq26_role != "inversor":
+    _mc_cur = st.session_state.get("mc_n_escenarios_select", 3000)
+    if _mc_cur not in _mc_niveles:
+        _mc_cur = 3000
+    _mc_idx = _mc_niveles.index(_mc_cur)
+    n_escenarios = st.sidebar.selectbox(
+        "Simulaciones MC:", _mc_niveles, index=_mc_idx, key="mc_n_escenarios_select"
+    )
+else:
+    n_escenarios = int(st.session_state.get("mc_n_escenarios_select", 3000) or 3000)
+
+capital_nuevo = float(st.session_state.get("capital_inyectado_mq26", 0.0))
+st.sidebar.divider()
 
 df_clientes = _df_clientes_scoped(TENANT_ID)
 _ruta_transac_main = BASE_DIR / "0_Data_Maestra" / "Maestra_Transaccional.csv"
 _mtime_transac_main = _ruta_transac_main.stat().st_mtime if _ruta_transac_main.exists() else 0.0
 trans = cached_transaccional(_mtime_transac_main)
-_mq26_role = get_user_role("mq26")
 trans = filtrar_transaccional_por_rol(trans, _mq26_role, _cliente_nombre, df_clientes)
 
 carteras_csv: list[str] = []
@@ -746,168 +824,226 @@ else:
                 _default_cartera_idx = _i
                 break
 
-_default_cartera_idx = min(_default_cartera_idx, max(0, len(carteras_opciones) - 1))
+if carteras_opciones:
+    _default_cartera_idx = min(_default_cartera_idx, max(0, len(carteras_opciones) - 1))
+else:
+    _default_cartera_idx = 0
 
-cartera_activa = st.sidebar.selectbox("📁 Cartera activa:", carteras_opciones,
-                                       index=_default_cartera_idx)
+if not carteras_opciones:
+    cartera_activa = ""
+elif _mq26_role == "inversor":
+    cartera_activa = carteras_opciones[_default_cartera_idx]
+else:
+    cartera_activa = st.sidebar.selectbox(
+        "📁 Cartera activa:", carteras_opciones, index=_default_cartera_idx
+    )
 
-# Sprint 16: contexto de log estructurado para toda la sesión
 try:
     from core.logging_config import set_log_context
+
+    _cshort = ""
+    if cartera_activa:
+        _cshort = (
+            cartera_activa.split("|")[-1].strip()[:20]
+            if "|" in cartera_activa
+            else cartera_activa[:20]
+        )
     set_log_context(
         tenant=TENANT_ID,
-        cartera=(cartera_activa.split("|")[-1].strip()[:20]
-                 if "|" in cartera_activa else cartera_activa[:20]),
+        cartera=_cshort,
         env=os.environ.get("RAILWAY_ENVIRONMENT", "dev"),
     )
 except Exception:
     pass
 
-st.sidebar.checkbox("Usar FIFO para PPC", key="modo_ppc_fifo", value=False)
-st.sidebar.markdown("---")
+if _mq26_role == "inversor":
+    st.session_state["modo_ppc_fifo"] = False
+else:
+    st.session_state.setdefault("modo_ppc_fifo", False)
 
-with st.sidebar.expander("🔄 Sincronización de datos"):
-    _ruta_transac_sb = BASE_DIR / "0_Data_Maestra" / "Maestra_Transaccional.csv"
-    _ruta_maestra_sb = BASE_DIR / "0_Data_Maestra" / "Maestra_Inversiones.xlsx"
-    _ruta_sqlite_sb  = BASE_DIR / "0_Data_Maestra" / "master_quant.db"
-    if _ruta_transac_sb.exists():
-        _mtime = datetime.fromtimestamp(_ruta_transac_sb.stat().st_mtime).strftime("%d/%m %H:%M")
-        st.caption(f"CSV: {_mtime}")
+if _mq26_role != "inversor":
+    st.sidebar.divider()
 
-    # MQ2-S8: rate limiting — máx 3 sincronizaciones en 60 segundos
-    import time as _time_rl
-    _sync_times = st.session_state.get("_sync_timestamps", [])
-    _ahora_rl   = _time_rl.monotonic()
-    _sync_times = [t for t in _sync_times if _ahora_rl - t < 60]
-    _bloqueado  = len(_sync_times) >= 3
-    _espera_rl  = max(0, int(60 - (_ahora_rl - _sync_times[0]))) if _bloqueado else 0
+    with st.sidebar.expander("🔄 Sincronización de datos"):
+        _ruta_transac_sb = BASE_DIR / "0_Data_Maestra" / "Maestra_Transaccional.csv"
+        _ruta_maestra_sb = BASE_DIR / "0_Data_Maestra" / "Maestra_Inversiones.xlsx"
+        _ruta_sqlite_sb = BASE_DIR / "0_Data_Maestra" / "master_quant.db"
+        if _ruta_transac_sb.exists():
+            _mtime = datetime.fromtimestamp(_ruta_transac_sb.stat().st_mtime).strftime("%d/%m %H:%M")
+            st.caption(f"CSV: {_mtime}")
 
-    if _bloqueado:
-        st.warning(f"⏳ Rate limit — esperá {_espera_rl}s antes de sincronizar de nuevo.")
-    else:
-        if st.button("🔄 Regenerar desde Excel", key="btn_regen_csv", disabled=_bloqueado or _mq26_viewer):
-            _sync_times.append(_ahora_rl)
-            st.session_state["_sync_timestamps"] = _sync_times
-            if _ruta_transac_sb.exists():
-                _ruta_transac_sb.unlink()
+        import time as _time_rl
+
+        _sync_times = st.session_state.get("_sync_timestamps", [])
+        _ahora_rl = _time_rl.monotonic()
+        _sync_times = [t for t in _sync_times if _ahora_rl - t < 60]
+        _bloqueado = len(_sync_times) >= 3
+        _espera_rl = max(0, int(60 - (_ahora_rl - _sync_times[0]))) if _bloqueado else 0
+
+        if _bloqueado:
+            st.warning(f"⏳ Rate limit — esperá {_espera_rl}s antes de sincronizar de nuevo.")
+        else:
+            if st.button("🔄 Regenerar desde Excel", key="btn_regen_csv", disabled=_bloqueado or _mq26_viewer):
+                _sync_times.append(_ahora_rl)
+                st.session_state["_sync_timestamps"] = _sync_times
+                if _ruta_transac_sb.exists():
+                    _ruta_transac_sb.unlink()
+                st.cache_data.clear()
+                st.rerun()
+        st.session_state["_sync_timestamps"] = _sync_times
+
+
+    with st.sidebar.expander("💰 Precios fallback"):
+        _fb = cs.PRECIOS_FALLBACK_ARS.copy()
+        _df_fb = pd.DataFrame([{"Ticker": t, "Precio ARS": p} for t, p in sorted(_fb.items())])
+        _df_fb_edit = st.data_editor(
+            _df_fb.reset_index(drop=True), num_rows="dynamic", use_container_width=True,
+            column_config={
+                "Ticker":     st.column_config.TextColumn("Ticker", width="small"),
+                "Precio ARS": st.column_config.NumberColumn("Precio ARS", min_value=0, format="$%d"),
+            },
+            key="editor_fallback_sb", hide_index=True, disabled=_mq26_viewer,
+        )
+        if st.button("💾 Aplicar precios", key="btn_aplicar_fb", disabled=_mq26_viewer):
+            _nuevos = {t: float(p) for t, p in zip(_df_fb_edit["Ticker"], _df_fb_edit["Precio ARS"])
+                       if t and p and float(p) > 0}
+            # MQ2-S3: validar rango — diff > 50% requiere confirmación
+            _precios_sospechosos = []
+            for _t_fb, _p_fb in _nuevos.items():
+                _p_ant = _fb.get(_t_fb, _p_fb)
+                if _p_ant > 0 and abs(_p_fb / _p_ant - 1) > 0.50:
+                    _precios_sospechosos.append(f"{_t_fb}: {_p_ant:,.0f} → {_p_fb:,.0f} ({(_p_fb/_p_ant-1):+.0%})")
+            if _precios_sospechosos:
+                st.warning(
+                    "⚠️ **Cambio > 50% detectado** en:\n" + "\n".join(_precios_sospechosos) +
+                    "\n\nPresioná nuevamente para confirmar."
+                )
+                if not st.session_state.get("_fb_confirm"):
+                    st.session_state["_fb_confirm"] = True
+                    st.stop()
+            st.session_state.pop("_fb_confirm", None)
+            # MQ2-S4: log de cambios en alertas_log
+            for _t_fb, _p_fb in _nuevos.items():
+                _p_ant = _fb.get(_t_fb, _p_fb)
+                if _p_ant != _p_fb:
+                    try:
+                        dbm.registrar_alerta(
+                            tipo_alerta="PRECIO_MANUAL",
+                            mensaje=f"Fallback {_t_fb}: {_p_ant:,.0f} → {_p_fb:,.0f}",
+                            ticker=_t_fb
+                        )
+                    except Exception:
+                        pass
+            cs.actualizar_fallback(_nuevos)
             st.cache_data.clear()
             st.rerun()
-    st.session_state["_sync_timestamps"] = _sync_times
 
-with st.sidebar.expander("💰 Precios fallback"):
-    _fb = cs.PRECIOS_FALLBACK_ARS.copy()
-    _df_fb = pd.DataFrame([{"Ticker": t, "Precio ARS": p} for t, p in sorted(_fb.items())])
-    _df_fb_edit = st.data_editor(
-        _df_fb.reset_index(drop=True), num_rows="dynamic", use_container_width=True,
-        column_config={
-            "Ticker":     st.column_config.TextColumn("Ticker", width="small"),
-            "Precio ARS": st.column_config.NumberColumn("Precio ARS", min_value=0, format="$%d"),
-        },
-        key="editor_fallback_sb", hide_index=True, disabled=_mq26_viewer,
+        # MQ2-S1: verificar integridad HMAC de backups
+        st.divider()
+        st.caption("🔒 Integridad de backups")
+        _bak_files = sorted((BASE_DIR / "0_Data_Maestra").glob("*.bak_*.xlsx")) if (BASE_DIR / "0_Data_Maestra").exists() else []
+        if _bak_files:
+            st.caption(f"{len(_bak_files)} backups disponibles")
+        else:
+            st.caption("Sin backups locales")
+
+    with st.sidebar.expander("🚀 Motor de Salida — Config"):
+        # MQ2-D6: capital_disponible configurable desde sidebar
+        _cap_default = float(dbm.obtener_config("capital_disponible_mq", "500000") or 500000)
+        _capital_disp = st.number_input(
+            "Capital disponible (ARS):",
+            min_value=0.0, value=_cap_default, step=10_000.0, format="%.0f",
+            key="capital_disponible_input", help="Capital para calcular órdenes de compra",
+            disabled=_mq26_viewer,
+        )
+        if st.button("💾 Guardar capital", key="btn_guardar_cap", disabled=_mq26_viewer):
+            dbm.guardar_config("capital_disponible_mq", str(_capital_disp))
+            st.success("✅ Capital guardado")
+        # Hacer disponible para el Motor de Salida
+        st.session_state["capital_disponible_mq"] = _capital_disp
+
+    with st.sidebar.expander("⚙️ Salud del sistema"):
+        import datetime as _dt_sys
+        st.markdown(f"**Última sync:** {_dt_sys.datetime.now().strftime('%H:%M:%S')}")
+        st.markdown(f"**BD:** {dbm.info_backend()['backend'].upper()}")
+        st.markdown(f"**CCL:** ${ccl:,.0f}")
+        st.checkbox(
+            "Usar FIFO para PPC (detalle contable)",
+            key="modo_ppc_fifo",
+            help="Afecta cómo se calcula el precio promedio de compra con múltiples operaciones.",
+        )
+
+    with st.sidebar.expander("📱 Alertas Telegram"):
+        # MQ-S1: Las credenciales Telegram se persisten en la BD, NO en os.environ
+        _tg_token_bd = dbm.obtener_config("telegram_token", "")
+        _tg_chat_bd  = dbm.obtener_config("telegram_chat_id", "")
+        tg_token = st.text_input(
+            "Bot Token", type="password",
+            value=_tg_token_bd or os.environ.get("TELEGRAM_TOKEN", ""),
+            disabled=_mq26_viewer,
+        )
+        tg_chat = st.text_input(
+            "Chat ID",
+            value=_tg_chat_bd or os.environ.get("TELEGRAM_CHAT_ID", ""),
+            disabled=_mq26_viewer,
+        )
+        if st.button("💾 Guardar credenciales", key="btn_tg_guardar", disabled=_mq26_viewer):
+            if tg_token:
+                dbm.guardar_config("telegram_token", tg_token)
+            if tg_chat:
+                dbm.guardar_config("telegram_chat_id", tg_chat)
+            st.success("✅ Guardadas en BD")
+        if st.button("🔔 Probar conexión", key="btn_tg_probar", disabled=_mq26_viewer):
+            if tg_token and tg_chat:
+                # Solo poner en env para la prueba (en-memoria, no persiste entre procesos)
+                os.environ["TELEGRAM_TOKEN"]   = tg_token
+                os.environ["TELEGRAM_CHAT_ID"] = tg_chat
+                ok = ab.test_conexion()
+                st.success("✅ Telegram OK") if ok else st.error("❌ Sin respuesta")
+
+else:
+    st.session_state.setdefault(
+        "capital_disponible_mq",
+        float(dbm.obtener_config("capital_disponible_mq", "500000") or 500000),
     )
-    if st.button("💾 Aplicar precios", key="btn_aplicar_fb", disabled=_mq26_viewer):
-        _nuevos = {t: float(p) for t, p in zip(_df_fb_edit["Ticker"], _df_fb_edit["Precio ARS"])
-                   if t and p and float(p) > 0}
-        # MQ2-S3: validar rango — diff > 50% requiere confirmación
-        _precios_sospechosos = []
-        for _t_fb, _p_fb in _nuevos.items():
-            _p_ant = _fb.get(_t_fb, _p_fb)
-            if _p_ant > 0 and abs(_p_fb / _p_ant - 1) > 0.50:
-                _precios_sospechosos.append(f"{_t_fb}: {_p_ant:,.0f} → {_p_fb:,.0f} ({(_p_fb/_p_ant-1):+.0%})")
-        if _precios_sospechosos:
-            st.warning(
-                "⚠️ **Cambio > 50% detectado** en:\n" + "\n".join(_precios_sospechosos) +
-                "\n\nPresioná nuevamente para confirmar."
-            )
-            if not st.session_state.get("_fb_confirm"):
-                st.session_state["_fb_confirm"] = True
-                st.stop()
-        st.session_state.pop("_fb_confirm", None)
-        # MQ2-S4: log de cambios en alertas_log
-        for _t_fb, _p_fb in _nuevos.items():
-            _p_ant = _fb.get(_t_fb, _p_fb)
-            if _p_ant != _p_fb:
-                try:
-                    dbm.registrar_alerta(
-                        tipo_alerta="PRECIO_MANUAL",
-                        mensaje=f"Fallback {_t_fb}: {_p_ant:,.0f} → {_p_fb:,.0f}",
-                        ticker=_t_fb
-                    )
-                except Exception:
-                    pass
-        cs.actualizar_fallback(_nuevos)
-        st.cache_data.clear()
-        st.rerun()
 
-    # MQ2-S1: verificar integridad HMAC de backups
-    st.divider()
-    st.caption("🔒 Integridad de backups")
-    _bak_files = sorted((BASE_DIR / "0_Data_Maestra").glob("*.bak_*.xlsx")) if (BASE_DIR / "0_Data_Maestra").exists() else []
-    if _bak_files:
-        st.caption(f"{len(_bak_files)} backups disponibles")
-    else:
-        st.caption("Sin backups locales")
-
-with st.sidebar.expander("🚀 Motor de Salida — Config"):
-    # MQ2-D6: capital_disponible configurable desde sidebar
-    _cap_default = float(dbm.obtener_config("capital_disponible_mq", "500000") or 500000)
-    _capital_disp = st.number_input(
-        "Capital disponible (ARS):",
-        min_value=0.0, value=_cap_default, step=10_000.0, format="%.0f",
-        key="capital_disponible_input", help="Capital para calcular órdenes de compra",
-        disabled=_mq26_viewer,
+_HEADER_POR_ROL = {
+    "inversor": "Master Quant · Tu cartera",
+    "estudio": "Master Quant · Mis clientes",
+    "asesor": "Master Quant · Panel profesional",
+    "super_admin": "Master Quant · Control total",
+}
+_nombre_corto_hdr = _cliente_nombre.split("|")[0].strip() if _cliente_nombre else ""
+if _mq26_role == "inversor":
+    _sub_txt = (
+        f"Hola, {html.escape(_nombre_corto_hdr)} · CCL ${ccl:,.0f}"
+        if _nombre_corto_hdr
+        else f"CCL ${ccl:,.0f}"
     )
-    if st.button("💾 Guardar capital", key="btn_guardar_cap", disabled=_mq26_viewer):
-        dbm.guardar_config("capital_disponible_mq", str(_capital_disp))
-        st.success("✅ Capital guardado")
-    # Hacer disponible para el Motor de Salida
-    st.session_state["capital_disponible_mq"] = _capital_disp
-
-with st.sidebar.expander("⚙️ Salud del sistema"):
-    import datetime as _dt_sys
-    st.markdown(f"**Última sync:** {_dt_sys.datetime.now().strftime('%H:%M:%S')}")
-    st.markdown(f"**BD:** {dbm.info_backend()['backend'].upper()}")
-    st.markdown(f"**CCL:** ${ccl:,.0f}")
-
-with st.sidebar.expander("📱 Alertas Telegram"):
-    # MQ-S1: Las credenciales Telegram se persisten en la BD, NO en os.environ
-    _tg_token_bd = dbm.obtener_config("telegram_token", "")
-    _tg_chat_bd  = dbm.obtener_config("telegram_chat_id", "")
-    tg_token = st.text_input(
-        "Bot Token", type="password",
-        value=_tg_token_bd or os.environ.get("TELEGRAM_TOKEN", ""),
-        disabled=_mq26_viewer,
+elif _mq26_role == "estudio":
+    _sub_txt = f"Estudio · {len(df_clientes)} clientes activos · CCL ${ccl:,.0f}"
+elif _mq26_role == "asesor":
+    _sub_txt = (
+        f"Asesor · {html.escape(_nombre_corto_hdr)} · CCL ${ccl:,.0f}"
+        if _nombre_corto_hdr
+        else f"CCL ${ccl:,.0f}"
     )
-    tg_chat = st.text_input(
-        "Chat ID",
-        value=_tg_chat_bd or os.environ.get("TELEGRAM_CHAT_ID", ""),
-        disabled=_mq26_viewer,
+elif _mq26_role == "super_admin":
+    _sub_txt = (
+        f"Admin · {html.escape(_nombre_corto_hdr)}"
+        if _nombre_corto_hdr
+        else "Admin"
     )
-    if st.button("💾 Guardar credenciales", key="btn_tg_guardar", disabled=_mq26_viewer):
-        if tg_token:
-            dbm.guardar_config("telegram_token", tg_token)
-        if tg_chat:
-            dbm.guardar_config("telegram_chat_id", tg_chat)
-        st.success("✅ Guardadas en BD")
-    if st.button("🔔 Probar conexión", key="btn_tg_probar", disabled=_mq26_viewer):
-        if tg_token and tg_chat:
-            # Solo poner en env para la prueba (en-memoria, no persiste entre procesos)
-            os.environ["TELEGRAM_TOKEN"]   = tg_token
-            os.environ["TELEGRAM_CHAT_ID"] = tg_chat
-            ok = ab.test_conexion()
-            st.success("✅ Telegram OK") if ok else st.error("❌ Sin respuesta")
-
+else:
+    _sub_txt = f"CCL ${ccl:,.0f}"
 
 # ─── HEADER ───────────────────────────────────────────────────────────────────
 st.markdown(
-    '<p class="main-header">MQ26 · Terminal de inversiones</p>',
+    f'<p class="main-header">{html.escape(_HEADER_POR_ROL.get(_mq26_role, "Master Quant"))}</p>',
     unsafe_allow_html=True,
 )
-# MQ-S2: html.escape para prevenir XSS si el nombre del cliente contiene caracteres especiales
-_nombre_safe = html.escape(_cliente_nombre)
 st.markdown(
-    f'<p class="sub-header">BYMA · Master Quant 26'
-    f'{" · " + _nombre_safe if _nombre_safe else ""}</p>',
+    f'<p class="sub-header">{_sub_txt}</p>',
     unsafe_allow_html=True,
 )
 
@@ -946,8 +1082,13 @@ tickers_sin_precio = []
 valoracion_audit: dict = {}
 st.session_state.pop("_mq26_audit_ctx", None)
 
-_cartera_sin_datos = cartera_activa.endswith("| (sin datos)")
-if cartera_activa != "-- Todas las carteras --" and not _cartera_sin_datos and not trans.empty:
+_cartera_sin_datos = cartera_activa.endswith("| (sin datos)") if cartera_activa else False
+if (
+    cartera_activa
+    and cartera_activa != "-- Todas las carteras --"
+    and not _cartera_sin_datos
+    and not trans.empty
+):
     # MQ2-D5: hash robusto SHA-256 del DataFrame — detecta ediciones de precio/fecha
     import hashlib as _hl
     _df_hash_bytes = str(pd.util.hash_pandas_object(
@@ -1131,15 +1272,16 @@ if not df_ag.empty and precios_dict:
         )
     st.divider()
 
-    # Semáforos sidebar
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### Resumen cartera")
-    st.sidebar.metric("Valor", f"${total_valor/1e6:.2f}M ARS" if total_valor > 1e6 else f"${total_valor:,.0f} ARS")
-    st.sidebar.metric("P&L", f"${total_pnl:,.0f} ARS", f"{pnl_pct_total:.1%}")
-    _sem_txt = "En ganancia" if pnl_pct_total >= 0 else "En pérdida"
-    st.sidebar.caption(f"{_sem_txt} · {pnl_pct_total:+.1%}")
+    # Semáforos sidebar — oculto al inversor (resume en topline principal)
+    if _mq26_role != "inversor":
+        st.sidebar.divider()
+        st.sidebar.markdown("### Resumen cartera")
+        st.sidebar.metric("Valor", f"${total_valor/1e6:.2f}M ARS" if total_valor > 1e6 else f"${total_valor:,.0f} ARS")
+        st.sidebar.metric("P&L", f"${total_pnl:,.0f} ARS", f"{pnl_pct_total:.1%}")
+        _sem_txt = "Cartera en verde" if pnl_pct_total >= 0 else "Cartera en rojo"
+        st.sidebar.caption(f"{_sem_txt} · {pnl_pct_total:+.1%}")
     _va = st.session_state.get("valoracion_audit") or {}
-    if _va.get("total_valor_ars", 0) > 0:
+    if _mq26_role != "inversor" and _va.get("total_valor_ars", 0) > 0:
         with st.sidebar.expander("Cobertura de precios (live vs fallback)", expanded=False):
             st.caption(
                 f"Valor con cotización **live**: **{_va.get('pct_valor_live', 0):.1f}%** "
@@ -1150,6 +1292,77 @@ if not df_ag.empty and precios_dict:
                 st.caption(
                     f"**{_tipo}** — {_b.get('pct_valor_live', 0):.1f}% del valor con precio live"
                 )
+
+    # ── Monitor de alertas proactivas (S13-01) — firma real revisar_cartera_completa ──
+    if not df_ag.empty and tickers_cartera:
+        try:
+            from services.monitor_service import revisar_cartera_completa
+            _met_mon = dict(metricas)
+            _met_mon.setdefault("pnl_pct", float(metricas.get("pnl_pct_total", 0) or 0))
+            _alertas_m = revisar_cartera_completa(
+                df_ag,
+                df_analisis,
+                _met_mon,
+                _cliente_id,
+                prop_nombre or _cliente_nombre,
+                ccl=float(ccl or 0),
+                enviar_telegram=False,
+            )
+            _n_al = int(_alertas_m.get("total", 0) or 0)
+            if _n_al > 0 and _mq26_role != "inversor":
+                st.sidebar.divider()
+                _ico = "🔴" if int(_alertas_m.get("mod23", 0) or 0) > 0 else "🟡"
+                st.sidebar.warning(
+                    f"{_ico} **{_n_al} alerta(s) activa(s)**  \n"
+                    f"MOD-23: {_alertas_m.get('mod23', 0)} · "
+                    f"Venc.: {_alertas_m.get('vencimientos', 0)}"
+                )
+        except Exception:
+            pass
+
+    # ── CCL/MEP — últimos 30 días (S14-04); no inversor ───────────────────────
+    if _mq26_role != "inversor":
+        with st.sidebar.expander("📈 Dólar — últimos 30 días", expanded=False):
+            try:
+                import yfinance as yf
+                import plotly.graph_objects as go
+
+                ggal_ba = yf.Ticker("GGAL.BA").history(period="30d")["Close"].dropna()
+                ggal_us = yf.Ticker("GGAL").history(period="30d")["Close"].dropna()
+                if not ggal_ba.empty and not ggal_us.empty:
+                    ccl_hist = (ggal_ba / ggal_us).dropna()
+                    ccl_hist = ccl_hist[ccl_hist > 0]
+                    if not ccl_hist.empty:
+                        fig_ccl = go.Figure(go.Scatter(
+                            x=ccl_hist.index,
+                            y=ccl_hist.values,
+                            mode="lines",
+                            line=dict(color="#3b82f6", width=1.5),
+                            fill="tozeroy",
+                            fillcolor="rgba(59,130,246,0.06)",
+                        ))
+                        fig_ccl.update_layout(
+                            height=110,
+                            margin=dict(t=4, b=4, l=4, r=4),
+                            showlegend=False,
+                            xaxis=dict(showgrid=False, showticklabels=False),
+                            yaxis=dict(
+                                showgrid=True,
+                                gridcolor="rgba(148,163,184,0.06)",
+                                tickformat=",.0f",
+                            ),
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                        )
+                        st.plotly_chart(fig_ccl, use_container_width=True, key="sidebar_ccl_hist")
+                        ccl_min = float(ccl_hist.min())
+                        ccl_max = float(ccl_hist.max())
+                        st.caption(
+                            f"mín ${ccl_min:,.0f} · máx ${ccl_max:,.0f} · "
+                            f"hoy ${float(ccl_hist.iloc[-1]):,.0f}"
+                        )
+            except Exception:
+                st.caption("Sin datos históricos disponibles.")
 
 # Alerta objetivos
 if _cliente_id and not st.session_state.get("_objetivos_alertas_verificados"):
@@ -1229,7 +1442,10 @@ ctx = {
     "user_role":       _mq26_role,
     "price_coverage_pct": price_coverage_pct,
     "tickers_sin_precio": tickers_sin_precio,
+    "valoracion_audit": st.session_state.get("valoracion_audit") or {},
+    "precio_records": (st.session_state.get("_mq26_audit_ctx") or {}).get("records") or {},
 }
+
 
 # S2: FlowManager — contexto de workflow y siguiente acción
 # S7: MOD-23 alertas para FlowManager
@@ -1270,11 +1486,16 @@ if _mq26_role != "inversor":
 # ─── TABS por rol (tiers SA/ES/IN) ───────────────────────────────────────────
 _role = _mq26_role
 if _role == "inversor":
-    (t1,) = st.tabs(["Mi cartera"])
+    (t1,) = st.tabs(["📊 Mi Cartera"])
     with t1:
         render_tab_inversor(ctx)
 elif _role == "estudio":
-    t1, t2, t3, t4 = st.tabs(["Clientes", "Cartera", "Reportes", "Universo"])
+    t1, t2, t3, t4 = st.tabs([
+        "👥 Mis Clientes",
+        "📂 Cartera Activa",
+        "📄 Informes",
+        "🔍 Señales de Mercado",
+    ])
     with t1:
         render_tab_estudio(ctx)
     with t2:
@@ -1284,13 +1505,16 @@ elif _role == "estudio":
     with t4:
         render_tab_universo(ctx)
 elif _role == "asesor":
+    from ui.asesor_suite import render_asesor_suite_banner
+
+    render_asesor_suite_banner()
     t1, t2, t3, t4, t5, t6 = st.tabs([
-        "Cartera y libro mayor",
-        "Universo y señales",
-        "Optimización",
-        "Riesgo y simulación",
-        "Mesa de ejecución",
-        "Reporte",
+        "📂 Cartera",
+        "🔍 Señales",
+        "⚙️ Optimizar",
+        "📉 Riesgo",
+        "✅ Ejecutar",
+        "📄 Informe",
     ])
     with t1:
         render_tab_cartera(ctx)
@@ -1306,13 +1530,13 @@ elif _role == "asesor":
         render_tab_reporte(ctx)
 else:
     t1, t2, t3, t4, t5, t6, t7 = st.tabs([
-        "1. Cartera y libro mayor",
-        "2. Universo y señales",
-        "3. Optimización",
-        "4. Riesgo y simulación",
-        "5. Mesa de ejecución",
-        "6. Reporte",
-        "Admin",
+        "📂 Cartera",
+        "🔍 Señales",
+        "⚙️ Optimizar",
+        "📉 Riesgo",
+        "✅ Ejecutar",
+        "📄 Informe",
+        "🛠 Admin",
     ])
     with t1:
         render_tab_cartera(ctx)
@@ -1330,7 +1554,9 @@ else:
         render_tab_admin(ctx)
 
 # Motor de Salida
-if st.sidebar.button("🚪 Motor de Salida", use_container_width=True, key="btn_motor_salida"):
+if _mq26_role != "inversor" and st.sidebar.button(
+    "🚪 Motor de Salida", use_container_width=True, key="btn_motor_salida"
+):
     st.session_state["tab_activo"] = "motor_salida"
 
 if st.session_state.get("tab_activo") == "motor_salida":
@@ -1355,5 +1581,7 @@ if st.session_state.get("tab_activo") == "motor_salida":
 
 # ─── FOOTER ───────────────────────────────────────────────────────────────────
 st.divider()
-st.caption(f"📈 MQ26 Terminal de Inversiones | BD: {info_bd['backend'].upper()} | "
-           f"CCL: ${ccl:,.0f} | © Estrategia Capitales {datetime.now().year}")
+st.caption(
+    f"Master Quant · {datetime.now().year} · BD: {info_bd['backend'].upper()} · "
+    f"CCL: ${ccl:,.0f}"
+)

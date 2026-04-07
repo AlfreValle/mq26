@@ -8,7 +8,7 @@ def test_recomendacion_prioriza_defensa_primero():
     df = pd.DataFrame(
         [{"TICKER": "NVDA", "VALOR_ARS": 1_000_000.0, "TIPO": "CEDEAR", "PESO_PCT": 1.0}]
     )
-    precios = {"GLD": 80_000.0, "MSFT": 50_000.0,      "NVDA": 100.0}
+    precios = {"PN43O": 80_000.0, "TLCTO": 70_000.0, "MSFT": 50_000.0, "NVDA": 100.0}
     r = recomendar(
         df_ag=df,
         perfil="Moderado",
@@ -21,7 +21,7 @@ def test_recomendacion_prioriza_defensa_primero():
         df_analisis=None,
     )
     assert r.compras_recomendadas, "debe haber al menos una compra"
-    assert r.compras_recomendadas[0].ticker == "GLD"
+    assert r.compras_recomendadas[0].ticker in ("PN43O", "TLCTO")
 
 
 def test_recomendacion_unidades_enteras():
@@ -82,22 +82,23 @@ def test_pendientes_si_precio_supera_capital():
 def test_recomendacion_cartera_perfecta_no_compra_nada_innecesario():
     filas = []
     ideal_w = {
-        "GLD": 0.10,
-        "INCOME": 0.10,
-        "BRKB": 0.10,
-        "SPY": 0.15,
+        "_RENTA_AR": 0.15,
+        "PN43O": 0.20,
+        "TLCTO": 0.15,
+        "GLD": 0.05,
+        "BRKB": 0.08,
+        "SPY": 0.12,
         "MSFT": 0.10,
-        "GOOGL": 0.10,
-        "AMZN": 0.08,
-        "MELI": 0.07,
-        "_RENTA_AR": 0.20,
+        "GOOGL": 0.08,
+        "AMZN": 0.07,
     }
     total = 1_000_000.0
     for t, w in ideal_w.items():
         if t.startswith("_"):
             continue
+        tipo = "ON_USD" if t in ("PN43O", "TLCTO") else "CEDEAR"
         filas.append(
-            {"TICKER": t, "VALOR_ARS": total * w, "TIPO": "CEDEAR", "PESO_PCT": w}
+            {"TICKER": t, "VALOR_ARS": total * w, "TIPO": tipo, "PESO_PCT": w}
         )
     df = pd.DataFrame(filas)
     precios = {t: 10_000.0 for t in ideal_w if not str(t).startswith("_")}
@@ -149,6 +150,21 @@ def test_renta_ar_placeholder_va_a_pendientes():
         if p.get("ticker") == "_RENTA_AR" or "ON/Bonos AR" in str(p.get("motivo", ""))
     ]
     assert pend_renta
+
+
+def test_recomendar_precios_vacios_no_falla():
+    df = pd.DataFrame()
+    r = recomendar(
+        df_ag=df,
+        perfil="Moderado",
+        horizonte_label="1 año",
+        capital_ars=50_000.0,
+        ccl=1000.0,
+        precios_dict={},
+        diagnostico=None,
+    )
+    assert r.n_compras == 0
+    assert r.capital_remanente_ars >= 0.0
 
 
 def test_alerta_mercado_sin_compras():

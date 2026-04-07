@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from core.diagnostico_types import Semaforo
+from core.perfil_allocation import RULESET_VERSION
 from services.diagnostico_cartera import diagnosticar
 
 
@@ -42,17 +43,17 @@ def test_diagnostico_cartera_conservadora_deficiente():
 
 
 def test_diagnostico_cartera_bien_balanceada():
-    # 60% defensivo (GLD+KO+BRKB), sin concentración >20% (Conservador)
+    # Conservador ~60% RF / ~40% RV; cada línea ≤20% (límite concentración)
     df = pd.DataFrame(
         [
-            _row("GLD", 120_000, 0.20),
-            _row("KO", 120_000, 0.20),
-            _row("BRKB", 120_000, 0.20),
-            _row("SPY", 120_000, 0.20),
-            _row("MSFT", 120_000, 0.20),
+            _row("PN43O", 200_000, 0.20, tipo="ON_USD"),
+            _row("TLCTO", 200_000, 0.20, tipo="ON_USD"),
+            _row("AL30", 200_000, 0.20, tipo="BONO_USD"),
+            _row("SPY", 200_000, 0.20, tipo="CEDEAR"),
+            _row("BRKB", 200_000, 0.20, tipo="CEDEAR"),
         ]
     )
-    m = {"total_valor": 600_000.0, "pnl_pct_total_usd": 0.04}
+    m = {"total_valor": 1_000_000.0, "pnl_pct_total_usd": 0.04}
     r = diagnosticar(
         df_ag=df,
         perfil="Conservador",
@@ -61,8 +62,9 @@ def test_diagnostico_cartera_bien_balanceada():
         ccl=1000.0,
     )
     assert r.semaforo == Semaforo.VERDE
-    assert r.score_cobertura_defensiva >= 99.0
+    assert r.score_cobertura_defensiva >= 95.0
     assert r.score_concentracion >= 99.0
+    assert r.pct_defensivo_actual == pytest.approx(0.60, abs=0.02)
 
 
 def test_ajuste_horizonte_corto():
@@ -75,7 +77,7 @@ def test_ajuste_horizonte_corto():
         metricas=m,
         ccl=1000.0,
     )
-    assert abs(r.pct_defensivo_requerido - 0.50) < 1e-6
+    assert abs(r.pct_defensivo_requerido - 0.60) < 1e-6
 
 
 def test_concentracion_detecta_activo_sobre_limite():
@@ -112,7 +114,14 @@ def test_observaciones_tienen_cifras_concretas():
 
 
 def test_score_total_es_promedio_ponderado():
-    df = pd.DataFrame([_row("GLD", 50_000, 0.5), _row("KO", 50_000, 0.5)])
+    df = pd.DataFrame(
+        [
+            _row("PN43O", 50_000, 0.25, tipo="ON_USD"),
+            _row("TLCTO", 50_000, 0.25, tipo="ON_USD"),
+            _row("SPY", 50_000, 0.25, tipo="CEDEAR"),
+            _row("MSFT", 50_000, 0.25, tipo="CEDEAR"),
+        ]
+    )
     m = {"total_valor": 100_000.0, "pnl_pct_total_usd": 0.0}
     senales = [{"prioridad": 3}, {"prioridad": 2}]
     r = diagnosticar(
@@ -131,7 +140,7 @@ def test_score_total_es_promedio_ponderado():
     assert abs(r.score_total - esperado) < 0.05
 
 
-def test_letra_no_cuenta_como_defensivo():
+def test_letra_cuenta_como_renta_fija():
     df = pd.DataFrame(
         [
             {"TICKER": "S17A6", "VALOR_ARS": 50_000.0, "TIPO": "LETRA", "PESO_PCT": 0.5},
@@ -147,11 +156,13 @@ def test_letra_no_cuenta_como_defensivo():
         ccl=1000.0,
         universo_df=None,
     )
-    assert r.pct_defensivo_actual == pytest.approx(0.0, abs=0.02)
+    assert r.pct_defensivo_actual == pytest.approx(0.5, abs=0.02)
 
 
-def test_activo_on_cuenta_como_defensivo():
-    df = pd.DataFrame([{"TICKER": "GD30", "VALOR_ARS": 100_000.0, "TIPO": "ON", "PESO_PCT": 1.0}])
+def test_activo_bono_cuenta_como_rf():
+    df = pd.DataFrame(
+        [{"TICKER": "GD30", "VALOR_ARS": 100_000.0, "TIPO": "BONO_USD", "PESO_PCT": 1.0}]
+    )
     m = {"total_valor": 100_000.0, "pnl_pct_total_usd": 0.0}
     r = diagnosticar(
         df_ag=df,
@@ -175,6 +186,46 @@ def test_diagnostico_sin_posiciones():
     )
     assert r.score_total < 60.0
     assert len(r.observaciones) >= 1
+    assert r.ruleset_version == RULESET_VERSION
+
+
+def test_diagnostico_cartera_casi_toda_rv():
+    df = pd.DataFrame(
+        [
+            _row("NVDA", 95_000, 0.95),
+            _row("PN43O", 5_000, 0.05, tipo="ON_USD"),
+        ]
+    )
+    m = {"total_valor": 100_000.0, "pnl_pct_total_usd": 0.0}
+    r = diagnosticar(
+        df_ag=df,
+        perfil="Moderado",
+        horizonte_label="1 año",
+        metricas=m,
+        ccl=1000.0,
+    )
+    assert r.pct_defensivo_actual < 0.15
+    assert r.pct_rv_actual > 0.80
+
+
+def test_diagnostico_cartera_casi_toda_rf():
+    df = pd.DataFrame(
+        [
+            _row("PN43O", 400_000, 0.40, tipo="ON_USD"),
+            _row("TLCTO", 400_000, 0.40, tipo="ON_USD"),
+            _row("AL30", 200_000, 0.20, tipo="BONO_USD"),
+        ]
+    )
+    m = {"total_valor": 1_000_000.0, "pnl_pct_total_usd": 0.0}
+    r = diagnosticar(
+        df_ag=df,
+        perfil="Arriesgado",
+        horizonte_label="1 año",
+        metricas=m,
+        ccl=1000.0,
+    )
+    assert r.pct_defensivo_actual >= 0.99
+    assert r.pct_rv_actual <= 0.05
 
 
 def test_diagnostico_metricas_vacias_fallback():

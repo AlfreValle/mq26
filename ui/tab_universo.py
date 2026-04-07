@@ -141,7 +141,11 @@ def render_tab_universo(ctx: dict) -> None:
     engine_data     = ctx["engine_data"]
     RUTA_ANALISIS   = ctx["RUTA_ANALISIS"]
 
-    sub_mod23, sub_velas, sub_fci = st.tabs(["🔍 Motor MOD-23", "🕯️ Velas + Técnico", "🏦 FCIs Argentina"])
+    sub_mod23, sub_velas, sub_fci = st.tabs([
+        "🔍 Señales de compra",
+        "🕯️ Análisis técnico",
+        "🏦 Fondos comunes (FCIs)",
+    ])
 
     # ── SUB-TAB: MOD-23 ─────────────────────────────────────────────────────────
     with sub_mod23:
@@ -153,7 +157,11 @@ def render_tab_universo(ctx: dict) -> None:
         with col_m2:
             solo_alcistas = st.checkbox("Solo score ≥ 5", value=False)
         with col_m3:
-            if st.button("🔄 Recalcular MOD-23", type="secondary"):
+            if st.button(
+                "🔄 Actualizar señales del mercado",
+                type="secondary",
+                help="Analiza todos los activos del universo. Puede tardar varios minutos.",
+            ):
                 with st.spinner("Escaneando universo... (~2-3 min)"):
                     df_nuevo = m23svc.recalcular_universo(engine_data.universo_df, RUTA_ANALISIS)
                     if not df_nuevo.empty:
@@ -256,7 +264,7 @@ def render_tab_universo(ctx: dict) -> None:
                         st.caption(f"Historial no disponible: {_e}")
 
             if not df_ag.empty:
-                st.markdown("---")
+                st.divider()
                 st.markdown("#### 📌 MOD-23 en tu cartera activa")
                 tickers_act = df_ag["TICKER"].str.upper().tolist()
                 df_cartera_scores = df_an[df_an["TICKER"].isin(tickers_act)].copy()

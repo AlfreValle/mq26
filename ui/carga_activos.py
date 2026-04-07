@@ -24,6 +24,7 @@ from core.renta_fija_ar import (
     tickers_rf_activos,
     tir_al_precio,
     valor_nominal_a_ars,
+    es_renta_fija,
 )
 
 
@@ -75,6 +76,55 @@ def _filtrar_univ_por_busqueda(ctx: dict, q: str) -> tuple[list[str], dict[str, 
     return sub[:200], m
 
 
+
+def _validar_tickers(filas: list[dict[str, Any]], ctx: dict) -> list[str]:
+    """Advierte si el ticker no está en el universo (no bloquea el guardado)."""
+    warnings_out: list[str] = []
+    universo_df = ctx.get("universo_df")
+    universo_tickers: set[str] = set()
+    if universo_df is not None and not universo_df.empty:
+        col = "TICKER" if "TICKER" in universo_df.columns else universo_df.columns[0]
+        universo_tickers = set(
+            universo_df[col].astype(str).str.upper().str.strip()
+        )
+    for f in filas:
+        ticker = str(f.get("TICKER", "")).strip().upper()
+        tipo = str(f.get("TIPO", "CEDEAR")).upper()
+        if not ticker:
+            continue
+        if es_renta_fija(ticker):
+            continue
+        if tipo in (
+            "ON", "ON_USD", "BONO", "BONO_USD", "LETRA", "LECAP", "LEDE",
+        ):
+            continue
+        if universo_tickers and ticker not in universo_tickers:
+            warnings_out.append(
+                f"**{ticker}** no está en el universo de activos conocidos. "
+                "Verificá el símbolo antes de confirmar."
+            )
+    return warnings_out
+
+
+def _label_cedear(row: pd.Series) -> str:
+    """Label enriquecido para selectbox: TICKER — Nombre (ratio X:1) · Sector."""
+    ticker = str(row.get("TICKER", row.get("Ticker", ""))).strip().upper()
+    nombre = str(row.get("Nombre", row.get("nombre", ""))).strip()
+    ratio = row.get("ratio", row.get("Ratio", None))
+    sector = str(row.get("sector", row.get("Sector", ""))).strip()
+    label = ticker
+    if nombre and nombre.upper() != ticker:
+        label += f" — {nombre[:28]}"
+    try:
+        r = float(ratio)
+        if r > 1.0:
+            label += f" ({r:.0f}:1)"
+    except (TypeError, ValueError):
+        pass
+    if sector:
+        label += f" · {sector[:18]}"
+    return label
+
 def _cartera_csv(ctx: dict) -> str:
     return str(ctx.get("cartera_activa") or "Principal").strip()
 
@@ -112,6 +162,9 @@ def _persist_filas(ctx: dict, filas: list[dict[str, Any]], modo: str) -> None:
     if ed is None:
         st.error("Motor de datos no disponible.")
         return
+    advertencias = _validar_tickers(filas, ctx)
+    for adv in advertencias:
+        st.warning(adv)
     try:
         df_prev = ed.cargar_transaccional().copy()
     except Exception as e:
@@ -184,36 +237,97 @@ def _render_carga_cedear(ctx: dict) -> None:
         key="ca_cedear_q",
         help="Ej.: nvidia, nvda, coca",
     )
-    labels, label_map = _filtrar_univ_por_busqueda(ctx, q)
-    if not labels:
+    u = ctx.get("universo_df")
+    col = _ticker_col_univ(u)
+    if u is None or u.empty or not col:
         st.warning("No hay universo cargado o no hay coincidencias.")
         return
+    qu = q.strip().lower()
+    pairs: list[tuple[str, str]] = []
+    for _, row in u.iterrows():
+        tkr = str(row[col]).strip().upper()
+        if not tkr or tkr == "NAN":
+            continue
+        lbl = _label_cedear(row)
+        if qu and qu not in lbl.lower():
+            continue
+        pairs.append((lbl, tkr))
+    pairs = sorted(pairs, key=lambda x: x[1])[:400]
+    if not pairs:
+        st.warning("No hay universo cargado o no hay coincidencias.")
+        return
+    labels = [p[0] for p in pairs]
+    label_map = dict(pairs)
     sel = st.selectbox("Elegí el activo", labels, key="ca_cedear_sel")
     ticker = label_map.get(sel, str(sel).split("—")[0].strip())
     ccl = float(ctx.get("ccl") or 1.0)
     precios = ctx.get("precios_dict") or {}
-    precio_ref = float(precios.get(ticker, 0.0) or 0.0)
+    precio_ref_ars = float(precios.get(ticker, 0.0) or 0.0)
+    precio_ref_usd_mep = (precio_ref_ars / ccl) if ccl and precio_ref_ars > 0 else 0.0
+
+    moneda_px = st.radio(
+        "¿En qué moneda cargás el precio pagado por cuotaparte?",
+        ("Pesos (ARS)", "USD MEP (dólar CCL)"),
+        index=0,
+        horizontal=True,
+        key="ca_cedear_moneda",
+        help="Por defecto **pesos**, como cotiza en BYMA. Elegí **USD MEP** si querés cargar "
+        "el precio en dólares contado con liqui (misma referencia que el CCL del panel).",
+    )
+    es_usd_mep = moneda_px.startswith("USD")
+
     c1, c2, c3 = st.columns(3)
     with c1:
         cant = st.number_input("¿Cuántas unidades?", min_value=0.0, value=0.0, step=1.0, key="ca_cedear_cant")
     with c2:
-        px = st.number_input(
-            "¿A cuánto pagaste el activo (USD)?",
-            min_value=0.0,
-            value=0.0,
-            step=0.01,
-            key="ca_cedear_px",
-            help="Precio en dólares por papel, como figura en el boleto. "
-            "Lo pasamos a pesos con el CCL de hoy para estimar; al guardar usás el precio que cargaste.",
-        )
+        if es_usd_mep:
+            px = st.number_input(
+                "Precio unitario (USD MEP)",
+                min_value=0.0,
+                value=0.0,
+                step=0.01,
+                key="ca_cedear_px",
+                help="Dólares MEP por cuotaparte (contado con liqui). Se convierte a ARS con el CCL del panel.",
+            )
+        else:
+            px = st.number_input(
+                "Precio unitario (ARS)",
+                min_value=0.0,
+                value=0.0,
+                step=1.0,
+                key="ca_cedear_px",
+                help="Pesos pagados por cuotaparte, como en tu broker (BYMA).",
+            )
     with c3:
         fc = st.date_input("¿Cuándo?", value=date.today(), key="ca_cedear_fecha")
-    ppc_usd = px
-    ppc_ars = px * ccl
-    if px > 0 and precio_ref > 0 and px > precio_ref * 3:
-        st.warning(f"¿Seguro? **{ticker}** cotiza cerca de USD {precio_ref:,.2f} según la última lectura.")
+
+    if es_usd_mep:
+        ppc_usd = float(px)
+        ppc_ars = float(px) * ccl
+        if px > 0 and precio_ref_usd_mep > 0 and px > precio_ref_usd_mep * 3:
+            st.warning(
+                f"¿Seguro? **{ticker}** ronda **USD MEP ~{precio_ref_usd_mep:,.2f}** por cuotaparte "
+                "(referencia con tu CCL actual)."
+            )
+    else:
+        ppc_ars = float(px)
+        ppc_usd = round(float(px) / ccl, 8) if ccl else 0.0
+        if px > 0 and precio_ref_ars > 0 and px > precio_ref_ars * 3:
+            st.warning(
+                f"¿Seguro? **{ticker}** cotiza cerca de **ARS {precio_ref_ars:,.0f}** según la última lectura."
+            )
+
     monto_ars = cant * ppc_ars
-    st.info(f"Vista previa: **USD {cant * px:,.2f}** → **ARS {monto_ars:,.0f}** (CCL {ccl:,.0f}).")
+    if es_usd_mep:
+        st.info(
+            f"Vista previa: **USD MEP {cant * float(px):,.2f}** → **ARS {monto_ars:,.0f}** "
+            f"(CCL {ccl:,.0f})."
+        )
+    else:
+        st.info(
+            f"Vista previa: **ARS {monto_ars:,.0f}** "
+            f"(~ **USD MEP {cant * ppc_usd:,.2f}** al CCL {ccl:,.0f})."
+        )
     tipo_u = "ETF"
     udf = ctx.get("universo_df")
     ct = _ticker_col_univ(udf)
@@ -239,6 +353,7 @@ def _render_carga_cedear(ctx: dict) -> None:
             "PPC_ARS": round(ppc_ars, 4),
             "TIPO": tipo_u,
             "LAMINA_VN": float("nan"),
+            "MONEDA_PRECIO": "USD_MEP" if es_usd_mep else "ARS",
         }], modo=st.session_state.get("ca_merge_mode", "agregar"))
 
 
@@ -483,7 +598,9 @@ def _render_importar_broker(ctx: dict) -> None:
                     st.error("No quedaron filas COMPRA válidas.")
                 else:
                     _persist_filas(ctx, filas, modo=modo)
-    plantilla = "CARTERA,FECHA_COMPRA,TICKER,CANTIDAD,PPC_USD,PPC_ARS,TIPO,LAMINA_VN\n"
+    plantilla = (
+        "CARTERA,FECHA_COMPRA,TICKER,CANTIDAD,PPC_USD,PPC_ARS,TIPO,LAMINA_VN,MONEDA_PRECIO\n"
+    )
     st.download_button(
         "Descargar plantilla CSV",
         data=plantilla,

@@ -74,8 +74,8 @@ def render_tab_optimizacion(ctx: dict) -> None:
             "para armar la matriz de covarianza y el histórico conjunto."
         )
         st.markdown(
-            "**Próximo paso:** en **Cartera y Libro Mayor** cargá el depósito inicial "
-            "o importá las posiciones del cliente."
+            "**¿Qué hacer?** Cargá al menos una posición en "
+            "**📂 Cartera → Libro mayor → Importar del broker**."
         )
         return
 
@@ -90,6 +90,12 @@ def render_tab_optimizacion(ctx: dict) -> None:
     horizonte_label  = ctx.get("horizonte_label", "1 año")
     cliente_perfil   = ctx.get("cliente_perfil", "Moderado")
     _is_viewer       = str(ctx.get("user_role", "admin")).lower() == "viewer"
+
+    _preset_suite = st.session_state.get("mq26_asesor_suite_preset")
+    if _preset_suite:
+        st.caption(
+            f"Preset suite asesor en sesión: **{_preset_suite}** (solo precarga de controles en Comparativa)."
+        )
 
     sub_comp, sub_lab, sub_ef, sub_bt, sub_multi = st.tabs([
         "📊 Comparativa Actual vs Óptima",
@@ -261,7 +267,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
                 mod_co     = st.session_state.get("modelo_comp", "Sharpe")
 
                 # Tabla de pesos lado a lado
-                st.markdown("---")
+                st.divider()
                 df_comp_pesos = pd.DataFrame({
                     "Ticker":        tickers_co,
                     "Peso Actual %": [round(pesos_act.get(t,0)*100, 2) for t in tickers_co],
@@ -306,7 +312,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
                 ret_a_ac, vol_a_ac, sh_ac, so_ac, mdd_ac, r_ac = _metricas(w_act)
                 ret_a_op, vol_a_op, sh_op, so_op, mdd_op, r_op = _metricas(w_opt)
 
-                st.markdown("---")
+                st.divider()
                 st.markdown("#### 📊 Métricas comparativas")
                 col_m1, col_m2 = st.columns(2)
                 with col_m1:
@@ -323,7 +329,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
                     st.metric("Max Drawdown",   f"{mdd_op:.1%}",  f"{(mdd_op-mdd_ac)*100:.1f}pp")
 
                 # Radar chart
-                st.markdown("---")
+                st.divider()
                 st.markdown("#### 🕸️ Radar comparativo")
                 _met_r  = ["Retorno", "Sharpe", "Sortino", "Max DD (inv)", "Volatilidad (inv)"]
                 _vals_r = [
@@ -345,7 +351,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
                 st.plotly_chart(fig_r2, use_container_width=True)
 
                 # Equity curves comparativas
-                st.markdown("---")
+                st.divider()
                 st.markdown("#### 📈 Equity Curves — Actual vs Óptima vs Benchmark")
                 eq_ac = np.cumprod(1 + r_ac) * 100
                 eq_op = np.cumprod(1 + r_op) * 100
@@ -757,7 +763,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
         st.subheader("📈 Frontera Eficiente de Markowitz")
         st.caption("Ejecutá el Lab Quant primero para cargar el histórico.")
     # Frontera Eficiente (S2: RiskEngine.efficient_frontier + slider)
-        st.markdown("---")
+        st.divider()
         st.markdown("### 🌐 Frontera Eficiente de Markowitz")
         n_pts_fe = st.slider("Granularidad (puntos)", min_value=20, max_value=100, value=60, step=10, key="ef_n_puntos")
         try:
@@ -897,7 +903,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
             else:
                 st.info("Sin pesos activos. Ejecutá el Lab Quant o la Comparativa primero.")
 
-        st.markdown("---")
+        st.divider()
         st.info(
             "Los pesos del modelo activo se propagan automáticamente a:\n"
             "- **Tab 4: Riesgo & Simulación** → Backtest y Montecarlo\n"
@@ -969,7 +975,7 @@ def _renderizar_resultados(ctx: dict) -> None:
         st.warning("Rol **visor**: no podés exportar archivos (Excel/PDF) desde el Lab.")
 
     # Tabla comparativa de métricas
-    st.markdown("---")
+    st.divider()
     st.markdown("### 📊 Comparación de métricas")
 
     filas_met = []
@@ -1084,7 +1090,7 @@ def _renderizar_resultados(ctx: dict) -> None:
                 st.error(f"Error generando PDF: {_e_pdf}")
 
     # Radar chart
-    st.markdown("---")
+    st.divider()
     st.markdown("### 🕸️ Radar comparativo")
 
     _met_radar = ["Sharpe","Sortino","Retorno anual","Volatilidad","Max Drawdown","HHI"]
@@ -1111,7 +1117,7 @@ def _renderizar_resultados(ctx: dict) -> None:
     st.plotly_chart(fig_radar, use_container_width=True)
 
     # Tabla de pesos
-    st.markdown("---")
+    st.divider()
     st.markdown("### ⚖️ Pesos asignados por modelo")
 
     df_pesos_comp = pd.DataFrame(
@@ -1135,7 +1141,7 @@ def _renderizar_resultados(ctx: dict) -> None:
     )
 
     # Equity curves superpuestas
-    st.markdown("---")
+    st.divider()
     st.markdown("### 📈 Equity curves históricas — todos los modelos")
 
     fig_eq = go.Figure()
@@ -1161,7 +1167,7 @@ def _renderizar_resultados(ctx: dict) -> None:
     st.plotly_chart(fig_eq, use_container_width=True)
 
     # Frontera Eficiente (S2: RiskEngine.efficient_frontier + slider)
-    st.markdown("---")
+    st.divider()
     st.markdown("### 🌐 Frontera Eficiente de Markowitz")
     n_pts_fe = st.slider("Granularidad (puntos)", min_value=20, max_value=100, value=60, step=10, key="ef_n_puntos_lab_results")
     try:
@@ -1262,7 +1268,7 @@ def _renderizar_resultados(ctx: dict) -> None:
         st.warning(f"No se pudo dibujar la frontera: {e}")
 
     # Selector de modelo activo
-    st.markdown("---")
+    st.divider()
     st.markdown("### 🎯 Modelo activo para Backtest / Stress Test / Ejecución")
 
     col_sel1, col_sel2 = st.columns([2, 3])
@@ -1304,6 +1310,34 @@ def _renderizar_resultados(ctx: dict) -> None:
         st.dataframe(
             df_disp.style.format({"Peso %": "{:.2f}%"}), use_container_width=True, hide_index=True,
         )
+        try:
+            from services.portfolio_snapshot import guardar_snapshot
+            snap_pesos = {}
+            if df_disp is not None and not df_disp.empty:
+                for _, rw in df_disp.iterrows():
+                    t = str(rw.get("Activo", rw.get("Ticker", rw.get("TICKER", "")))).strip().upper()
+                    p = float(rw.get("Peso %", rw.get("peso", 0)) or 0)
+                    if t:
+                        snap_pesos[t] = round(p / 100.0, 6)
+            _snap_met = {
+                k: float(v) for k, v in (r_sel or {}).items()
+                if isinstance(v, (int, float))
+            }
+            guardar_snapshot(
+                cartera=str(ctx.get("cartera_activa", "")),
+                modelo=str(modelo_elegido),
+                pesos=snap_pesos,
+                metricas=_snap_met,
+                cliente_id=ctx.get("cliente_id"),
+            )
+            _try_registrar_optimization_audit(
+                ctx,
+                accion="snapshot_guardado",
+                modelo=str(modelo_elegido),
+                pesos=snap_pesos,
+            )
+        except Exception:
+            pass
         st.caption(f"Modelo activo usado en Backtest y Stress Test: **{modelo_elegido}**")
 
     # ── TAB: BACKTEST MULTI-MODELO ────────────────────────────────────────────
@@ -1445,7 +1479,7 @@ def _renderizar_resultados(ctx: dict) -> None:
                             st.caption(f"Indicadores no disponibles: {e}")
 
                 # ── Botón para activar el modelo ganador ───────────────────
-                st.markdown("---")
+                st.divider()
                 col_act1, col_act2 = st.columns([2, 1])
                 with col_act1:
                     modelo_activar = st.selectbox(

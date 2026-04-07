@@ -12,35 +12,35 @@ def participacion_txt(pct: float) -> str:
 
 
 def defensivo_vs_perfil(pct_actual_pct: float, pct_objetivo_pct: float, perfil: str) -> str:
-    """pct_* en escala 0–100."""
+    """pct_* en escala 0–100. Copy alineado a RF (antes “defensivo” en UI legacy)."""
     p = (perfil or "Moderado").strip()
     if pct_actual_pct + 0.5 >= pct_objetivo_pct:
         return (
-            f"Tu parte **defensiva** está en **{pct_actual_pct:.0f}%** "
-            f"— en línea con lo que buscá un perfil **{p}** (objetivo ~{pct_objetivo_pct:.0f}%)."
+            f"Tu **renta fija** está en **{pct_actual_pct:.0f}%** del patrimonio "
+            f"— en línea con el target de un perfil **{p}** (~{pct_objetivo_pct:.0f}% RF)."
         )
     falt = pct_objetivo_pct - pct_actual_pct
     return (
-        f"Tu parte **defensiva** está en **{pct_actual_pct:.0f}%**; "
-        f"para tu perfil **{p}** conviene acercarte a **{pct_objetivo_pct:.0f}%** "
-        f"(faltan ~{falt:.0f} puntos)."
+        f"Tu **renta fija** está en **{pct_actual_pct:.0f}%**; "
+        f"para un perfil **{p}** conviene acercarte a ~**{pct_objetivo_pct:.0f}%** RF "
+        f"(faltan ~{falt:.0f} puntos; el resto es renta variable u otros activos)."
     )
 
 
 def patrimonio_dual_line(valor_usd: float, valor_ars: float, ccl: float) -> str:
-    """Una línea para caption o métrica secundaria."""
+    """Una línea para caption: primero pesos (cotización local), USD como referencia."""
     c = max(float(ccl or 0.0), 1e-9)
     return (
-        f"Patrimonio: **USD {valor_usd:,.0f}** · **ARS {valor_ars:,.0f}** "
-        f"(CCL hoy {c:,.0f})"
+        f"Patrimonio: **ARS {valor_ars:,.0f}** (~ **USD {valor_usd:,.0f}**) "
+        f"· CCL {c:,.0f}"
     )
 
 
 def antes_despues_defensivo(antes_pct: float, despues_pct: float) -> str:
-    """Mensaje tras una carga exitosa. Escala 0–100."""
+    """Mensaje tras una carga exitosa. Escala 0–100 (participación RF)."""
     return (
-        f"Tras esta operación, tu parte defensiva pasó de **{antes_pct:.0f}%** "
-        f"a **{despues_pct:.0f}%**."
+        f"Tras esta operación, tu **renta fija** pasó de **{antes_pct:.0f}%** "
+        f"a **{despues_pct:.0f}%** del patrimonio."
     )
 
 
@@ -49,7 +49,10 @@ def titulo_seccion_resumen(nombre: str) -> str:
 
 
 def ayuda_precio_cedear() -> str:
-    return "Precio en **dólares** por acción/ETF, como en el boleto del broker. Nosotros convertimos a pesos con el CCL."
+    return (
+        "En Argentina operás en **pesos**: el precio de cada CEDEAR es el de la bolsa local "
+        "(ARS por cuotaparte). Mostramos también una **referencia en USD** cuando ayuda a comparar."
+    )
 
 
 def historial_meses_copy() -> str:

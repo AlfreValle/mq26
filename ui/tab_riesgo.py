@@ -9,6 +9,46 @@ import plotly.graph_objects as go
 import streamlit as st
 
 
+# ── Glosario de métricas de riesgo en lenguaje humano (U39 Must) ─────────
+_GLOSARIO_RIESGO = {
+    "VaR 95%": (
+        "En el 95% de los días, la cartera no pierde más de este monto. "
+        "En el 5% peor, puede perder más."
+    ),
+    "CVaR / Expected Shortfall": (
+        "Pérdida promedio en el peor 5% de días. Más conservador que el VaR."
+    ),
+    "Sharpe": (
+        "Retorno por unidad de riesgo. Sharpe > 1 es bueno; > 2, excelente."
+    ),
+    "Sortino": (
+        "Como Sharpe, pero penaliza solo las caídas (volatilidad negativa)."
+    ),
+    "Max Drawdown": (
+        "Caída máxima desde el pico hasta el valle en el período. "
+        "-20% = la cartera cayó 20% desde su máximo."
+    ),
+    "Beta": (
+        "Sensibilidad al mercado. Beta = 1: se mueve igual que el S&P 500. "
+        "Beta < 1: más estable."
+    ),
+    "Volatilidad anualizada": (
+        "Dispersión del retorno. < 10%: estable. 10-20%: normal. > 20%: alta variabilidad."
+    ),
+    "Calmar": (
+        "Retorno anualizado dividido por el Max Drawdown. "
+        "Mide eficiencia ajustada al riesgo de caída."
+    ),
+}
+# Compat: tooltips y código que aún busque la clave corta "CVaR"
+GLOSARIO_RIESGO = dict(_GLOSARIO_RIESGO)
+GLOSARIO_RIESGO["CVaR"] = _GLOSARIO_RIESGO["CVaR / Expected Shortfall"]
+
+
+def _tooltip_riesgo(metrica: str) -> str:
+    return _GLOSARIO_RIESGO.get(metrica, GLOSARIO_RIESGO.get(metrica, ""))
+
+
 def _run_montecarlo(w, ret_d, tickers_ok, n_sim, horiz, shock_ret, shock_vol, rf,
                     rng: np.random.Generator | None = None):
     """Helper: ejecuta Montecarlo y devuelve (ret_finales, valores, métricas)."""
@@ -36,6 +76,13 @@ def _run_montecarlo(w, ret_d, tickers_ok, n_sim, horiz, shock_ret, shock_vol, rf
 
 
 def render_tab_riesgo(ctx: dict) -> None:
+    _glos_visto = st.session_state.get("riesgo_glosario_visto", False)
+    with st.expander("📖 Guía de métricas de riesgo", expanded=not _glos_visto):
+        for _met, _desc in _GLOSARIO_RIESGO.items():
+            st.markdown(f"**{_met}:** {_desc}")
+        st.session_state["riesgo_glosario_visto"] = True
+    st.markdown("")
+
     df_ag_guard = ctx.get("df_ag")
     if df_ag_guard is None or df_ag_guard.empty:
         st.info(
@@ -49,6 +96,7 @@ def render_tab_riesgo(ctx: dict) -> None:
         return
 
     RISK_FREE_RATE   = ctx["RISK_FREE_RATE"]
+
     N_SIM_DEFAULT    = ctx["N_SIM_DEFAULT"]
     df_ag            = ctx["df_ag"]
     tickers_cartera  = ctx["tickers_cartera"]
@@ -190,7 +238,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                                 st.warning(f"⚠️ Datos caché para {benchmark_bt}.")
 
                             # Métricas comparativas
-                            st.markdown("---")
+                            st.divider()
                             col_lbl, col_opt, col_actm, col_bench = st.columns([1,2,2,2])
                             col_lbl.markdown("**Métrica**")
                             col_opt.markdown(f"**Óptima ({modelo_opt})**")
@@ -316,7 +364,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                                     esc["shock_ret"], esc["shock_vol"], RISK_FREE_RATE, rng=_mc_rng_act)
 
                             # Métricas comparativas
-                            st.markdown("---")
+                            st.divider()
                             df_met_mc = pd.DataFrame({
                                 "Métrica": ["VaR 95%", "CVaR 95%", "Max DD 95%", "Retorno Medio", "Sharpe Sim."],
                                 f"Óptima ({modelo_opt})": [
@@ -1105,7 +1153,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                             "pct_perdida": st.column_config.NumberColumn("Pérdida %", format="%.1f%%"),
                         },
                     )
-                st.markdown("---")
+                st.divider()
                 st.markdown("**Escenario custom**")
                 c1, c2 = st.columns(2)
                 with c1:

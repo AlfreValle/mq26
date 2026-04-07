@@ -5,6 +5,7 @@ Sin Streamlit. Salida HTML con estilos para impresión (Ctrl+P → PDF).
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 import numpy as np
@@ -247,6 +248,7 @@ def generar_reporte_inversor(
     if diagnostico.valor_cartera_usd > 0:
         valor_usd = diagnostico.valor_cartera_usd
     pnl_pct = float(diagnostico.rendimiento_ytd_usd_pct or 0.0)
+    _anio = datetime.now().year
 
     obs_html = ""
     for o in obs_show:
@@ -293,7 +295,12 @@ def generar_reporte_inversor(
       {accion_html}
       {_proyeccion_barras_html(diagnostico.perfil, aporte_mensual_usd, horizon_meses)}
       <footer class="disc">
-        Este informe es informativo y no constituye asesoramiento financiero.
+        <p>Este informe es <strong>meramente informativo</strong> y no constituye asesoramiento
+        financiero personalizado, diagnóstico fiscal ni recomendación de compra o venta
+        de instrumentos negociables.</p>
+        <p>Los rendimientos y escenarios mostrados son ilustrativos; resultados pasados
+        o simulados no garantizan desempeños futuros.</p>
+        <p class="foot-brand">Master Quant · {_anio}</p>
       </footer>
     </article>
     """
@@ -356,7 +363,7 @@ def generar_reporte_institucional(
     anexo = f"""
     <section class="sa">
       <h2>Metodología y parámetros</h2>
-      <p>Pisos defensivos y límites de concentración provienen de tablas internas MQ26 (perfil × horizonte).</p>
+      <p>Targets de renta fija / renta variable y límites de concentración provienen de las reglas MQ26 (perfil × horizonte; versión publicada en el diagnóstico).</p>
       <p>Fuentes de datos: precios y series de mercado (proveedores configurados), BCRA/datos públicos AR según módulo.</p>
       <h3>Disclaimer regulatorio</h3>
       <p>Este documento no es una recomendación personalizada ni oferta pública. Las decisiones de inversión son exclusiva responsabilidad del destinatario.</p>
@@ -400,6 +407,9 @@ def _html_doc(title: str, body: str, compact: bool) -> str:
     .tbl{width:100%;border-collapse:collapse;margin:12px 0;}
     .tbl th,.tbl td{border:1px solid #ccc;padding:6px;text-align:left;}
     .disc,.muted{font-size:0.85rem;color:#555;margin-top:24px;}
+    .disc p{margin:0 0 0.65rem 0;line-height:1.45;}
+    .disc p:last-child{margin-bottom:0;}
+    .foot-brand{font-size:0.82rem;font-weight:600;color:#333;margin-top:10px;}
     .alert{background:#fff3e0;padding:12px;border-radius:6px;}
     .chart3{max-width:100%;height:auto;margin:12px 0;display:block;}
     """

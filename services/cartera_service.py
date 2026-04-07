@@ -69,7 +69,7 @@ PRECIOS_FALLBACK_ARS: dict[str, float] = {
     "ABBV": 33140, "CAT": 51525, "COST": 30020, "CVX": 17420,
     "KO":   22540, "LMT": 47180, "VALE": 11140, "VIST": 28740,
     # Bull Market / Reto 2026
-    "AAPL": 18500, "AMZN":  2100, "BRKB": 31000, "GLD": 12800,
+    "AAPL": 18500, "AMZN":  2750, "BRKB": 31000, "GLD": 12800,
     "MELI": 22000, "META":  37000, "MSFT": 18500, "SPY": 48000,
     "UNH":  12000,
     # Santi
@@ -190,6 +190,63 @@ def resolver_precios(
         logger.debug("resolver_precios ON fallback: %s", _e_rf)
 
     return resultado
+
+
+
+def resolver_precios_con_origen(
+    tickers: list[str],
+    precios_live: dict[str, float],
+    ccl: float,
+    universo_df: pd.DataFrame | None = None,
+) -> dict[str, tuple[float, str]]:
+    """
+    Igual jerarquía que ``resolver_precios`` pero retorna (precio_ars, origen).
+    Origen: 'live' | 'fallback_bd' | 'paridad_rf' | 'sin_dato'
+    """
+    _cargar_fallback_desde_bd()
+    resultado: dict[str, tuple[float, str]] = {}
+    byma_px: dict[str, float] = {}
+    try:
+        from core.data_providers import BYMA_FIRST
+        from services.byma_provider import fetch_precios_ars_batch
+
+        if BYMA_FIRST and tickers:
+            byma_px = fetch_precios_ars_batch([str(x) for x in tickers if x])
+    except Exception:
+        byma_px = {}
+
+    for t in tickers:
+        tu = str(t).upper().strip() if t else ""
+        if not tu:
+            continue
+        live = float(precios_live.get(t, 0.0) or precios_live.get(tu, 0.0) or 0.0)
+        if live <= 0:
+            live = float(byma_px.get(tu, 0.0) or 0.0)
+        if live > 0:
+            resultado[tu] = (live, "live")
+            continue
+        fallback = float(PRECIOS_FALLBACK_ARS.get(tu, 0.0) or PRECIOS_FALLBACK_ARS.get(t, 0.0) or 0.0)
+        if fallback > 0:
+            resultado[tu] = (fallback, "fallback_bd")
+            continue
+        try:
+            from core.renta_fija_ar import get_meta
+
+            ccl_f = float(ccl or 0.0)
+            meta = get_meta(tu)
+            if meta:
+                paridad = float(meta.get("paridad_ref", 100.0))
+                moneda = str(meta.get("moneda", "USD")).upper()
+                precio = (paridad / 100.0) * ccl_f if moneda == "USD" else paridad
+                if precio > 0:
+                    resultado[tu] = (precio, "paridad_rf")
+                    continue
+        except Exception:
+            pass
+        resultado[tu] = (0.0, "sin_dato")
+
+    return resultado
+
 
 
 def rellenar_precios_desde_ultimo_ppc(

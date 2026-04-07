@@ -122,7 +122,7 @@ def render_tab_ledger(ctx: dict) -> None:
         if "gmail_mensajes_bull" not in st.session_state:
             st.session_state["gmail_mensajes_bull"] = []
 
-        st.markdown("---")
+        st.divider()
         st.markdown("#### 📋 O pegá el cuerpo de un correo manualmente")
         col_paste1, col_paste2 = st.columns(2)
         with col_paste1:

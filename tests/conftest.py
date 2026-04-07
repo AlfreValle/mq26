@@ -4,6 +4,7 @@ Usa SQLite en memoria para no tocar la BD de producción.
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -26,6 +27,27 @@ os.environ.setdefault("MQ26_PASSWORD", "test_password_123")
 os.environ.setdefault("SQLITE_PATH", ":memory:")
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _favoritos_mes_aislado(tmp_path, monkeypatch):
+    """Evita que tests lean favoritos reales del workspace."""
+    p = tmp_path / "mq26_favoritos_mes.json"
+    p.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "rf": [],
+                "rv": [],
+                "published_at": "",
+                "published_by": "",
+                "disclaimer": "",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MQ26_FAVORITOS_MES_PATH", str(p))
 
 @pytest.fixture(scope="session")
 def db_en_memoria():

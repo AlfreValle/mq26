@@ -5,6 +5,7 @@ Rediseño v9: hero minimalista, cards limpias, feedback inmediato.
 from __future__ import annotations
 
 import html as html_module
+from datetime import datetime
 
 import streamlit as st
 
@@ -42,13 +43,13 @@ def render_pantalla_ingreso(dbm, app_title: str = "MQ26",
             letter-spacing:-0.03em;
             color:#f1f5f9;
             margin:0 0 0.4rem 0;
-        ">{_title} Terminal</h1>
+        ">Master Quant</h1>
         <p style="
             font-size:0.8125rem;
             color:#4b5563;
             margin:0;
             letter-spacing:0.01em;
-        ">Seleccioná un cliente para comenzar</p>
+        ">¿Con qué cartera trabajamos hoy?</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -259,14 +260,15 @@ def render_pantalla_ingreso(dbm, app_title: str = "MQ26",
                     st.rerun()
 
     # ── MEJORA 49: Footer de versión ──────────────────────────────────────────
-    st.markdown("""
+    _y = datetime.now().year
+    st.markdown(f"""
     <div style="
         text-align:center;
         padding-top:3rem;
         padding-bottom:1rem;
     ">
         <span style="font-size:0.65rem;color:#1f2937;letter-spacing:0.08em;">
-            MQ26 · V8 · BYMA/CEDEARs
+            Master Quant · {_y}
         </span>
     </div>
     """, unsafe_allow_html=True)

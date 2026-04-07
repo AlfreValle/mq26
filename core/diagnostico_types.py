@@ -56,9 +56,11 @@ def perfil_motor_salida(perfil: str) -> str:
 
 
 def perfil_diagnostico_valido(perfil: str) -> str:
-    """Fallback Moderado si el perfil no está en tablas S5."""
+    """Fallback Moderado si el perfil no está en la SSOT de targets RF/RV."""
+    from core.perfil_allocation import perfil_en_targets
+
     p = (perfil or "").strip()
-    if p in PISO_DEFENSIVO:
+    if perfil_en_targets(p):
         return p
     return "Moderado"
 
@@ -114,6 +116,10 @@ class DiagnosticoResult:
     valor_cartera_usd: float = 0.0
     n_posiciones: int = 0
     modo_fallback: bool = False
+
+    # Paz mental RF/RV: `pct_defensivo_*` = fracción Renta Fija; `pct_rv_*` derivable como 1-RF si aplica.
+    pct_rv_actual: float = 0.0
+    ruleset_version: str = ""
 
 
 # ── Ítem individual de recomendación ────────────────────────────────────────
@@ -327,75 +333,79 @@ CATEGORIAS_DEFENSIVAS: frozenset[CategoriaActivo] = frozenset({
     CategoriaActivo.RENTA_FIJA_AR,
 })
 
+# Legacy: misma fracción que target RF SSOT (core/perfil_allocation). Preferir perfil_allocation allí.
 PISO_DEFENSIVO: dict[str, float] = {
-    "Conservador": 0.50,
-    "Moderado": 0.40,
-    "Arriesgado": 0.30,
-    "Muy arriesgado": 0.20,
+    "Conservador": 0.60,
+    "Moderado": 0.50,
+    "Arriesgado": 0.35,
+    "Muy arriesgado": 0.30,
 }
 
 LIMITE_CONCENTRACION: dict[str, float] = {
     "Conservador": 0.20,
     "Moderado": 0.25,
     "Arriesgado": 0.30,
-    "Muy arriesgado": 0.35,
+    "Muy arriesgado": 0.15,
 }
 
 BENCHMARK_RENDIMIENTO: dict[str, float] = {
-    "Conservador": 0.06,
-    "Moderado": 0.09,
-    "Arriesgado": 0.12,
-    "Muy arriesgado": 0.15,
+    "Conservador": 0.055,
+    "Moderado": 0.085,
+    "Arriesgado": 0.115,
+    "Muy arriesgado": 0.145,
 }
 
 AJUSTE_HORIZONTE_CORTO: frozenset[str] = frozenset({"1 mes", "3 meses", "6 meses"})
 
+# Core & Satélite: RF explícita (ON + bucket soberanos/liquidez vía _RENTA_AR) + RV (GLD cuenta como activo alternativo/RV, no RF AR).
 CARTERA_IDEAL: dict[str, dict[str, float]] = {
+    # Suma 1. RF ≈60% (_RENTA_AR+ONs); RV ≈40% (GLD/BRKB/SPY). Alineado a TARGET_RF_RV_BY_PERFIL.
     "Conservador": {
-        "GLD": 0.15,
-        "INCOME": 0.10,
-        "SHY": 0.10,
-        "_RENTA_AR": 0.15,
-        "BRKB": 0.15,
-        "KO": 0.10,
-        "XOM": 0.10,
-        "SPY": 0.15,
+        "_RENTA_AR": 0.188,
+        "PN43O": 0.225,
+        "TLCTO": 0.187,
+        "GLD": 0.080,
+        "BRKB": 0.080,
+        "SPY": 0.240,
     },
     "Moderado": {
-        "GLD": 0.10,
-        "INCOME": 0.10,
-        "_RENTA_AR": 0.20,
-        "BRKB": 0.10,
-        "SPY": 0.15,
+        "_RENTA_AR": 0.15,
+        "PN43O": 0.20,
+        "TLCTO": 0.15,
+        "GLD": 0.05,
+        "BRKB": 0.08,
+        "SPY": 0.12,
         "MSFT": 0.10,
-        "GOOGL": 0.10,
-        "AMZN": 0.08,
-        "MELI": 0.07,
+        "GOOGL": 0.08,
+        "AMZN": 0.07,
     },
     "Arriesgado": {
-        "GLD": 0.10,
-        "BRKB": 0.05,
-        "_RENTA_AR": 0.15,
+        "_RENTA_AR": 0.10,
+        "PN43O": 0.12,
+        "TLCTO": 0.13,
+        "GLD": 0.03,
+        "BRKB": 0.04,
         "SPY": 0.10,
         "MSFT": 0.10,
-        "AMZN": 0.10,
+        "AMZN": 0.09,
         "NVDA": 0.10,
-        "META": 0.10,
+        "META": 0.09,
         "MELI": 0.10,
-        "GOOGL": 0.10,
     },
     "Muy arriesgado": {
-        "GLD": 0.10,
         "_RENTA_AR": 0.10,
-        "SPY": 0.10,
-        "MSFT": 0.10,
-        "NVDA": 0.12,
-        "META": 0.10,
-        "MELI": 0.10,
-        "AMZN": 0.08,
-        "VIST": 0.10,
-        "PLTR": 0.05,
-        "IVW": 0.05,
+        "PN43O": 0.10,
+        "TLCTO": 0.10,
+        "GLD": 0.02,
+        "SPY": 0.09,
+        "MSFT": 0.09,
+        "NVDA": 0.13,
+        "META": 0.09,
+        "MELI": 0.08,
+        "AMZN": 0.07,
+        "VIST": 0.08,
+        "PLTR": 0.04,
+        "IVW": 0.01,
     },
 }
 
