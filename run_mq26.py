@@ -372,15 +372,19 @@ def cached_clientes_df(tenant_id: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def _df_clientes_scoped(tenant_id: str) -> pd.DataFrame:
+def _scope_clientes_df(df: pd.DataFrame) -> pd.DataFrame:
     """Filtra por mq26_allowed_cliente_ids si el login vino de BD (o deja todo si es None)."""
-    df = cached_clientes_df(tenant_id)
     allowed = st.session_state.get("mq26_allowed_cliente_ids")
     if allowed is None:
         return df
     if not allowed:
         return df.iloc[0:0].copy()
     return df[df["ID"].isin(allowed)].copy()
+
+
+def _df_clientes_scoped(tenant_id: str) -> pd.DataFrame:
+    """Lista de clientes del tenant con RBAC de sesión aplicado."""
+    return _scope_clientes_df(cached_clientes_df(tenant_id))
 
 
 # Alias explícito: si algún deploy antiguo aún llama _cached_clientes_ingreso(), existe en globals.
@@ -428,7 +432,9 @@ def _pantalla_ingreso():
             unsafe_allow_html=True,
         )
         try:
-            df_cli = _df_clientes_scoped(TENANT_ID)
+            # Línea canónica exigida por Dockerfile (build Railway): cache por tenant explícito.
+            df_cli = cached_clientes_df(TENANT_ID)
+            df_cli = _scope_clientes_df(df_cli)
         except Exception as _e:
             _log.exception("MQ26 pantalla ingreso: carga de clientes")
             st.error("No se pudo cargar la lista de clientes.")
