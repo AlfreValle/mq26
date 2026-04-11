@@ -196,7 +196,33 @@ class PriceEngine:
                 if r > 0:
                     self._ratios[t] = r
         self._fallback_hard: dict[str, float] = dict(PRECIOS_FALLBACK_ARS)
+        self._fallback_bd: dict[str, float] = {}
+        try:
+            from core.db_manager import obtener_precios_fallback
+            self._fallback_bd = {k.upper(): float(v) for k, v in (obtener_precios_fallback() or {}).items()}
+        except Exception:
+            self._fallback_bd = {}
         self._cache: dict[str, PriceRecord] = {}
+
+    def _reload_fallback_bd(self) -> None:
+        """Recarga precios persistidos en BD (útil cuando yfinance está degradado o tras edición admin)."""
+        try:
+            from core.db_manager import obtener_precios_fallback
+
+            cargados = obtener_precios_fallback() or {}
+            for k, v in cargados.items():
+                self._fallback_bd[str(k).upper()] = float(v)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _yfinance_habilitado() -> bool:
+        try:
+            from services.precio_cache_service import yfinance_disponible
+
+            return bool(yfinance_disponible())
+        except Exception:
+            return True
 
     def _yf_symbol_candidates(self, ticker: str) -> list[str]:
         """Símbolos a probar en yfinance (BYMA suele usar sufijo .BA en renta fija)."""
@@ -221,12 +247,16 @@ class PriceEngine:
         t = ticker.upper().strip()
         ratio = self._ratios.get(t, 1.0)
 
+        # Fase C motores: si el circuit breaker bloqueó yfinance, recargar BD antes de resolver
+        if not self._yfinance_habilitado():
+            self._reload_fallback_bd()
+
         from core.data_providers import BYMA_FIRST
 
         chain: list = []
         if BYMA_FIRST:
             chain.append(self._try_byma)
-        chain.extend([self._try_live, self._try_fallback_hard])
+        chain.extend([self._try_live, self._try_fallback_bd, self._try_fallback_hard])
         for source_fn in chain:
             rec = source_fn(t, ccl, ratio)
             if rec is not None:
@@ -342,6 +372,7 @@ class PriceEngine:
         try:
             from core.db_manager import obtener_precios_fallback
             cargados = obtener_precios_fallback()
+            self._fallback_bd.update({k.upper(): float(v) for k, v in (cargados or {}).items()})
             self._fallback_hard.update(cargados)
             return len(cargados)
         except Exception:
@@ -381,6 +412,9 @@ class PriceEngine:
         Retry: hasta 2 intentos con 0.3s de backoff entre ellos.
         Invariante: nunca lanza excepción — retorna None si ambos intentos fallan.
         """
+        if not self._yfinance_habilitado():
+            return None
+
         import time as _time
         from core.pricing_utils import es_instrumento_local_ars
 
@@ -443,6 +477,20 @@ class PriceEngine:
             precio_subyacente_usd=px_usd,
             ccl=ccl, ratio=ratio,
             source=PriceSource.FALLBACK_HARD,
+            timestamp=datetime.now(),
+        )
+
+    def _try_fallback_bd(self, ticker: str, ccl: float, ratio: float) -> PriceRecord | None:
+        """Usa último precio persistido en BD (si existe)."""
+        px_ars = float(self._fallback_bd.get(ticker, 0.0) or 0.0)
+        if px_ars <= 0:
+            return None
+        px_usd = (px_ars * ratio / ccl) if ccl > 0 and ratio > 0 else 0.0
+        return PriceRecord(
+            ticker=ticker, precio_cedear_ars=px_ars,
+            precio_subyacente_usd=px_usd,
+            ccl=ccl, ratio=ratio,
+            source=PriceSource.FALLBACK_BD,
             timestamp=datetime.now(),
         )
 

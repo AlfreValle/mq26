@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -85,7 +85,9 @@ def test_run_scores_batch_dry_run(monkeypatch, db_en_memoria, mod_scores):
 def test_reporte_html_contiene_filas(db_en_memoria, mod_reporte):
     from core.db_manager import upsert_score_historico
 
-    upsert_score_historico("ZZZ", date(2026, 4, 2), 50.0, 51.0, 52.0)
+    # Dentro de la ventana de _fetch_rows(7): since = hoy − 7 días
+    f_score = date.today() - timedelta(days=1)
+    upsert_score_historico("ZZZ", f_score, 50.0, 51.0, 52.0)
     rows = mod_reporte._fetch_rows(7)
     assert any(r["ticker"] == "ZZZ" for r in rows)
     html = mod_reporte.build_html(rows)

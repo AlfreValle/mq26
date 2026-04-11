@@ -35,21 +35,12 @@ def render_workflow_header(flow_resumen: dict[str, Any],
         "gray": "·", "lightgray": "·",
     }
     icon = icon_map.get(color, "·")
+    bb = f"{color_hex}33" if color_hex.startswith("#") and len(color_hex) == 7 else color_hex
 
     st.markdown(f"""
-    <div style="
-        background:{bg_hex};
-        border:1px solid {color_hex}33;
-        border-left:3px solid {color_hex};
-        border-radius:8px;
-        padding:0.6rem 1rem;
-        margin-bottom:0.75rem;
-        display:flex;
-        align-items:center;
-        gap:0.5rem;
-    ">
-        <span style="color:{color_hex};font-size:0.875rem;">{icon}</span>
-        <span style="font-size:0.8125rem;color:#f1f5f9;">
+    <div class="mq-wf-banner" style="--mq-wf-a:{color_hex};--mq-wf-bg:{bg_hex};--mq-wf-bb:{bb};">
+        <span class="mq-wf-banner__icon">{icon}</span>
+        <span class="mq-wf-banner__text">
             <strong>Siguiente:</strong> {msg}
         </span>
     </div>
@@ -64,29 +55,13 @@ def render_workflow_header(flow_resumen: dict[str, Any],
         paso  = flow_resumen.get(n, {})
         c     = paso.get("color", "gray")
         c_hex, bg = _PASO_COLORES.get(c, _PASO_COLORES["gray"])
+        br = f"{c_hex}44" if c_hex.startswith("#") and len(c_hex) == 7 else c_hex
         with cols[i]:
             st.markdown(f"""
-            <div style="
-                background:{bg};
-                border:1px solid {c_hex}44;
-                border-radius:8px;
-                padding:0.6rem 0.5rem;
-                text-align:center;
-            ">
-                <div style="font-size:1rem;margin-bottom:2px;">
-                    {paso.get('icon','⏳')}
-                </div>
-                <div style="
-                    font-size:0.65rem;font-weight:600;
-                    color:#4b5563;text-transform:uppercase;
-                    letter-spacing:0.05em;margin-bottom:2px;
-                ">Paso {n}</div>
-                <div style="font-size:0.7rem;color:#94a3b8;line-height:1.3;">
-                    {paso.get('name','—')}
-                </div>
-                <div style="
-                    font-size:0.65rem;font-weight:600;
-                    color:{c_hex};margin-top:3px;
-                ">{paso.get('label','—')}</div>
+            <div class="mq-wf-step" style="--mq-wf-a:{c_hex};--mq-wf-bg:{bg};--mq-wf-br:{br};">
+                <div class="mq-wf-step__icon">{paso.get('icon','⏳')}</div>
+                <div class="mq-wf-step__paso">Paso {n}</div>
+                <div class="mq-wf-step__name">{paso.get('name','—')}</div>
+                <div class="mq-wf-step__label">{paso.get('label','—')}</div>
             </div>
             """, unsafe_allow_html=True)

@@ -43,12 +43,13 @@ class TestRefactorCartera:
         assert callable(_render_libro_mayor)
 
     def test_render_tab_cartera_es_orquestador(self):
-        """render_tab_cartera delega a las 5 funciones privadas."""
+        """render_tab_cartera delega en sub-renderers (sin monolito)."""
         from ui.tab_cartera import render_tab_cartera
         src = inspect.getsource(render_tab_cartera)
+        assert "_render_resumen_cliente_cartera" in src
+        assert "_render_cobertura_precios" in src
         assert "_render_posicion_neta" in src
         assert "_render_rendimiento_tipo" in src
-        assert "_render_historial_timeline" in src
         assert "_render_vista_consolidada" in src
         assert "_render_libro_mayor" in src
 

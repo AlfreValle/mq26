@@ -274,12 +274,32 @@ def ppc_usd_desde_precio_ars(precio_ars: float, ticker: str, ccl: float) -> floa
 def ccl_historico_por_fecha(fecha_str: str, fallback: float | None = None) -> float:
     """
     Retorna el CCL estimado para un mes dado (formato 'AAAA-MM' o 'AAAA-MM-DD').
-    Si la fecha no está en el historial, usa ``fallback``.
-    Cuando fallback es None (por defecto), usa el CCL más reciente conocido del dict.
+    Si el mes no está en el historial, usa el último CCL con mes <= al pedido.
+    Si el mes es **posterior** al último dato del dict: con ``fallback`` explícito devuelve
+    ese valor; sin fallback, el último CCL publicado (no extrapola meses futuros).
     """
     key = str(fecha_str)[:7]
-    _default = fallback if fallback is not None else max(CCL_HISTORICO.values())
-    return float(CCL_HISTORICO.get(key, _default))
+    if key in CCL_HISTORICO:
+        return float(CCL_HISTORICO[key])
+
+    keys_sorted = sorted(CCL_HISTORICO.keys())
+    if not keys_sorted:
+        raise ValueError("CCL_HISTORICO vacío")
+
+    last_known = keys_sorted[-1]
+    # Mes posterior al último dato publicado: no extrapolar; fallback explícito o último CCL.
+    if key > last_known:
+        if fallback is not None:
+            return float(fallback)
+        return float(CCL_HISTORICO[last_known])
+
+    # Evita look-ahead: usa el último CCL conocido <= fecha solicitada.
+    prev_keys = [k for k in keys_sorted if k <= key]
+    if prev_keys:
+        return float(CCL_HISTORICO[prev_keys[-1]])
+
+    _default = fallback if fallback is not None else float(CCL_HISTORICO[keys_sorted[0]])
+    return float(_default)
 
 
 # ─── SECTORES ─────────────────────────────────────────────────────────────────

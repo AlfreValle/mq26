@@ -139,6 +139,23 @@ class Transaccion(Base):
     )
 
 
+class TransaccionalOperacion(Base):
+    """
+    P0-03: espejo tabular del transaccional CSV para dual-write controlado.
+    """
+    __tablename__ = "transaccional_operaciones"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cartera = Column(String(300), nullable=False)
+    fecha_compra = Column(Date, nullable=False)
+    ticker = Column(String(30), nullable=False, index=True)
+    cantidad = Column(Float, nullable=False)
+    ppc_usd = Column(Float, nullable=False, default=0.0)
+    ppc_ars = Column(Float, nullable=False, default=0.0)
+    tipo = Column(String(40), nullable=False, default="CEDEAR")
+    lamina_vn = Column(Float, nullable=True)
+    moneda_precio = Column(String(20), nullable=True, default="")
+
+
 class ObjetivosInversion(Base):
     """Objetivos de inversión persistidos por cliente.
     Permite trackear: 'Invertí $3M en AAPL por 1 mes para retiro parcial'.
@@ -219,6 +236,9 @@ GLOBAL_PARAM_AUDIT_KEYS = frozenset({
     "PESO_MAX",
 })
 
+# P1-ADM-01: eventos de panel super_admin en global_param_audit.param_key
+ADMIN_AUDIT_KEY_PREFIX = "ADMIN."
+
 # ─── INICIALIZACIÓN ───────────────────────────────────────────────────────────
 def init_db():
     """Crea tablas si no existen y aplica migraciones de columnas nuevas."""
@@ -298,7 +318,7 @@ _RAMAS_APP_USER = frozenset({"profesional", "retail"})
 
 class AppUsuario(Base):
     """
-    Usuario operativo MQ26: login por usuario/clave persistido (SHA-256 hex en password_hash).
+    Usuario operativo MQ26: login por usuario/clave persistido (bcrypt; legacy SHA-256 migrable).
     rol: super_admin | asesor | estudio | inversor
     rama: profesional (estudio/asesor/admin operativo) | retail (inversor típico)
     """
@@ -477,6 +497,8 @@ def _migrar_columnas_nuevas():
                 Base.metadata.tables["app_usuarios"].create(bind=engine)
             if "app_usuario_cliente" not in tablas:
                 Base.metadata.tables["app_usuario_cliente"].create(bind=engine)
+            if "transaccional_operaciones" not in tablas:
+                Base.metadata.tables["transaccional_operaciones"].create(bind=engine)
         except Exception as _e:
             logger.warning("Migración tablas nuevas: %s", _e)
 
@@ -617,11 +639,20 @@ def obtener_clientes_df(tenant_id: str = "default") -> pd.DataFrame:
         if "horizonte_label" in str(_qe):
             logger.warning("DB sin horizonte_label, ejecutando migración de emergencia...")
             _migrar_columnas_nuevas()
-            # Reintentar con query de texto puro para no depender del ORM
+            tid = (tenant_id or "default").strip() or "default"
+            # Misma semántica de tenant que el ORM (P0-TNT-01: sin listar todos los tenants).
             with engine.connect() as _conn:
-                _res = _conn.execute(text(
-                    "SELECT id, nombre, perfil_riesgo, capital_usd, tipo_cliente FROM clientes WHERE activo=1 ORDER BY id"
-                ))
+                if tid == "default":
+                    _res = _conn.execute(text(
+                        "SELECT id, nombre, perfil_riesgo, capital_usd, tipo_cliente FROM clientes "
+                        "WHERE activo=1 AND (tenant_id IS NULL OR tenant_id = '' OR tenant_id = 'default') "
+                        "ORDER BY id"
+                    ))
+                else:
+                    _res = _conn.execute(text(
+                        "SELECT id, nombre, perfil_riesgo, capital_usd, tipo_cliente FROM clientes "
+                        "WHERE activo=1 AND tenant_id = :tid ORDER BY id"
+                    ), {"tid": tid})
                 _rows = _res.fetchall()
             if not _rows:
                 return pd.DataFrame(columns=["ID", "Nombre", "Perfil", "Horizonte", "Capital_USD", "Tipo"])
@@ -633,15 +664,51 @@ def obtener_clientes_df(tenant_id: str = "default") -> pd.DataFrame:
         raise
 
 
-def actualizar_capital_cliente(id_cliente: int, nuevo_capital: float):
+def _tenant_norm(tenant_id: str | None = None) -> str:
+    tid = tenant_id if tenant_id is not None else os.getenv("MQ26_DB_TENANT_ID", "default")
+    return str(tid or "default").strip() or "default"
+
+
+def _cliente_pertenece_tenant(id_cliente: int, tenant_id: str | None = None) -> bool:
+    """
+    True si el cliente existe y pertenece al tenant (misma semántica que obtener_clientes_df).
+    Para tenant ``default`` acepta filas con tenant NULL/vacío/default.
+    """
+    tid = _tenant_norm(tenant_id)
     with get_session() as s:
-        c = s.query(Cliente).filter(Cliente.id == id_cliente).first()
-        if c:
-            c.capital_usd = nuevo_capital
+        q = s.query(Cliente.id).filter(Cliente.id == int(id_cliente))
+        if tid == "default":
+            q = q.filter(
+                or_(
+                    Cliente.tenant_id == "default",
+                    Cliente.tenant_id.is_(None),
+                    Cliente.tenant_id == "",
+                )
+            )
+        else:
+            q = q.filter(Cliente.tenant_id == tid)
+        return q.first() is not None
 
 
-def obtener_cliente(id_cliente: int) -> dict:
+def actualizar_capital_cliente(id_cliente: int, nuevo_capital: float, tenant_id: str | None = None):
+    cid = int(id_cliente)
+    with get_session() as s:
+        existe = s.query(Cliente.id).filter(Cliente.id == cid).first() is not None
+    if not existe:
+        return
+    if not _cliente_pertenece_tenant(cid, tenant_id):
+        raise ValueError(f"cliente_id {id_cliente} fuera de tenant")
+    with get_session() as s:
+        c = s.query(Cliente).filter(Cliente.id == cid).first()
+        if c is None:
+            return
+        c.capital_usd = nuevo_capital
+
+
+def obtener_cliente(id_cliente: int, tenant_id: str | None = None) -> dict:
     """Devuelve dict con datos del cliente o {} si no existe."""
+    if not _cliente_pertenece_tenant(int(id_cliente), tenant_id):
+        return {}
     try:
         with get_session() as s:
             c = s.query(Cliente).filter(Cliente.id == id_cliente).first()
@@ -655,10 +722,18 @@ def obtener_cliente(id_cliente: int) -> dict:
     except Exception as _qe:
         if "horizonte_label" in str(_qe):
             _migrar_columnas_nuevas()
+            tid = _tenant_norm(tenant_id)
             with engine.connect() as _conn:
-                _res = _conn.execute(text(
-                    "SELECT id, nombre, perfil_riesgo, capital_usd, tipo_cliente FROM clientes WHERE id=:cid"
-                ), {"cid": id_cliente})
+                if tid == "default":
+                    _res = _conn.execute(text(
+                        "SELECT id, nombre, perfil_riesgo, capital_usd, tipo_cliente FROM clientes "
+                        "WHERE id=:cid AND activo=1 AND (tenant_id IS NULL OR tenant_id = '' OR tenant_id = 'default')"
+                    ), {"cid": id_cliente})
+                else:
+                    _res = _conn.execute(text(
+                        "SELECT id, nombre, perfil_riesgo, capital_usd, tipo_cliente FROM clientes "
+                        "WHERE id=:cid AND activo=1 AND tenant_id = :tid"
+                    ), {"cid": id_cliente, "tid": tid})
                 _row = _res.fetchone()
             if not _row:
                 return {}
@@ -670,9 +745,18 @@ def obtener_cliente(id_cliente: int) -> dict:
         raise
 
 
-def actualizar_cliente(id_cliente: int, nombre: str, perfil: str,
-                       capital_usd: float, tipo: str, horizonte_label: str = "1 año"):
+def actualizar_cliente(
+    id_cliente: int,
+    nombre: str,
+    perfil: str,
+    capital_usd: float,
+    tipo: str,
+    horizonte_label: str = "1 año",
+    tenant_id: str | None = None,
+):
     """Actualiza nombre, perfil, horizonte, capital y tipo de un cliente existente."""
+    if not _cliente_pertenece_tenant(int(id_cliente), tenant_id):
+        raise ValueError(f"cliente_id {id_cliente} fuera de tenant o inexistente")
     with get_session() as s:
         c = s.query(Cliente).filter(Cliente.id == id_cliente).first()
         if c:
@@ -747,11 +831,15 @@ def registrar_transaccion(
     comision_broker: float = 0.0,
     derechos_mercado: float = 0.0,
     iva: float = 0.0,
+    tenant_id: str | None = None,
 ):
     """
     Registra una transacción con costos reales desglosados.
     total_neto_ars = precio_bruto * nominales + comision + derechos + iva
     """
+    if not _cliente_pertenece_tenant(int(cliente_id), tenant_id):
+        raise ValueError(f"cliente_id {cliente_id} fuera de tenant")
+
     aid = get_activo_by_ticker(ticker)  # devuelve id o None
     if aid is None:
         aid = registrar_activo("CEDEAR", ticker, ticker, ticker)
@@ -837,7 +925,9 @@ def obtener_todos_los_trades(tenant_id: str = "default") -> pd.DataFrame:
 
 
 # ─── ALERTAS ──────────────────────────────────────────────────────────────────
-def registrar_alerta(tipo_alerta, mensaje, ticker="", cliente_id=None):
+def registrar_alerta(tipo_alerta, mensaje, ticker="", cliente_id=None, tenant_id: str | None = None):
+    if cliente_id is not None and not _cliente_pertenece_tenant(int(cliente_id), tenant_id):
+        raise ValueError(f"cliente_id {cliente_id} fuera de tenant")
     with get_session() as s:
         a = AlertaLog(tipo_alerta=tipo_alerta, mensaje=mensaje,
                       ticker=ticker, cliente_id=cliente_id)
@@ -889,8 +979,10 @@ def registrar_objetivo(
         return obj.id
 
 
-def obtener_objetivos_cliente(cliente_id: int) -> pd.DataFrame:
+def obtener_objetivos_cliente(cliente_id: int, tenant_id: str | None = None) -> pd.DataFrame:
     """Devuelve todos los objetivos de un cliente con estado actualizado."""
+    if not _cliente_pertenece_tenant(int(cliente_id), tenant_id):
+        return pd.DataFrame()
     with get_session() as s:
         rows = (s.query(ObjetivosInversion)
                 .filter(ObjetivosInversion.cliente_id == cliente_id)
@@ -1106,8 +1198,8 @@ def guardar_config(clave: str, valor, *, audit_user: str = "") -> None:
 
 
 def _app_password_hash(plain: str) -> str:
-    import hashlib
-    return hashlib.sha256(plain.encode()).hexdigest()
+    from core.password_hashing import hash_password_bcrypt
+    return hash_password_bcrypt(plain)
 
 
 def list_app_usuarios(tenant_id: str = "default") -> list[dict]:
@@ -1188,6 +1280,10 @@ def create_app_usuario(
         s.add(u)
         s.flush()
         uid = u.id
+        # Tenant hardening: no permitir vínculos cross-tenant.
+        invalid_ids = [cid for cid in ids if not _cliente_pertenece_tenant(int(cid), tid)]
+        if invalid_ids:
+            raise ValueError(f"cliente_id fuera de tenant: {invalid_ids}")
         for cid in ids:
             s.add(AppUsuarioCliente(usuario_id=uid, cliente_id=cid))
         s.commit()
@@ -1197,35 +1293,54 @@ def create_app_usuario(
 def set_app_usuario_clientes(usuario_id: int, cliente_ids: list[int], cliente_default_id: int | None = None) -> None:
     with get_session() as s:
         u = s.query(AppUsuario).filter(AppUsuario.id == usuario_id).first()
+        if u is None:
+            return
+        tid = (u.tenant_id or "default").strip() or "default"
         if u:
             u.cliente_default_id = cliente_default_id
-        s.query(AppUsuarioCliente).filter(AppUsuarioCliente.usuario_id == usuario_id).delete()
         base = {int(x) for x in (cliente_ids or [])}
         if cliente_default_id is not None:
             base.add(int(cliente_default_id))
+        invalid_ids = [cid for cid in base if not _cliente_pertenece_tenant(int(cid), tid)]
+        if invalid_ids:
+            raise ValueError(f"cliente_id fuera de tenant: {invalid_ids}")
+        s.query(AppUsuarioCliente).filter(AppUsuarioCliente.usuario_id == usuario_id).delete()
         for cid in base:
             s.add(AppUsuarioCliente(usuario_id=usuario_id, cliente_id=cid))
         s.commit()
 
 
-def delete_app_usuario(usuario_id: int) -> None:
+def delete_app_usuario(usuario_id: int, *, tenant_id: str | None = None) -> None:
+    """
+    Elimina usuario y vínculos. Si ``tenant_id`` se informa, no borra si el usuario es de otro tenant.
+    """
+    want = (tenant_id or "default").strip() or "default" if tenant_id is not None else None
     with get_session() as s:
-        s.query(AppUsuarioCliente).filter(AppUsuarioCliente.usuario_id == usuario_id).delete()
         u = s.query(AppUsuario).filter(AppUsuario.id == usuario_id).first()
-        if u:
-            s.delete(u)
+        if u is None:
+            return
+        if want is not None:
+            got = (u.tenant_id or "default").strip() or "default"
+            if got != want:
+                raise ValueError("usuario no pertenece al tenant indicado")
+        s.query(AppUsuarioCliente).filter(AppUsuarioCliente.usuario_id == usuario_id).delete()
+        s.delete(u)
         s.commit()
 
 
 def list_global_param_audit(
     param_key: str | None = None,
     limit: int = 500,
+    *,
+    param_prefix: str | None = None,
 ) -> list[dict]:
-    """Historial de cambios (solo lectura)."""
+    """Historial de cambios (solo lectura). ``param_prefix`` filtra por prefijo (ej. ``ADMIN.``)."""
     try:
         with get_session() as s:
             q = s.query(GlobalParamAudit).order_by(GlobalParamAudit.id.desc())
-            if param_key:
+            if param_prefix:
+                q = q.filter(GlobalParamAudit.param_key.startswith(param_prefix))
+            elif param_key:
                 q = q.filter(GlobalParamAudit.param_key == param_key)
             rows = q.limit(limit).all()
             return [{
@@ -1241,26 +1356,90 @@ def list_global_param_audit(
         return []
 
 
+def _sanitizar_detalle_auditoria_admin(detail: dict | None) -> dict:
+    """P1-ADM-01: evita persistir secretos u hashes en JSON de auditoría."""
+    _bad = ("password", "secret", "token", "hash", "authorization", "api_key", "bearer", "credential")
+
+    def _bad_key(k: str) -> bool:
+        lk = str(k).lower()
+        return any(b in lk for b in _bad)
+
+    def _redact(obj):
+        if isinstance(obj, dict):
+            out: dict = {}
+            for k, v in obj.items():
+                ks = str(k)[:120]
+                if _bad_key(ks):
+                    out[ks] = "[REDACTED]"
+                else:
+                    out[ks] = _redact(v)
+            return out
+        if isinstance(obj, list):
+            return [_redact(v) for v in obj[:500]]
+        if isinstance(obj, (str, int, float, bool)) or obj is None:
+            return obj
+        return str(obj)[:2000]
+
+    return _redact(dict(detail or {}))
 
 
-def guardar_notas_asesor(cliente_id: int, notas: str) -> None:
+def registrar_admin_audit_event(
+    event_type: str,
+    *,
+    actor: str = "",
+    tenant_id: str = "default",
+    detail: dict | None = None,
+) -> None:
+    """
+    P1-ADM-01: append-only en ``global_param_audit`` con ``param_key`` = ADMIN.<evento>.
+    ``detail`` se serializa tras redactar claves sensibles (password, token, etc.).
+    """
+    import re as _re_audit
+
+    raw = (event_type or "unknown").strip()
+    et = _re_audit.sub(r"[^a-zA-Z0-9._-]+", "_", raw).strip("_")[:80] or "unknown"
+    key = f"{ADMIN_AUDIT_KEY_PREFIX}{et}"[:100]
+    payload = {"tenant_id": str(tenant_id or "default")[:120]}
+    if detail:
+        payload["detail"] = _sanitizar_detalle_auditoria_admin(detail)
+    try:
+        blob = _json_mod.dumps(payload, ensure_ascii=False, default=str)[:65000]
+        with get_session() as s:
+            s.add(GlobalParamAudit(
+                param_key=key,
+                old_value=None,
+                new_value=blob,
+                changed_by=(actor or "")[:200],
+            ))
+            s.commit()
+    except Exception as _e:
+        logger.warning("registrar_admin_audit_event(%s): %s", key, _e)
+
+
+def guardar_notas_asesor(cliente_id: int, notas: str, tenant_id: str | None = None) -> None:
     """Guarda notas privadas del asesor para un cliente."""
     _migrar_columnas_nuevas()
+    if not _cliente_pertenece_tenant(int(cliente_id), tenant_id):
+        raise ValueError(f"cliente_id {cliente_id} fuera de tenant")
+    tid = _tenant_norm(tenant_id)
     with get_session() as s:
         s.execute(
-            text("UPDATE clientes SET notas_asesor = :n WHERE id = :id"),
-            {"n": str(notas or "")[:2000], "id": int(cliente_id)},
+            text("UPDATE clientes SET notas_asesor = :n WHERE id = :id AND tenant_id = :tid"),
+            {"n": str(notas or "")[:2000], "id": int(cliente_id), "tid": tid},
         )
         s.commit()
 
 
-def obtener_notas_asesor(cliente_id: int) -> str:
+def obtener_notas_asesor(cliente_id: int, tenant_id: str | None = None) -> str:
     """Retorna las notas del asesor para un cliente."""
     _migrar_columnas_nuevas()
+    if not _cliente_pertenece_tenant(int(cliente_id), tenant_id):
+        raise ValueError(f"cliente_id {cliente_id} fuera de tenant")
+    tid = _tenant_norm(tenant_id)
     with get_session() as s:
         row = s.execute(
-            text("SELECT notas_asesor FROM clientes WHERE id = :id"),
-            {"id": int(cliente_id)},
+            text("SELECT notas_asesor FROM clientes WHERE id = :id AND tenant_id = :tid"),
+            {"id": int(cliente_id), "tid": tid},
         ).fetchone()
     return str(row[0] or "") if row else ""
 
