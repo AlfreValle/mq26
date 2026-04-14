@@ -35,4 +35,4 @@ if errors:
     print("\n" + "\n".join(errors))
     raise SystemExit(1)
 
-print("\n✓ Sin regresiones detectadas.")
+print("\nOK Sin regresiones detectadas.")
