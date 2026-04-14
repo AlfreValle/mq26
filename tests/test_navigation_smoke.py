@@ -13,14 +13,14 @@ def test_get_main_tabs_mq26_inversor_single():
 
 def test_get_main_tabs_mq26_estudio_four():
     specs = get_main_tabs("mq26", "estudio")
-    assert len(specs) == 4
+    assert len(specs) == 5  # +mercado desde sprint tab_mercado
     ids = [s.tab_id for s in specs]
-    assert ids == ["estudio", "cartera", "reporte", "universo"]
+    assert ids == ["estudio", "cartera", "mercado", "reporte", "universo"]
 
 
 def test_get_main_tabs_mq26_super_admin_seven():
     specs = get_main_tabs("mq26", "super_admin")
-    assert len(specs) == 7
+    assert len(specs) == 8  # +mercado desde sprint tab_mercado
     assert specs[-1].tab_id == "admin"
 
 

@@ -68,10 +68,10 @@ def test_navigation_matrix_por_rol_y_entrypoint():
     assert len(mq_inv) == 1
     assert mq_inv[0].tab_id == "mi_cartera"
 
-    # run_mq26: estudio 4 tabs torre
+    # run_mq26: estudio 5 tabs torre (incluye mercado desde sprint tab_mercado)
     mq_est = get_main_tabs("mq26", "estudio")
-    assert len(mq_est) == 4
-    assert [t.tab_id for t in mq_est] == ["estudio", "cartera", "reporte", "universo"]
+    assert len(mq_est) == 5
+    assert [t.tab_id for t in mq_est] == ["estudio", "cartera", "mercado", "reporte", "universo"]
 
 
 def test_run_mq26_usa_render_main_tabs_ssot_p1_nav01():

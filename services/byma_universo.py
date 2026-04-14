@@ -97,7 +97,9 @@ def fetch_rf_completo(ccl: float) -> dict[str, pd.DataFrame]:
             "Emisor":    meta.get("emisor"),
             "Tipo":      "ON",
         })
-    df_on = pd.DataFrame(on_rows).sort_values("Ticker").reset_index(drop=True)
+    df_on = pd.DataFrame(on_rows)
+    if not df_on.empty:
+        df_on = df_on.sort_values("Ticker").reset_index(drop=True)
 
     # Bonos soberanos
     df_bonos_raw = _cached_byma("Bonos", _ENDPOINTS["Bonos"])

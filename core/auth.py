@@ -386,7 +386,7 @@ FEATURE_DEFAULTS = {
         "backtest_avanzado": True,
     },
     "estudio": {
-        "lab_quant": False,
+        "lab_quant": True,
         "estudio_dashboard": True,
         "tab_admin": False,
         "exportar_rrss": False,

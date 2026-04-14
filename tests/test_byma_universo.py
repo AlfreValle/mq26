@@ -39,7 +39,7 @@ def mock_scoring(monkeypatch):
             "Score_Tec": 70.0, "Score_Sector": 80.0,
             "Senal": "🟡 ACUMULAR", "Fecha_Score": "2026-04-14",
         }
-    monkeypatch.setattr("services.byma_universo.calcular_score_total", _fake_score)
+    monkeypatch.setattr("services.scoring_engine.calcular_score_total", _fake_score)
 
 
 def test_fetch_rv_completo_columnas_minimas(mock_byma_rv):
