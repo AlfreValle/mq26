@@ -8,6 +8,7 @@ from importlib import reload
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 
 def _df_ag_moderado() -> pd.DataFrame:
@@ -254,6 +255,25 @@ def test_tab_inversor_contexto_minimo_j93():
     st_mock.text_input = MagicMock(return_value="Cliente")
     st_mock.text_area = MagicMock(return_value="")
     st_mock.container = lambda: _noop()
+
+    def _cache_data_st(*dargs, **dkwargs):
+        def _decorator(fn):
+            return fn
+
+        if dargs and callable(dargs[0]) and len(dargs) == 1 and not dkwargs:
+            return dargs[0]
+        return _decorator
+
+    st_mock.cache_data = _cache_data_st
+
+    class _TabCtx:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    st_mock.tabs = lambda _labels, **kwargs: tuple(_TabCtx() for _ in _labels)
     sys.modules["streamlit"] = st_mock
 
     from importlib import reload
@@ -303,6 +323,16 @@ def test_posiciones_con_targets_sin_cartera():
         __enter__=lambda s: s,
         __exit__=lambda *a: None,
     )
+
+    def _cache_data(*dargs, **dkwargs):
+        def _decorator(fn):
+            return fn
+
+        if dargs and callable(dargs[0]) and len(dargs) == 1 and not dkwargs:
+            return dargs[0]
+        return _decorator
+
+    _st.cache_data = _cache_data
     sys.modules["streamlit"] = _st
     from importlib import reload
 
@@ -345,3 +375,53 @@ def test_motor_salida_dias_en_cartera():
     assert "progreso_pct" in r
     assert "precio_target" in r
     assert r["precio_target"] > r["precio_stop"]
+
+
+def test_render_resumen_cliente_cartera_no_crash_sin_ctx():
+    """_render_resumen_cliente_cartera no crashea con ctx mínimo y df vacío."""
+    import sys
+    import types
+
+    import pandas as pd
+
+    _prev_st = sys.modules.get("streamlit")
+    _st = types.ModuleType("streamlit")
+    _st.markdown = lambda *a, **k: None
+    _st.columns = lambda *a, **k: [
+        types.SimpleNamespace(
+            markdown=lambda *a, **k: None,
+            metric=lambda *a, **k: None,
+        )
+    ]
+    sys.modules["streamlit"] = _st
+    import importlib
+
+    import ui.tab_cartera as tc
+
+    importlib.reload(tc)
+    try:
+        tc._render_resumen_cliente_cartera({"user_role": "estudio", "ccl": 1150.0}, pd.DataFrame())
+    except Exception:
+        pytest.fail("_render_resumen_cliente_cartera no debería lanzar con df vacío")
+    finally:
+        if _prev_st is not None:
+            sys.modules["streamlit"] = _prev_st
+        else:
+            sys.modules.pop("streamlit", None)
+
+
+def test_render_ficha_rapida_funciones_existen():
+    import ui.tab_estudio as te
+
+    assert hasattr(te, "_render_ficha_cliente_rapida")
+    assert hasattr(te, "_render_plan_cliente_estudio")
+
+
+def test_session_state_semaforos_admin():
+    import inspect
+
+    import ui.tab_estudio as te
+
+    src = inspect.getsource(te._render_dashboard_estudio)
+    assert "dashboard_n_amarillos" in src
+    assert "dashboard_n_verdes" in src

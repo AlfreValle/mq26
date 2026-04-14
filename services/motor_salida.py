@@ -22,6 +22,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import CCL_FALLBACK
+from core.pricing_utils import es_instrumento_local_ars
 
 # ─── OBJETIVOS POR PERFIL ────────────────────────────────────────────────────
 OBJETIVOS_PERFIL = {
@@ -55,6 +56,8 @@ def evaluar_salida(
     Retorna dict con: señal, prioridad, progreso%, precio_target, precio_stop,
     trailing_stop, disparadores_activos, y texto explicativo.
     """
+    quality_flags: list[str] = []
+
     # Validación y clampeo de inputs
     ppc_usd               = max(0.0, float(ppc_usd or 0))
     px_usd_actual         = max(0.0, float(px_usd_actual or 0))
@@ -64,6 +67,7 @@ def evaluar_salida(
 
     # Guard: ppc_usd=0 es inválido — retornar resultado neutro en lugar de dividir por cero
     if ppc_usd <= 0:
+        quality_flags.append("ppc_invalido")
         return {
             "ticker": ticker, "ppc_usd": 0.0, "px_actual": px_usd_actual,
             "precio_target": 0.0, "precio_stop": 0.0, "trailing_stop": None,
@@ -71,7 +75,7 @@ def evaluar_salida(
             "progreso_pct": 0.0, "max_pnl_historico": 0.0,
             "dias_cartera": 0, "rsi": rsi, "senal": "—", "color": "#6c757d",
             "disparadores": [], "disparadores_activos": [],
-            "n_disparadores": 0, "prioridad": 0,
+            "n_disparadores": 0, "prioridad": 0, "quality_flags": quality_flags,
         }
 
     obj = OBJETIVOS_PERFIL.get(perfil, OBJETIVOS_PERFIL["Moderado"])
@@ -202,6 +206,7 @@ def evaluar_salida(
                                  else 2 if "MEDIA" in prioridades
                                  else 1 if disparadores
                                  else 0),
+        "quality_flags": quality_flags,
     }
 
 
@@ -330,26 +335,43 @@ def render_motor_salida(
             continue
 
         ppc_usd_raw = float(row.get("PPC_USD", row.get("PPC_USD_PROM", 0)) or 0)
+        ppc_ars_raw = float(row.get("PPC_ARS", 0) or 0)
+        ratio = float(row.get("RATIO", 1.0) or 1.0)
+        if ratio <= 0:
+            ratio = 1.0
         fecha_s = str(row.get("FECHA_INICIAL", row.get("Fecha", str(date.today()))))
         try:
             fecha_c = pd.to_datetime(fecha_s).date()
         except Exception:
             fecha_c = date.today()
 
-        px_ars = float(precios_actuales.get(ticker, 0))
-        # Misma escala que cartera / Posición Neta: USD por CEDEAR (o USD equiv. local) = ARS / CCL.
-        ppc_usd = ppc_usd_raw
-        px_usd_act = (px_ars / ccl) if ccl > 0 else 0.0
+        px_ars = float(precios_actuales.get(ticker, 0) or 0)
+        es_local = es_instrumento_local_ars(ticker)
+        # Contrato único: evaluar siempre en la misma unidad de precio negociada (ARS por unidad).
+        if ppc_ars_raw > 0:
+            ppc_base = ppc_ars_raw
+            unidad_base = "ars_unit_direct"
+        elif ppc_usd_raw > 0 and ccl > 0:
+            # Si solo hay PPC_USD, convertir a ARS unitario.
+            ppc_base = (ppc_usd_raw * ccl) if es_local else (ppc_usd_raw * ccl / ratio)
+            unidad_base = "ars_unit_derived_from_usd"
+        else:
+            ppc_base = 0.0
+            unidad_base = "missing_ppc"
+        px_base = px_ars
 
         rsi   = float(rsi_actuales.get(ticker, 50))
         score = float(scores_actuales.get(ticker, 50))
         score_ant = float((scores_semana_anterior or {}).get(ticker, score))
 
         ev = evaluar_salida(
-            ticker=ticker, ppc_usd=ppc_usd, px_usd_actual=px_usd_act,
+            ticker=ticker, ppc_usd=ppc_base, px_usd_actual=px_base,
             rsi=rsi, score_actual=score, score_semana_anterior=score_ant,
             fecha_compra=fecha_c, perfil=perfil_sel,
         )
+        ev["unidad_base"] = unidad_base
+        if px_base <= 0:
+            ev.setdefault("quality_flags", []).append("precio_actual_invalido")
         ev["cantidad"] = int(cant)
         ev["valor_ars"] = cant * px_ars
         evaluaciones.append(ev)

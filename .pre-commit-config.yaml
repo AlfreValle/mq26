@@ -1,0 +1,16 @@
+# Instalación: pip install -e ".[dev]" && pre-commit install
+# Alineado a pyproject.toml ([tool.ruff], [tool.black])
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3.12

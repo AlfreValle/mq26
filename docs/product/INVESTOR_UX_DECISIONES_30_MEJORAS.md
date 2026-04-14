@@ -75,6 +75,12 @@ Misma base de código; **distinta plantilla de UI** (`layout` + qué expanders v
 
 ---
 
+## Sistema de diseño y comité UX (M41–M539)
+
+Para **tokens CSS**, tipografía modular, color semántico, motion con `prefers-reduced-motion`, breakpoints, componentes financieros e identidad por tab del inversor, ver el panel de diseño: [COMITE_UX_DESIGN_SYSTEM_M41_M539.md](COMITE_UX_DESIGN_SYSTEM_M41_M539.md) y el anexo numerado [COMITE_UX_MEJORAS_LISTADO_M41_M539.md](COMITE_UX_MEJORAS_LISTADO_M41_M539.md). Las **decisiones de producto** de este documento no se mezclan con esa matriz de implementación.
+
+---
+
 ## UI/UX transversal: legibilidad, tablas y responsive (P0 producto)
 
 **Problema percibido:** pantalla muy oscura, texto difícil de leer; tablas que no se adaptan; en notebook vs móvil se pierde lo importante.
@@ -225,3 +231,5 @@ Línea roja: **no prometer** rentabilidad; sí prometer **coherencia con el plan
 ---
 
 *Documento elaborado para decisión de producto; actualizar según feedback legal/comercial.*
+
+**Diseño / implementación UI:** [COMITE_UX_DESIGN_SYSTEM_M41_M539.md](COMITE_UX_DESIGN_SYSTEM_M41_M539.md) · [Listado M41–M539](COMITE_UX_MEJORAS_LISTADO_M41_M539.md).

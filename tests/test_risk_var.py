@@ -164,3 +164,21 @@ class TestCalcularVarCvar:
             )
         assert v95 and v99
         assert abs(v99["var_pct"]) >= abs(v95["var_pct"])
+
+    def test_ajuste_fx_se_activa_con_ccl_series_en_activo_no_local(self, precios_historicos_mock):
+        rv = _import_risk_var()
+        idx = precios_historicos_mock.index
+        ccl_series = pd.Series(np.linspace(1000.0, 1200.0, len(idx)), index=idx)
+        with patch(
+            "services.risk_var.cache_yfinance_close_matrix",
+            return_value=precios_historicos_mock[["AAPL"]],
+        ):
+            out = rv.calcular_var_cvar(
+                tickers=["AAPL"],
+                cantidades={"AAPL": 5.0},
+                precios_ars={"AAPL": 150.0},
+                ccl=1200.0,
+                ccl_series=ccl_series,
+            )
+        assert out
+        assert out.get("fx_adjusted") is True

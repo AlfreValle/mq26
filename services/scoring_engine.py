@@ -75,9 +75,95 @@ UNIVERSO_BONOS_USD = [
     "GD30","GD35","GD38","GD41","AL29","AL30","AL35","AE38",
 ]
 
-UNIVERSO_ONS = [
-    "YMCXO","MGCEO","RUCDO","YCA6O","TLC1O","MRCAO",
+UNIVERSO_ONS_LEGACY: list[str] = [
+    "YMCXO", "MGCEO", "RUCDO", "YCA6O", "TLC1O", "MRCAO",
 ]
+
+
+def universo_ons_tickers() -> list[str]:
+    """ON USD BYMA: lista legacy del motor + catálogo activo en renta_fija_ar."""
+    try:
+        from core.renta_fija_ar import INSTRUMENTOS_RF
+
+        out: set[str] = {str(x).upper().strip() for x in UNIVERSO_ONS_LEGACY}
+        for tk, meta in INSTRUMENTOS_RF.items():
+            if str(meta.get("tipo", "")).upper() != "ON_USD":
+                continue
+            if not meta.get("activo", True):
+                continue
+            out.add(str(tk).upper().strip())
+        return sorted(out)
+    except Exception:
+        return list(UNIVERSO_ONS_LEGACY)
+
+
+UNIVERSO_ONS: list[str] = universo_ons_tickers()
+
+# Yahoo Finance: soberanos suelen cotizar como *=RX; ON y otros en *.BA
+BONOS_SOBERANOS_YAHOO_RX: dict[str, str] = {
+    "GD30": "GD30=RX",
+    "GD35": "GD35=RX",
+    "GD38": "GD38=RX",
+    "GD41": "GD41=RX",
+    "AL29": "AL29=RX",
+    "AL30": "AL30=RX",
+    "AL35": "AL35=RX",
+    "AE38": "AE38=RX",
+}
+
+
+def _simbolos_yfinance_rf(ticker: str) -> list[str]:
+    """Orden de prueba: RX (soberanos) → .BA (BYMA) → ticker plano."""
+    t = str(ticker).upper().strip()
+    ordered: list[str] = []
+    if t in BONOS_SOBERANOS_YAHOO_RX:
+        ordered.append(BONOS_SOBERANOS_YAHOO_RX[t])
+    ordered.append(f"{t}.BA")
+    ordered.append(t)
+    seen: set[str] = set()
+    out: list[str] = []
+    for s in ordered:
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
+def _history_close_rf(ticker: str, period: str = "5d") -> pd.Series:
+    for sym in _simbolos_yfinance_rf(ticker):
+        try:
+            h = yf.Ticker(sym).history(period=period)
+            if h is None or h.empty or "Close" not in h.columns:
+                continue
+            s = h["Close"].dropna()
+            if len(s) >= 2:
+                return s
+        except Exception:
+            continue
+    return pd.Series(dtype=float)
+
+
+def _base_score_on_catalog(ticker: str) -> float | None:
+    """Heurística de base para ON USD desde metadatos (TIR, calificación)."""
+    try:
+        from core.renta_fija_ar import get_meta
+
+        m = get_meta(ticker)
+        if not m or str(m.get("tipo", "")).upper() != "ON_USD":
+            return None
+        tir = float(m.get("tir_ref") or 0.0)
+        base = 48.0 + min(22.0, max(0.0, (tir - 4.5) * 2.2))
+        cal = str(m.get("calificacion") or "").strip().upper()
+        if cal.startswith("AA"):
+            base += 5.0
+        elif "BBB" in cal:
+            base += 1.0
+        elif cal and cal not in ("—", "-", "N/A", ""):
+            base -= 4.0
+        return max(38.0, min(82.0, base))
+    except Exception:
+        return None
+
 
 UNIVERSO_FCI_LISTA = [
     "MAF AHORRO ARS", "MEGAINVER RENTA FIJA", "PIONEER PESOS", "BALANZ AHORRO",
@@ -245,19 +331,22 @@ def _score_bono(ticker: str) -> tuple[float, dict]:
     bonos_soberanos_base = {"GD30":60,"GD35":62,"GD38":63,"GD41":64,
                             "AL29":58,"AL30":60,"AL35":61,"AE38":63}
     bonos_ons_base       = {"YMCXO":68,"MGCEO":65,"RUCDO":67,"MRCAO":64}
-    base_score = float(bonos_soberanos_base.get(ticker, bonos_ons_base.get(ticker, 55.0)))
+    _cat = _base_score_on_catalog(ticker)
+    base_score = float(
+        _cat
+        if _cat is not None
+        else bonos_soberanos_base.get(ticker, bonos_ons_base.get(ticker, 55.0))
+    )
     try:
-        import yfinance as yf
-        _t = ticker
-        # Intento de cotización en formato BYMA para bonos
-        _mapeo = {"GD30":"GD30=RX","GD35":"GD35=RX","AL30":"AL30=RX","GD38":"GD38=RX"}
-        _sym = _mapeo.get(_t, _t)
-        _hist = yf.Ticker(_sym).history(period="5d")["Close"].dropna()
+        _hist = _history_close_rf(ticker, "5d")
         if len(_hist) >= 2:
-            retorno_5d = (_hist.iloc[-1] / _hist.iloc[0] - 1) * 100
-            # Modifica score dinámicamente: +/- 10 pts según retorno vs tendencia
+            retorno_5d = (float(_hist.iloc[-1]) / float(_hist.iloc[0]) - 1) * 100
             score = max(20.0, min(95.0, base_score + retorno_5d * 2))
-            return score, {"rendimiento_estimado": base_score, "retorno_5d": round(retorno_5d, 2), "dinamico": True}
+            return score, {
+                "rendimiento_estimado": base_score,
+                "retorno_5d": round(retorno_5d, 2),
+                "dinamico": True,
+            }
     except Exception:
         pass
     return base_score, {"rendimiento_estimado": base_score, "dinamico": False}
@@ -364,13 +453,22 @@ def score_tecnico(ticker: str, tipo: str = "CEDEAR") -> tuple[float, dict]:
 
 def _score_tecnico_bono(ticker: str) -> tuple[float, dict]:
     """Score técnico para bonos: solo momentum de precio."""
-    detalle = {"sma_score": 0, "rsi": 50, "rsi_score": 0, "mom_score": 0}
+    detalle = {"sma_score": 0, "rsi": 50, "rsi_score": 0, "mom_score": 0, "precio": 0}
+    cierre = pd.Series(dtype=float)
+    for sym in _simbolos_yfinance_rf(ticker):
+        try:
+            data = yf.Ticker(sym).history(period="6mo")
+            if data is None or data.empty or "Close" not in data.columns:
+                continue
+            cierre = data["Close"].dropna()
+            if not cierre.empty:
+                break
+        except Exception:
+            continue
+    if cierre.empty:
+        return 45.0, detalle
     try:
-        # Bonos cotizan como ticker.BA en BYMA
-        data = yf.Ticker(f"{ticker}.BA").history(period="6mo")
-        if data.empty:
-            return 45.0, detalle
-        cierre = data["Close"].dropna()
+        detalle["precio"] = round(float(cierre.iloc[-1]), 4)
         if len(cierre) >= 20:
             mom = (float(cierre.iloc[-1]) / float(cierre.iloc[-20]) - 1) * 100
             detalle["mom_score"] = min(40, max(0, int(mom * 2 + 20)))
@@ -389,7 +487,12 @@ def score_sector_contexto(ticker: str, tipo: str = "CEDEAR") -> tuple[float, dic
       - Ajuste por contexto macro EEUU (30 pts)
       - Ajuste por contexto Argentina (30 pts)
     """
-    sector = SECTORES.get(ticker.upper(), "Otros")
+    if tipo == "Bono USD":
+        sector = "Bono USD"
+    elif tipo == "ON Corporativa":
+        sector = "ON Corporativa"
+    else:
+        sector = SECTORES.get(ticker.upper(), "Otros")
     score_base = SCORE_SECTORIAL_BASE.get(sector, 5.0) * 10  # 0-100
 
     detalle = {
@@ -407,7 +510,7 @@ def score_sector_contexto(ticker: str, tipo: str = "CEDEAR") -> tuple[float, dic
 
     if CONTEXTO_MACRO["fed_ciclo"] == "BAJA":
         # Beneficia: growth, bonos, inmuebles
-        if sector in ("Tecnología", "E-Commerce", "Bono USD"):
+        if sector in ("Tecnología", "E-Commerce", "Bono USD", "ON Corporativa"):
             detalle["ajuste_macro_eeuu"] += 5
     elif CONTEXTO_MACRO["fed_ciclo"] == "SUBA":
         # Beneficia: financiero, defensivos
@@ -428,7 +531,7 @@ def score_sector_contexto(ticker: str, tipo: str = "CEDEAR") -> tuple[float, dic
             detalle["ajuste_arg"] = 5
         else:
             detalle["ajuste_arg"] = -5
-    elif tipo in ("Bono USD",):
+    elif tipo in ("Bono USD", "ON Corporativa"):
         if CONTEXTO_MACRO["riesgo_pais"] == "BAJO":
             detalle["ajuste_arg"] = 12
         elif CONTEXTO_MACRO["riesgo_pais"] == "MEDIO":
@@ -484,7 +587,11 @@ def calcular_score_total(ticker: str, tipo: str = "CEDEAR") -> dict:
     _penalizacion_liquidez = 0.0
     try:
         import yfinance as _yf_vol
-        _hist_vol = _yf_vol.Ticker(ticker).history(period="35d")
+        if tipo in ("Bono USD", "ON Corporativa"):
+            _sym_vol = _simbolos_yfinance_rf(ticker)[0]
+        else:
+            _sym_vol = _ticker_yahoo(ticker, tipo)
+        _hist_vol = _yf_vol.Ticker(_sym_vol).history(period="35d")
         if not _hist_vol.empty and "Volume" in _hist_vol.columns:
             _vol_promedio = float(_hist_vol["Volume"].tail(30).mean())
             _umbral_vol = 50_000  # volumen mínimo configurable
@@ -816,6 +923,9 @@ def calcular_cartera_optima(
 
 def _ticker_yahoo(ticker: str, tipo: str = "CEDEAR") -> str:
     """Convierte ticker local a formato Yahoo Finance."""
+    if tipo in ("Bono USD", "ON Corporativa"):
+        syms = _simbolos_yfinance_rf(ticker)
+        return syms[0] if syms else f"{str(ticker).upper().strip()}.BA"
     mapa = {
         "BRKB": "BRK-B", "YPFD": "YPFD.BA", "CEPU": "CEPU.BA",
         "TGNO4": "TGNO4.BA", "TGSU2": "TGSU2.BA", "PAMP": "PAMP.BA",

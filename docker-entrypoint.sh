@@ -19,6 +19,16 @@ fi
 export STREAMLIT_SERVER_PORT="${_listen}"
 echo "[MQ26] listen port ${_listen} (PORT raw was: ${PORT:-<unset>})"
 
+# Migraciones Alembic opcionales al arranque (p. ej. PostgreSQL en prod).
+# Activar en Railway: RUN_ALEMBIC_UPGRADE=1 (y DATABASE_URL o DB_URL apuntando a la misma BD que la app).
+if [ "${RUN_ALEMBIC_UPGRADE:-0}" = "1" ]; then
+  echo "[MQ26] RUN_ALEMBIC_UPGRADE=1: ejecutando python migrations/run_migrations.py"
+  python migrations/run_migrations.py || {
+    echo "[MQ26] ERROR: migraciones fallaron; abortando arranque."
+    exit 1
+  }
+fi
+
 # env fuerza el valor visto por el proceso hijo (evita heredar basura)
 exec env STREAMLIT_SERVER_PORT="${_listen}" streamlit run run_mq26.py \
   --server.port="${_listen}" \

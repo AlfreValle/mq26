@@ -1,7 +1,7 @@
 """
 tests/test_observabilidad.py — Tests del sistema de observabilidad (Sprint 16)
 Cubre: metrics_service, logging_config (JSON/dev formatters, set_log_context),
-y las nuevas constantes en config.py.
+constantes en config.py, regresión P1-OBS-01 (fuente) y P1-OBS-02 (mocks de fallo).
 Sin red. Sin yfinance real.
 """
 from __future__ import annotations
@@ -11,7 +11,9 @@ import logging
 import os
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
+import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -197,3 +199,121 @@ class TestConfigObservabilidad:
         import config as cfg
         importlib.reload(cfg)
         assert cfg.ENVIRONMENT == "development"
+
+
+# ─── P1-OBS-01: `log_degradacion` en tabs calientes + run_mq26 (regresión fuente) ─
+
+def _read_repo_file(rel: str) -> str:
+    return (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+
+
+def test_log_degradacion_no_lanza():
+    from core.structured_logging import log_degradacion
+
+    log_degradacion("tests.observabilidad", "evento_sintetico", ValueError("probe"), k=1)
+    log_degradacion("tests.observabilidad", "evento_sin_exc", ok=True)
+
+
+def test_p1_obs01_archivos_tienen_eventos_log_degradacion():
+    """Evita regresión a `except: pass` en puntos acordados (P1-OBS-01)."""
+    opt = _read_repo_file("ui/tab_optimizacion.py")
+    assert "from core.structured_logging import log_degradacion" in opt
+    assert "listar_snapshots_lab" in opt
+    assert "lab_quant_modelo_fallo" in opt
+    assert "lab_quant_multiobjetivo_fallo" in opt
+    assert "lab_quant_black_litterman_fallo" in opt
+
+    rsk = _read_repo_file("ui/tab_riesgo.py")
+    assert "from core.structured_logging import log_degradacion" in rsk
+    assert "ccl_proxy_series_fallo" in rsk
+    assert "exposicion_factorial_beta_fallo" in rsk
+
+    uni = _read_repo_file("ui/tab_universo.py")
+    assert "from core.structured_logging import log_degradacion" in uni
+    assert "sp500_sector_panel_fallo" in uni
+    assert "monitor_on_usd_fallo" in uni
+    assert "historial_alertas_mod23_fallo" in uni
+    assert "cafci_fci_scanner_fallo" in uni
+
+    rm = _read_repo_file("run_mq26.py")
+    assert "from core.structured_logging import log_degradacion" in rm
+    assert "price_engine_portfolio_fallo" in rm
+    assert "alertas_sidebar_monitor_fallo" in rm
+    assert "cached_clientes_df_fallo" in rm
+    assert "registrar_alerta_precio_manual_fallo" in rm
+
+
+# ─── P1-OBS-02: mocks de fallo — asegura que degradaciones no queden silenciadas ─
+
+
+class TestP1Obs02LogDegradacionMocks:
+    def test_log_degradacion_con_excepcion_usa_exc_info_en_warning(self, monkeypatch):
+        mock_logger = MagicMock()
+        monkeypatch.setattr(
+            "core.structured_logging.get_logger",
+            lambda _name: mock_logger,
+        )
+        from core.structured_logging import log_degradacion
+
+        exc = OSError("fallo simulado")
+        log_degradacion("tests.p1_obs02", "evento_mock", exc, ticker="GGAL")
+
+        mock_logger.warning.assert_called_once()
+        _args, kwargs = mock_logger.warning.call_args
+        assert kwargs.get("exc_info") is True
+        assert "evento_mock" in str(_args[1])
+        assert exc in _args
+
+    def test_log_degradacion_sin_excepcion_no_pasa_exc_info(self, monkeypatch):
+        mock_logger = MagicMock()
+        monkeypatch.setattr(
+            "core.structured_logging.get_logger",
+            lambda _name: mock_logger,
+        )
+        from core.structured_logging import log_degradacion
+
+        log_degradacion("tests.p1_obs02", "solo_contexto", nivel="warn")
+
+        mock_logger.warning.assert_called_once()
+        _args, kwargs = mock_logger.warning.call_args
+        assert kwargs.get("exc_info") in (None, False)
+        payload = _args[1]
+        assert payload["evento"] == "solo_contexto"
+        assert payload["nivel"] == "warn"
+
+
+class TestP1Obs02BuildCclSeriesMock:
+    def test_build_ccl_series_llama_log_degradacion_si_callback_lanza(self, monkeypatch):
+        mock_ld = MagicMock()
+        monkeypatch.setattr("ui.tab_riesgo.log_degradacion", mock_ld)
+        from ui.tab_riesgo import _build_ccl_series
+
+        def _falla(_tickers, _period):
+            raise ConnectionError("red caída (mock)")
+
+        assert _build_ccl_series(_falla, "2y") is None
+        mock_ld.assert_called_once()
+        args, kwargs = mock_ld.call_args
+        assert args[0] == "ui.tab_riesgo"
+        assert args[1] == "ccl_proxy_series_fallo"
+        assert isinstance(args[2], ConnectionError)
+        assert kwargs.get("period") == "2y"
+
+    def test_build_ccl_series_no_log_si_dataframe_vacio_sin_excepcion(self, monkeypatch):
+        mock_ld = MagicMock()
+        monkeypatch.setattr("ui.tab_riesgo.log_degradacion", mock_ld)
+        from ui.tab_riesgo import _build_ccl_series
+
+        assert _build_ccl_series(lambda _t, _p: pd.DataFrame(), "1y") is None
+        mock_ld.assert_not_called()
+
+    def test_build_ccl_series_no_log_si_faltan_columnas_ggal(self, monkeypatch):
+        mock_ld = MagicMock()
+        monkeypatch.setattr("ui.tab_riesgo.log_degradacion", mock_ld)
+        from ui.tab_riesgo import _build_ccl_series
+
+        assert _build_ccl_series(
+            lambda _t, _p: pd.DataFrame({"OTRO": [1.0, 2.0]}),
+            "6mo",
+        ) is None
+        mock_ld.assert_not_called()

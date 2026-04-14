@@ -1,11 +1,31 @@
 """Smoke y lógica ligera para ui/carga_activos y renta fija."""
 import importlib.util
+from datetime import date
+
+import pandas as pd
 
 
 def test_carga_activos_importa_sin_crash():
     import ui.carga_activos as m
 
     assert callable(getattr(m, "render_carga_activos", None))
+    assert callable(getattr(m, "aplicar_vaciar_cartera", None))
+
+
+def test_broker_to_maestra_rows_venta_negativa():
+    from ui.carga_activos import _broker_to_maestra_rows
+
+    df = pd.DataFrame([
+        {"Tipo_Op": "COMPRA", "TICKER": "A", "CANTIDAD": 10, "Precio_ARS": 1000.0, "Fecha": date(2026, 1, 1)},
+        {"Tipo_Op": "VENTA", "TICKER": "A", "CANTIDAD": 3, "Precio_ARS": 1100.0, "Fecha": date(2026, 2, 1)},
+    ])
+    ctx = {"cartera_activa": "Test | Libro", "ccl": 1000.0}
+    solo_c = _broker_to_maestra_rows(df, ctx, incluir_ventas=False)
+    assert len(solo_c) == 1
+    assert solo_c[0]["CANTIDAD"] == 10
+    mix = _broker_to_maestra_rows(df, ctx, incluir_ventas=True)
+    assert len(mix) == 2
+    assert mix[1]["CANTIDAD"] == -3
 
 
 def test_tir_efectiva_menor_paridad_mayor_rendimiento():

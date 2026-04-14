@@ -5,6 +5,20 @@ on:
   pull_request:
     branches: [main]
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ruff + Black (Fase D — endurecer a blocking cuando el repo esté limpio)
+        run: |
+          pip install ruff black
+          ruff check core services ui tests scripts
+          black --check core services ui tests run_mq26.py app_main.py
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -13,7 +27,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: pytest tests/ -q --tb=short --no-cov
+      - name: Pytest suite (paridad P3-QA-01 — ver docs/product/CHECKLIST_P3_QA01_RELEASE.md)
+        run: pytest tests/ -q --tb=short --no-cov
         env:
           MQ26_PASSWORD: test_password_123
 
@@ -31,7 +46,6 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: railway up --detach
-        continue-on-error: true
 
       - name: Smoke post-deploy
         env:
@@ -39,6 +53,8 @@ jobs:
         run: |
           sleep 30
           BASE="${{ secrets.RAILWAY_URL }}"
-          if [ -z "$BASE" ]; then BASE="http://127.0.0.1:8502"; fi
+          if [ -z "$BASE" ]; then
+            echo "RAILWAY_URL secret is required for smoke post-deploy"
+            exit 1
+          fi
           python scripts/smoke_produccion.py --base-url "$BASE"
-        continue-on-error: true

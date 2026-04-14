@@ -1,0 +1,3 @@
+# MQ26 — desalentar indexación en despliegues privados (#74)
+User-agent: *
+Disallow: /

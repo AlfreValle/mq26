@@ -272,6 +272,7 @@ def _html_posiciones(df_pos: pd.DataFrame) -> str:
         "CANTIDAD_TOTAL":"Cant.",
         "PPC_ARS":       "PPC (ARS)",
         "PRECIO_ARS":    "Precio actual",
+        "FUENTE_PRECIO": "Fuente px",
         "VALOR_ARS":     "Valor ARS",
         "PNL_ARS":       "P&amp;L ARS",
         "PNL_PCT":       "P&amp;L %",

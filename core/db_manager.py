@@ -312,7 +312,7 @@ def upsert_score_historico(
 
 
 # ─── Usuarios de aplicación (login MQ26 desde BD + alcance de clientes) ──────
-_ROLES_APP_USER = frozenset({"super_admin", "asesor", "estudio", "inversor"})
+_ROLES_APP_USER = frozenset({"super_admin", "estudio", "inversor"})
 _RAMAS_APP_USER = frozenset({"profesional", "retail"})
 
 
@@ -1091,7 +1091,7 @@ def guardar_precios_fallback_bulk(precios: dict, fuente: str = "yfinance") -> No
 def registrar_auditoria(
     accion: str,
     detalle: str,
-    usuario: str = "asesor",
+    usuario: str = "sistema",
     cliente_id: int = None,
     ticker: str = "",
 ) -> None:

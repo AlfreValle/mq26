@@ -23,6 +23,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import RISK_FREE_RATE
 from core.cache_manager import cache_yfinance_close_matrix
+from core.pricing_utils import es_instrumento_local_ars
 
 
 def calcular_var_cvar(
@@ -33,6 +34,7 @@ def calcular_var_cvar(
     horizonte_dias:   int   = 5,           # horizonte en días hábiles
     nivel_confianza:  float = 0.95,        # 95% o 99%
     periodo_hist:     str   = "1y",
+    ccl_series:       pd.Series | None = None,
 ) -> dict:
     """
     Calcula VaR y CVaR por simulación histórica.
@@ -62,7 +64,7 @@ def calcular_var_cvar(
         if data.empty:
             return {}
         rename_r = {v: k for k, v in mapa_yf.items()}
-        data.rename(columns=rename_r, inplace=True)
+        data = data.rename(columns=rename_r)
     except Exception:
         return {}
 
@@ -70,12 +72,21 @@ def calcular_var_cvar(
     if rets.empty or len(rets) < 30:
         return {}
 
-    # Retorno del portafolio = suma ponderada
+    # Retorno del portafolio = suma ponderada.
+    # Para tickers no locales (USD/subyacente), se ajusta por retorno FX cuando hay serie de CCL.
     ret_port = pd.Series(0.0, index=rets.index)
+    fx_adj = False
+    fx_ret = None
+    if ccl_series is not None and not ccl_series.empty:
+        fx_ret = pd.to_numeric(ccl_series, errors="coerce").pct_change().reindex(rets.index).fillna(0.0)
     for ticker in tickers:
         if ticker in rets.columns:
             w = pesos.get(ticker, 0)
-            ret_port += rets[ticker] * w
+            r_t = rets[ticker]
+            if fx_ret is not None and not es_instrumento_local_ars(ticker):
+                r_t = (1.0 + r_t) * (1.0 + fx_ret) - 1.0
+                fx_adj = True
+            ret_port += r_t * w
 
     # VaR diario
     var_diario = float(np.percentile(ret_port, (1 - nivel_confianza) * 100))
@@ -126,6 +137,7 @@ def calcular_var_cvar(
         "sharpe_portfolio": round(sharpe, 2),
         "contrib_riesgo":   contrib,
         "distribucion_rets": ret_port.tolist(),
+        "fx_adjusted": fx_adj,
         "mensaje": (
             f"Con {nivel_confianza*100:.0f}% de confianza, "
             f"tu cartera NO pierde más de "

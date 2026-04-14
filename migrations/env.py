@@ -1,3 +1,4 @@
+import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -12,6 +13,11 @@ config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# Misma fuente que core/db_manager: en prod PostgreSQL vía DATABASE_URL / DB_URL
+_db_url = (os.environ.get("DATABASE_URL") or os.environ.get("DB_URL") or "").strip()
+if _db_url:
+    config.set_main_option("sqlalchemy.url", _db_url)
 
 # Apuntar a db_manager.Base.metadata para soporte de autogenerate
 from core.db_manager import Base  # noqa: E402

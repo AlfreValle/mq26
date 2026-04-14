@@ -37,6 +37,30 @@ from core.pricing_utils import obtener_ratio, subyacente_usd_desde_cedear
 
 logger = get_logger(__name__)
 
+
+def _ppc_usd_es_paridad_rf_usd(ticker: str, tipo: str) -> bool:
+    """
+    True si PPC_USD en el transaccional es paridad % sobre nominal USD (ON/bono cable),
+    no "USD por certificado" como un CEDEAR.
+    """
+    from core.renta_fija_ar import get_meta
+
+    tu = str(ticker or "").upper().strip()
+    m = get_meta(tu)
+    if m and str(m.get("moneda", "")).upper() == "USD":
+        return True
+    tp = str(tipo or "").upper().strip()
+    return tp in ("ON_USD", "BONO_USD")
+
+
+def _precio_ars_desde_ppc_usd_relleno(ticker: str, tipo: str, pu: float, ccl_f: float) -> float:
+    """Último PPC_USD → precio mercado ARS por nominal (coherente con agregar_cartera FIFO)."""
+    if pu <= 0 or ccl_f <= 0:
+        return 0.0
+    if _ppc_usd_es_paridad_rf_usd(ticker, tipo):
+        return round((pu / 100.0) * ccl_f, 2)
+    return round(pu * ccl_f, 2)
+
 # ─── CACHE DE DIVIDEND YIELD (TTL 24h, módulo-level) ─────────────────────────
 _DIV_YIELD_CACHE: dict[str, tuple[float, float]] = {}
 _DIV_CACHE_TTL = 86_400  # 24 horas en segundos
@@ -286,12 +310,13 @@ def rellenar_precios_desde_ultimo_ppc(
             except Exception:
                 pass
         last = sub.iloc[-1]
+        tipo_last = str(last.get("TIPO", "") or "")
         pa = float(pd.to_numeric(last.get("PPC_ARS"), errors="coerce") or 0.0)
         pu = float(pd.to_numeric(last.get("PPC_USD"), errors="coerce") or 0.0)
         if pa > 0:
             out[tu] = round(pa, 2)
         elif pu > 0 and ccl_f > 0:
-            out[tu] = round(pu * ccl_f, 2)
+            out[tu] = _precio_ars_desde_ppc_usd_relleno(tu, tipo_last, pu, ccl_f)
     return out
 
 
@@ -309,7 +334,8 @@ def calcular_posicion_neta(
     Devuelve df_ag enriquecido con: PRECIO_ARS, PRECIO_USD (USD/CEDEAR o equiv.),
                                     PRECIO_USD_SUBYACENTE (solo referencia CEDEAR),
                                     VALOR_ARS, PPC_ARS, INV_ARS, PNL_ARS, PNL_PCT,
-                                    PNL_ARS_USD, PNL_PCT_USD, PESO_PCT
+                                    COSTO_PNL_REF_ARS, PNL_ARS_USD, PNL_PCT_USD, PESO_PCT,
+                                    ESCALA_PRECIO_RF (texto; ÷100 vs PPC si se aplicó guardrail RF USD)
 
     INV_ARS usa el costo histórico real (CCL del mes de compra), no el CCL actual.
     PNL_PCT    = retorno total en pesos (incluye apreciación del CCL).
@@ -389,20 +415,69 @@ def calcular_posicion_neta(
         df["PRECIO_USD"] = 0.0
         df["PRECIO_USD_SUBYACENTE"] = 0.0
 
-    df["VALOR_ARS"] = df["CANTIDAD_TOTAL"] * df["PRECIO_ARS"]
-
     # INV_ARS histórico (máxima precisión si viene de agregar_cartera):
     if "INV_ARS_HISTORICO" in df.columns and (df["INV_ARS_HISTORICO"] > 0).any():
         df["INV_ARS"] = df["INV_ARS_HISTORICO"]
         df["PPC_ARS"] = (df["INV_ARS"] / df["CANTIDAD_TOTAL"].replace(0, np.nan)).fillna(0.0)
     else:
-        # Fallback: locales usan PPC_USD como precio ARS; CEDEARs aplican CCL×ratio
+        # Fallback: locales usan PPC_USD como precio ARS; CEDEAR: USD/céd. × CCL
+        # ON/bono USD cable: PPC_USD = paridad % → ARS por nominal = (PPC/100)×CCL
+        # (alineado con VALOR_ARS y COSTO_PNL_REF; RATIO no entra: PPC_USD_PROM es por certificado).
+        _tipos = df["TIPO"].astype(str) if "TIPO" in df.columns else pd.Series([""] * len(df))
+        _rf_usd_par = np.array(
+            [
+                _ppc_usd_es_paridad_rf_usd(str(t), str(tp))
+                for t, tp in zip(df["TICKER"].astype(str), _tipos)
+            ],
+            dtype=bool,
+        )
+        _ppc_loc = np.where(
+            _rf_usd_par & (ccl > 0),
+            df["PPC_USD_PROM"] / 100.0 * ccl,
+            df["PPC_USD_PROM"],
+        )
         df["PPC_ARS"] = np.where(
             df["ES_LOCAL"],
-            df["PPC_USD_PROM"],                              # PPC_USD = precio en ARS para locales
-            df["PPC_USD_PROM"] * ccl * df["RATIO"],          # fórmula CEDEAR
+            _ppc_loc,
+            df["PPC_USD_PROM"] * ccl,
         )
         df["INV_ARS"] = df["CANTIDAD_TOTAL"] * df["PPC_ARS"]
+
+    # Guardrail de unidad RF USD:
+    # si precio actual quedó ~100x vs PPC_ARS (misma posición), normalizar a la misma escala.
+    _tipos = df["TIPO"].astype(str) if "TIPO" in df.columns else pd.Series([""] * len(df))
+    _rf_usd_par = np.array(
+        [
+            _ppc_usd_es_paridad_rf_usd(str(t), str(tp))
+            for t, tp in zip(df["TICKER"].astype(str), _tipos)
+        ],
+        dtype=bool,
+    )
+    _ratio_px_ppc = np.where(
+        df["PPC_ARS"] > 0,
+        df["PRECIO_ARS"] / df["PPC_ARS"],
+        1.0,
+    )
+    df["ESCALA_PRECIO_RF"] = ""
+    _mismatch_100x = (_rf_usd_par & (df["ES_LOCAL"]) & (_ratio_px_ppc > 50.0) & (_ratio_px_ppc < 500.0))
+    if np.any(_mismatch_100x):
+        df.loc[_mismatch_100x, "PRECIO_ARS"] = df.loc[_mismatch_100x, "PRECIO_ARS"] / 100.0
+        df.loc[_mismatch_100x, "ESCALA_PRECIO_RF"] = "÷100 vs PPC"
+        try:
+            _n = int(np.sum(_mismatch_100x))
+            logger.warning("normalizacion_unidad_rf_usd: %d fila(s) ajustadas ÷100 en PRECIO_ARS", _n)
+        except Exception:
+            pass
+
+    if ccl > 0:
+        df["PRECIO_USD"] = df["PRECIO_ARS"] / ccl
+        df["PRECIO_USD_SUBYACENTE"] = np.where(
+            df["ES_LOCAL"],
+            df["PRECIO_USD"],
+            df["PRECIO_ARS"] * df["RATIO"] / ccl,
+        )
+
+    df["VALOR_ARS"] = df["CANTIDAD_TOTAL"] * df["PRECIO_ARS"]
 
     # PPC_USD_SUB: precio del subyacente en USD al momento de compra.
     # PPC_USD_PROM almacena el precio por CEDEAR en USD (sub_USD / ratio).
@@ -416,22 +491,33 @@ def calcular_posicion_neta(
     df["PNL_ARS"] = df["VALOR_ARS"] - df["INV_ARS"]
     df["PNL_PCT"] = np.where(df["INV_ARS"] > 0, df["PNL_ARS"] / df["INV_ARS"], 0.0)
 
-    # P&L en USD: locales usan equivalente ARS/CCL; CEDEARs cancelan efecto CCL.
-    # Para CEDEARs: PPC_USD_PROM es precio por CEDEAR en USD → × ccl da ARS al CCL actual.
-    # No se aplica RATIO porque PPC_USD_PROM ya está expresado por unidad de CEDEAR.
-    inv_usd_base = np.where(
+    # Base de costo en ARS alineada al certificado / posición (sin mezclar ARS con USD).
+    # CEDEAR: costo nominal en pesos = unidades × precio USD/céd. × CCL (coherente con tests B2).
+    # Local ARS: costo = INV_ARS (contable).
+    costo_pnl_ref = np.where(
         df["ES_LOCAL"],
-        df["INV_ARS"] / ccl if ccl > 0 else df["INV_ARS"],
+        df["INV_ARS"],
         df["CANTIDAD_TOTAL"] * df["PPC_USD_PROM"] * ccl,
     )
-    df["PNL_ARS_USD"] = df["VALOR_ARS"] - inv_usd_base
-    df["PNL_PCT_USD"] = np.where(inv_usd_base > 0, df["PNL_ARS_USD"] / inv_usd_base, 0.0)
+    df["COSTO_PNL_REF_ARS"] = costo_pnl_ref
+    df["PNL_ARS_USD"] = df["VALOR_ARS"] - costo_pnl_ref
+    df["PNL_PCT_USD"] = np.where(costo_pnl_ref > 0, df["PNL_ARS_USD"] / costo_pnl_ref, 0.0)
 
     total_v = df["VALOR_ARS"].sum()
     df["PESO_PCT"] = df["VALOR_ARS"] / total_v if total_v > 0 else 0.0
 
     # MQ2-D8: VALOR_USD individual por posición (VALOR_ARS / CCL)
     df["VALOR_USD"] = df["VALOR_ARS"] / ccl if ccl > 0 else 0.0
+
+    # Contrato explícito de unidades (peso/precio/moneda) con señal en salida.
+    try:
+        from core.unit_contracts import validar_contrato_unidades_posicion_neta
+
+        df, _issues_units = validar_contrato_unidades_posicion_neta(df)
+        for _m in _issues_units:
+            logger.warning("contrato_unidades: %s", _m)
+    except Exception as _e_units:
+        logger.warning("contrato_unidades_validacion_fallo: %s", _e_units)
 
     return df
 
@@ -443,17 +529,28 @@ def metricas_resumen(df_pos: pd.DataFrame) -> dict:
                        total_pnl_usd, pnl_pct_total_usd.
 
     pnl_pct_total     = retorno total en pesos (incluye apreciación CCL).
-    pnl_pct_total_usd = retorno puro en USD (CCL cancela — para comparar con benchmarks).
+    pnl_pct_total_usd = P&L sobre la misma base por fila que PNL_PCT_USD (COSTO_PNL_REF_ARS
+                        si existe; si no, INV_ARS) — evita mezclar costo de céd. con costo × ratio.
     """
     total_valor     = df_pos["VALOR_ARS"].sum()   if not df_pos.empty else 0.0
     total_inversion = df_pos["INV_ARS"].sum()      if not df_pos.empty else 0.0
     total_pnl       = df_pos["PNL_ARS"].sum()      if not df_pos.empty else 0.0
     pnl_pct_total   = total_pnl / total_inversion  if total_inversion > 0 else 0.0
 
-    # P&L solo en USD (base INV al CCL actual — cancela el efecto devaluación)
-    total_pnl_usd     = df_pos["PNL_ARS_USD"].sum() if ("PNL_ARS_USD" in df_pos.columns and not df_pos.empty) else total_pnl
-    inv_usd_base      = (df_pos["CANTIDAD_TOTAL"] * df_pos["PPC_ARS"]).sum() if not df_pos.empty else 0.0
-    pnl_pct_total_usd = total_pnl_usd / inv_usd_base if inv_usd_base > 0 else 0.0
+    total_pnl_usd = (
+        df_pos["PNL_ARS_USD"].sum()
+        if ("PNL_ARS_USD" in df_pos.columns and not df_pos.empty)
+        else total_pnl
+    )
+    if not df_pos.empty and "COSTO_PNL_REF_ARS" in df_pos.columns:
+        inv_basis_pnl = float(pd.to_numeric(df_pos["COSTO_PNL_REF_ARS"], errors="coerce").fillna(0.0).sum())
+    else:
+        inv_basis_pnl = float(
+            (df_pos["CANTIDAD_TOTAL"] * df_pos["PPC_ARS"]).sum()
+        ) if not df_pos.empty else 0.0
+    if inv_basis_pnl <= 0 and total_inversion > 0:
+        inv_basis_pnl = float(total_inversion)
+    pnl_pct_total_usd = total_pnl_usd / inv_basis_pnl if inv_basis_pnl > 0 else 0.0
 
     return {
         "total_valor":         total_valor,

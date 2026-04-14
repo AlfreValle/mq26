@@ -1,7 +1,28 @@
 """
-app_main.py — Terminal Cuantitativa MQ26
-Master Quant 26 x Advisory Suite V12
-6 Tabs: Cartera | Universo | Optimización | Riesgo | Ejecución | Reporte
+app_main.py — Master Quant · Cartera Inteligente MQ v10 (entrypoint principal)
+Versión consolidada — única fuente de verdad (reemplaza V7, V8, V9).
+
+Producto: 4 perfiles de riesgo (Conservador / Moderado / Arriesgado / Muy arriesgado).
+Navegación por rol via ui/navigation.py — única fuente de verdad para tabs:
+  - inversor   → 1 tab "Mi Cartera" (tab_inversor) con selector de perfil + RF·RV
+  - admin      → 7 tabs (institucionales + Admin)
+  - estudio    → 6 tabs institucionales (Cartera | Mercado | Señales | Optimización | Riesgo | Ejecución | Informe)
+  - viewer     → 6 tabs institucionales
+
+Variables de entorno (Railway / local):
+  MQ26_TRY_DB_USERS=true      → login desde BD de usuarios
+  MQ26_DB_TENANT_ID=nombre    → filtrado multi-tenant
+  MQ26_INVESTOR_PASSWORD      → contraseña rol inversor
+  MQ26_USER_INVERSOR          → usuario rol inversor
+  DEMO_MODE=true              → datos de ejemplo sin credenciales
+
+CONTRATO PÚBLICO:
+  - navigation.py es SSOT de tabs por rol (no hardcodear st.tabs aquí)
+  - perfil_allocation.py es SSOT de targets RF/RV por perfil
+  - byma_market_data.py provee precios en vivo de ONs (RF) desde BYMA Open Data
+  - tab_inversor.py contiene toda la UI del inversor (no duplicar lógica aquí)
+
+Para arrancar: streamlit run app_main.py
 """
 import io
 import os
@@ -39,14 +60,20 @@ from core.logging_config import get_logger
 _log = get_logger(__name__)
 
 
+def _log_degradacion(evento: str, exc: Exception | None = None, **ctx) -> None:
+    """Logging estructurado para degradaciones no fatales."""
+    payload = {"evento": evento, **ctx}
+    if exc is not None:
+        _log.warning("degradacion_app_main: %s | error=%s", payload, exc, exc_info=True)
+    else:
+        _log.warning("degradacion_app_main: %s", payload)
+
+
 def _app_scope_clientes_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Filtra clientes según login BD (app_allowed_cliente_ids)."""
-    allowed = st.session_state.get("app_allowed_cliente_ids")
-    if allowed is None:
-        return df
-    if not allowed:
-        return df.iloc[0:0].copy()
-    return df[df["ID"].isin(allowed)].copy()
+    """Misma regla que run_mq26: BD + rol inversor = un solo cliente visible."""
+    from core.cliente_scope_ui import scope_clientes_df_por_sesion
+
+    return scope_clientes_df_por_sesion(df, app_id="app")
 
 
 # Importar config desde la raíz explícitamente (evita conflicto con 1_Scripts_Motor/config.py)
@@ -58,11 +85,9 @@ _cfg_spec.loader.exec_module(_cfg_mod)
 APP_PASSWORD     = _cfg_mod.APP_PASSWORD
 MQ26_VIEWER_PASSWORD = getattr(_cfg_mod, "MQ26_VIEWER_PASSWORD", "") or ""
 MQ26_INVESTOR_PASSWORD = getattr(_cfg_mod, "MQ26_INVESTOR_PASSWORD", "") or ""
-MQ26_ADVISOR_PASSWORD = getattr(_cfg_mod, "MQ26_ADVISOR_PASSWORD", "") or ""
 MQ26_USER_ADMIN = getattr(_cfg_mod, "MQ26_USER_ADMIN", "admin") or "admin"
 MQ26_USER_ESTUDIO = getattr(_cfg_mod, "MQ26_USER_ESTUDIO", "estudio") or "estudio"
 MQ26_USER_INVERSOR = getattr(_cfg_mod, "MQ26_USER_INVERSOR", "inversor") or "inversor"
-MQ26_USER_ASESOR = getattr(_cfg_mod, "MQ26_USER_ASESOR", "asesor") or "asesor"
 _MQ26_TRY_DB_USERS = os.environ.get("MQ26_TRY_DB_USERS", "true").strip().lower() in ("1", "true", "yes")
 _MQ26_DB_TENANT_ID = (os.environ.get("MQ26_DB_TENANT_ID", "default").strip() or "default")
 N_SIM_DEFAULT    = _cfg_mod.N_SIM_DEFAULT
@@ -105,7 +130,8 @@ def _boton_exportar(df: pd.DataFrame, nombre: str, label: str = "📥 Exportar E
         data = _df_to_excel(df)
         ext  = "xlsx"
         mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    except Exception:
+    except Exception as exc:
+        _log_degradacion("export_excel_fallback_csv", exc, nombre=nombre, filas=int(len(df)))
         data = df.to_csv(index=True).encode("utf-8")
         ext  = "csv"
         mime = "text/csv"
@@ -126,24 +152,33 @@ if not (APP_PASSWORD or "").strip():
     )
     st.stop()
 
-# CSS institucional — cargado desde assets/style.css (C1)
+# CSS: mismo bundle que run_mq26 (oscuro + retail light) para login y app legibles
 def _inject_css():
-    _css_path = BASE_DIR / "assets" / "style.css"
-    if _css_path.exists():
-        css_content = _css_path.read_text(encoding="utf-8")
-        st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
-    # Clases de compatibilidad
-    st.markdown("""
+    from ui.mq26_theme import build_theme_css_bundle
+
+    _logged = bool(
+        st.session_state.get("app_auth")
+        or st.session_state.get("authentication_status") is True
+    )
+    _use_light = bool(st.session_state.get("mq_light_mode", False)) if _logged else True
+    _extra, _light = build_theme_css_bundle(BASE_DIR, use_light=_use_light)
+    st.markdown(f"<style>{_extra}{_light}</style>", unsafe_allow_html=True)
+    st.markdown(
+        """
     <style>
-        .main-header { font-size: 1.8rem; font-weight: 700; color: #2E86AB; margin-bottom: 0; }
-        .sub-header  { font-size: 0.95rem; color: #A0A0B8; margin-bottom: 1rem; }
-        .badge-green { background: #27AE60; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
-        .badge-red   { background: #E74C3C; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
-        .badge-gold  { background: #F39C12; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .main-header { font-size: 1.8rem; font-weight: 700; color: var(--c-accent); margin-bottom: 0; }
+        .sub-header  { font-size: 0.95rem; color: var(--c-text-2); margin-bottom: 1rem; }
+        .badge-green { background: var(--c-green); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .badge-red   { background: var(--c-red); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
+        .badge-gold  { background: var(--c-yellow); color: #0f172a; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
     </style>
-    """, unsafe_allow_html=True)
-    # Watermark
-    st.markdown('<div class="mq26-watermark">MQ26 Institucional</div>', unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="mq26-watermark">MQ26 Institucional</div>',
+        unsafe_allow_html=True,
+    )
 
 _inject_css()
 
@@ -157,11 +192,9 @@ if not check_password(
     password_env=APP_PASSWORD,
     viewer_password_env=MQ26_VIEWER_PASSWORD,
     investor_password_env=MQ26_INVESTOR_PASSWORD,
-    advisor_password_env=MQ26_ADVISOR_PASSWORD,
     user_admin=MQ26_USER_ADMIN,
     user_estudio=MQ26_USER_ESTUDIO,
     user_inversor=MQ26_USER_INVERSOR,
-    user_asesor=MQ26_USER_ASESOR,
     username_login=True,
     try_database_users=_MQ26_TRY_DB_USERS,
     db_tenant_id=_MQ26_DB_TENANT_ID if _MQ26_TRY_DB_USERS else None,
@@ -182,25 +215,39 @@ engine_data = init_sistema()
 
 # ─── PANTALLA DE INGRESO ───────────────────────────────────────────────────────
 def _pantalla_ingreso():
-    """Bloquea la app hasta que el asesor seleccione o cree un cliente."""
+    """Bloquea la app hasta que se seleccione o cree un cliente (inversor: alcance acotado, sin alta)."""
+    _ing = get_user_role("app")
     st.markdown("""
     <div style="text-align:center; padding: 2rem 0 1rem 0;">
         <span style="font-size:3rem"></span>
-        <h1 style="color:#2E86AB; margin:0.3rem 0">MQ26 Terminal</h1>
-        <p style="color:#888; font-size:1rem">Seleccioná un cliente para comenzar el análisis</p>
+        <h1 style="color:var(--c-accent, #2E86AB); margin:0.3rem 0">MQ26 Terminal</h1>
+        <p style="color:var(--c-text-2, #64748b); font-size:1rem">Seleccioná un cliente para comenzar el análisis</p>
     </div>
     """, unsafe_allow_html=True)
 
-    col_sel, col_nuevo = st.columns([1, 1], gap="large")
+    if _ing == "inversor":
+        col_sel = st.container()
+        col_nuevo = None
+    else:
+        col_sel, col_nuevo = st.columns([1, 1], gap="large")
 
     with col_sel:
         st.markdown("### Seleccionar cliente existente")
         df_cli = _app_scope_clientes_df(dbm.obtener_clientes_df())
         if df_cli.empty:
-            st.info("No hay clientes registrados aún. Creá el primero al lado.")
+            if _ing == "inversor":
+                st.warning(
+                    "No hay un perfil de cliente asignado a tu usuario. "
+                    "Un administrador debe vincular tu cuenta en la base o definir **MQ26_INVESTOR_CLIENTE_IDS** en el entorno."
+                )
+            else:
+                st.info("No hay clientes registrados aún. Creá el primero al lado.")
         else:
             opciones_cli = ["— Elegir cliente —"] + df_cli["Nombre"].tolist()
-            sel = st.selectbox("Cliente:", opciones_cli, key="ing_sel_cliente")
+            _idx_sel = 0
+            if _ing == "inversor" and len(df_cli) == 1:
+                _idx_sel = 1
+            sel = st.selectbox("Cliente:", opciones_cli, index=_idx_sel, key="ing_sel_cliente")
             if sel != "— Elegir cliente —":
                 row = df_cli[df_cli["Nombre"] == sel].iloc[0]
                 st.markdown(f"""
@@ -217,33 +264,34 @@ def _pantalla_ingreso():
                     st.session_state["cliente_horizonte_label"] = row.get("Horizonte", "1 año")
                     st.rerun()
 
-    with col_nuevo:
-        st.markdown("### Nuevo cliente")
-        with st.form("form_nuevo_cliente_ingreso", clear_on_submit=True):
-            nc_nombre  = st.text_input("Nombre completo *")
-            nc_tipo    = st.selectbox("Tipo de cliente", ["Persona", "Empresa"])
-            nc_perfil  = st.selectbox("Perfil de riesgo", ["Conservador", "Moderado", "Agresivo"],
-                                       help="Conservador: preserva capital. Moderado: balance riesgo/retorno. Agresivo: maximiza retorno.")
-            nc_horiz   = st.selectbox("Horizonte de inversión",
-                                       ["1 mes","3 meses","6 meses","1 año","3 años","+5 años"],
-                                       index=3,
-                                       help="¿En cuánto tiempo podría necesitar este capital?")
-            nc_capital = st.number_input("Capital inicial estimado (USD)", min_value=0.0,
-                                          value=10_000.0, step=1_000.0)
-            submitted = st.form_submit_button("💾 Crear cliente e ingresar", type="primary", use_container_width=True)
-            if submitted:
-                if not nc_nombre.strip():
-                    st.error("El nombre es obligatorio.")
-                else:
-                    nuevo_id = dbm.registrar_cliente(
-                        nc_nombre.strip(), nc_perfil, nc_capital, nc_tipo, nc_horiz
-                    )
-                    st.session_state["cliente_id"]      = nuevo_id
-                    st.session_state["cliente_nombre"]  = nc_nombre.strip()
-                    st.session_state["cliente_perfil"]  = nc_perfil
-                    st.session_state["cliente_horizonte_label"] = nc_horiz
-                    st.success(f"✅ Cliente '{nc_nombre.strip()}' creado.")
-                    st.rerun()
+    if col_nuevo is not None:
+        with col_nuevo:
+            st.markdown("### Nuevo cliente")
+            with st.form("form_nuevo_cliente_ingreso", clear_on_submit=True):
+                nc_nombre  = st.text_input("Nombre completo *")
+                nc_tipo    = st.selectbox("Tipo de cliente", ["Persona", "Empresa"])
+                nc_perfil  = st.selectbox("Perfil de riesgo", ["Conservador", "Moderado", "Agresivo"],
+                                           help="Conservador: preserva capital. Moderado: balance riesgo/retorno. Agresivo: maximiza retorno.")
+                nc_horiz   = st.selectbox("Horizonte de inversión",
+                                           ["1 mes","3 meses","6 meses","1 año","3 años","+5 años"],
+                                           index=3,
+                                           help="¿En cuánto tiempo podría necesitar este capital?")
+                nc_capital = st.number_input("Capital inicial estimado (USD)", min_value=0.0,
+                                              value=10_000.0, step=1_000.0)
+                submitted = st.form_submit_button("💾 Crear cliente e ingresar", type="primary", use_container_width=True)
+                if submitted:
+                    if not nc_nombre.strip():
+                        st.error("El nombre es obligatorio.")
+                    else:
+                        nuevo_id = dbm.registrar_cliente(
+                            nc_nombre.strip(), nc_perfil, nc_capital, nc_tipo, nc_horiz
+                        )
+                        st.session_state["cliente_id"]      = nuevo_id
+                        st.session_state["cliente_nombre"]  = nc_nombre.strip()
+                        st.session_state["cliente_perfil"]  = nc_perfil
+                        st.session_state["cliente_horizonte_label"] = nc_horiz
+                        st.success(f"✅ Cliente '{nc_nombre.strip()}' creado.")
+                        st.rerun()
 
     st.stop()
 
@@ -281,7 +329,8 @@ def cached_metricas_resumen(df_serialized: str, ccl: float, cartera_key: str) ->
         if _df_f6.empty:
             return {}
         return _cs_f6.metricas_resumen(_df_f6)
-    except Exception:
+    except Exception as exc:
+        _log_degradacion("cached_metricas_resumen_error", exc, cartera=cartera_key, ccl=round(float(ccl or 0.0), 2))
         return {}
 
 
@@ -305,12 +354,19 @@ _cliente_nombre = st.session_state.get("cliente_nombre", "")
 _cliente_perfil = st.session_state.get("cliente_perfil", "Moderado")
 _horiz_label    = st.session_state.get("cliente_horizonte_label", "1 año")
 
+df_clientes = _app_scope_clientes_df(dbm.obtener_clientes_df())
+
 st.sidebar.markdown(f"**👤 {_cliente_nombre}**")
 st.sidebar.caption(f"Perfil: {_cliente_perfil}  |  Horizonte: {_horiz_label}")
-if st.sidebar.button("🔄 Cambiar cliente", key="btn_cambiar_cliente", use_container_width=True):
-    for k in ["cliente_id","cliente_nombre","cliente_perfil","cliente_horizonte_label"]:
-        st.session_state.pop(k, None)
-    st.rerun()
+_app_role_sidebar = get_user_role("app")
+from ui.rbac import can_action as _can_action_rbac
+_can_sensitive_utils = _can_action_rbac({"user_role": _app_role_sidebar}, "sensitive_utils")
+# Inversor con un solo cliente en alcance: no ofrecer cambiar (misma lógica que run_mq26).
+if _app_role_sidebar != "inversor" or len(df_clientes) > 1:
+    if st.sidebar.button("🔄 Cambiar cliente", key="btn_cambiar_cliente", use_container_width=True):
+        for k in ["cliente_id", "cliente_nombre", "cliente_perfil", "cliente_horizonte_label"]:
+            st.session_state.pop(k, None)
+        st.rerun()
 st.sidebar.markdown("---")
 
 # Horizonte en días derivado del cliente (no hay slider)
@@ -321,23 +377,27 @@ n_escenarios = st.sidebar.selectbox("Simulaciones MC:", [1000, 3000, 5000, 10000
 capital_nuevo = 0.0   # queda en 0; se gestiona desde Mesa de Ejecución
 st.sidebar.markdown("---")
 
-# Selección de cartera del cliente (alcance por rol: inversor = una cartera / cliente)
-df_clientes = _app_scope_clientes_df(dbm.obtener_clientes_df())
+# Selección de cartera del cliente (inversor: un cliente activo a la vez; lista de clientes ya acotada arriba)
 trans = engine_data.cargar_transaccional()
 _app_role = get_user_role("app")
 trans = filtrar_transaccional_por_rol(trans, _app_role, _cliente_nombre, df_clientes)
+
+if _app_role == "inversor":
+    from core.cartera_scope import normalizar_transacciones_inversor_una_cartera
+
+    trans, _ = normalizar_transacciones_inversor_una_cartera(trans, _cliente_nombre)
 
 carteras_csv: list[str] = []
 if not trans.empty and "CARTERA" in trans.columns:
     carteras_csv = sorted(trans["CARTERA"].dropna().unique().tolist())
 
 if _app_role == "inversor":
-    if len(carteras_csv) <= 1:
-        carteras_opciones = list(carteras_csv)
-        if not carteras_opciones and _cliente_nombre.strip():
-            carteras_opciones = [f"{_cliente_nombre.strip()} | (sin datos)"]
+    if carteras_csv:
+        carteras_opciones = [carteras_csv[0]]
+    elif _cliente_nombre.strip():
+        carteras_opciones = [f"{_cliente_nombre.strip()} | (sin datos)"]
     else:
-        carteras_opciones = ["-- Todas las carteras --"] + list(carteras_csv)
+        carteras_opciones = []
 else:
     carteras_opciones = ["-- Todas las carteras --"] + list(carteras_csv)
     if not df_clientes.empty:
@@ -347,17 +407,7 @@ else:
                 carteras_opciones.append(f"{_nombre_cli.strip()} | (sin datos)")
 
 _default_cartera_idx = 0
-if _app_role == "inversor":
-    for _i, _opt in enumerate(carteras_opciones):
-        if _opt.endswith("| (sin datos)"):
-            _default_cartera_idx = _i
-            break
-        if "|" in _opt:
-            _pref = _opt.split("|")[0].strip()
-            if _cliente_nombre and _pref == _cliente_nombre.strip():
-                _default_cartera_idx = _i
-                break
-else:
+if _app_role != "inversor":
     for _i, _opt in enumerate(carteras_opciones):
         if _opt in ("-- Todas las carteras --",) or _opt.endswith("| (sin datos)"):
             continue
@@ -367,10 +417,23 @@ else:
                 _default_cartera_idx = _i
                 break
 
-_default_cartera_idx = min(_default_cartera_idx, max(0, len(carteras_opciones) - 1))
+if carteras_opciones:
+    _default_cartera_idx = min(_default_cartera_idx, max(0, len(carteras_opciones) - 1))
+else:
+    _default_cartera_idx = 0
 
-cartera_activa = st.sidebar.selectbox("📁 Cartera activa:", carteras_opciones,
-                                       index=_default_cartera_idx)
+if not carteras_opciones:
+    cartera_activa = ""
+elif _app_role == "inversor":
+    cartera_activa = carteras_opciones[0]
+else:
+    cartera_activa = st.sidebar.selectbox(
+        "📁 Cartera activa:", carteras_opciones, index=_default_cartera_idx
+    )
+    st.sidebar.caption(
+        "Vista **Cartera → Posición actual** usa la misma tabla resumen que el inversor y, debajo, "
+        "targets / progreso / Kelly para trabajo profesional."
+    )
 # B11: Toggle FIFO vs Promedio ponderado para cálculo de PPC
 st.sidebar.checkbox(
     "Usar FIFO para PPC",
@@ -383,6 +446,9 @@ st.sidebar.markdown("---")
 # ── Mantenimiento de datos ────────────────────────────────────────────────────
 with st.sidebar.expander("🔄 Sincronización de datos"):
     st.caption("Regenera las posiciones netas leyendo el Excel completo.")
+    _can_manage_data = _can_sensitive_utils
+    if not _can_manage_data:
+        st.info("Solo administradores pueden ejecutar acciones de mantenimiento.")
     _ruta_transac_sb = BASE_DIR / "0_Data_Maestra" / "Maestra_Transaccional.csv"
     _ruta_maestra_sb = BASE_DIR / "0_Data_Maestra" / "Maestra_Inversiones.xlsx"
     _ruta_sqlite_sb  = BASE_DIR / "0_Data_Maestra" / "master_quant.db"
@@ -393,7 +459,7 @@ with st.sidebar.expander("🔄 Sincronización de datos"):
         st.caption(f"CSV actual: {_mtime}")
     else:
         st.warning("CSV no generado aún.")
-    if st.button("🔄 Regenerar posiciones desde Excel", key="btn_regen_csv"):
+    if st.button("🔄 Regenerar posiciones desde Excel", key="btn_regen_csv", disabled=not _can_manage_data):
         if _ruta_transac_sb.exists():
             _ruta_transac_sb.unlink()
         st.cache_data.clear()
@@ -404,14 +470,14 @@ with st.sidebar.expander("🔄 Sincronización de datos"):
     if "confirmar_reset" not in st.session_state:
         st.session_state["confirmar_reset"] = False
     if not st.session_state["confirmar_reset"]:
-        if st.button("🗑️ Resetear todo (punto cero)", key="btn_reset_confirm"):
+        if st.button("🗑️ Resetear todo (punto cero)", key="btn_reset_confirm", disabled=not _can_manage_data):
             st.session_state["confirmar_reset"] = True
             st.rerun()
     else:
         st.warning("¿Estás seguro? Se borrarán **clientes, carteras y operaciones**.")
         col_si, col_no = st.columns(2)
         with col_si:
-            if st.button("✅ Sí, borrar", key="btn_reset_si", type="primary"):
+            if st.button("✅ Sí, borrar", key="btn_reset_si", type="primary", disabled=not _can_manage_data):
                 for _ruta in [_ruta_transac_sb, _ruta_sqlite_sb]:
                     if _ruta.exists():
                         _ruta.unlink()
@@ -426,6 +492,8 @@ with st.sidebar.expander("🔄 Sincronización de datos"):
 # ── Panel de precios fallback ─────────────────────────────────────────────────
 with st.sidebar.expander("💰 Precios fallback (sin red)"):
     st.caption("Precios ARS por CEDEAR usados cuando yfinance no responde.")
+    if not _can_sensitive_utils:
+        st.info("Utilidad sensible: solo administradores pueden editar precios fallback.")
     _fb = cs.PRECIOS_FALLBACK_ARS.copy()
     _df_fb = pd.DataFrame(
         [{"Ticker": t, "Precio ARS": p} for t, p in sorted(_fb.items())]
@@ -438,7 +506,7 @@ with st.sidebar.expander("💰 Precios fallback (sin red)"):
         },
         key="editor_fallback_sb", hide_index=True,
     )
-    if st.button("💾 Aplicar precios", key="btn_aplicar_fb"):
+    if st.button("💾 Aplicar precios", key="btn_aplicar_fb", disabled=not _can_sensitive_utils):
         _nuevos = dict(zip(_df_fb_edit["Ticker"], _df_fb_edit["Precio ARS"]))
         _nuevos = {t: float(p) for t, p in _nuevos.items() if t and p and float(p) > 0}
         cs.actualizar_fallback(_nuevos)
@@ -460,15 +528,16 @@ with st.sidebar.expander("📰 Noticias Macro Argentina"):
                 _feed = _fp.parse(_url)
                 for _entry in _feed.entries[:3]:
                     _noticias.append((_fuente, _entry.get("title",""), _entry.get("link","")))
-            except Exception:
-                pass
+            except Exception as exc:
+                _log_degradacion("noticias_feed_parse_error", exc, fuente=_fuente, url=_url)
         if _noticias:
             for _fuente, _titulo, _link in _noticias[:6]:
                 st.markdown(f"📌 **[{_titulo[:60]}...]({_link})**")
                 st.caption(_fuente)
         else:
             st.caption("Sin noticias disponibles ahora.")
-    except ImportError:
+    except ImportError as exc:
+        _log_degradacion("noticias_feedparser_no_disponible", exc)
         st.caption("Instalar `feedparser` para ver noticias.")
 
 # ── Salud del sistema (C7) ────────────────────────────────────────────────────
@@ -483,17 +552,19 @@ with st.sidebar.expander("⚙️ Salud del sistema"):
     _cb = len(getattr(__import__("services.market_connector", fromlist=["_circuit_breaker"]),
                        "_circuit_breaker", set()))
     if _cb > 0:
-        st.warning(f"âš¡ {_cb} ticker(s) en circuit breaker")
+        st.warning(f"⚡ {_cb} ticker(s) en circuit breaker")
     else:
         st.success("✅ Sin errores de mercado")
 
 # Config Telegram
 with st.sidebar.expander("📱 Alertas Telegram"):
+    if not _can_sensitive_utils:
+        st.info("Utilidad sensible: solo administradores pueden configurar Telegram.")
     tg_token   = st.text_input("Bot Token", type="password",
                                 value=os.environ.get("TELEGRAM_TOKEN",""))
     tg_chat    = st.text_input("Chat ID",
                                 value=os.environ.get("TELEGRAM_CHAT_ID",""))
-    if st.button("🔔 Probar conexión"):
+    if st.button("🔔 Probar conexión", disabled=not _can_sensitive_utils):
         if tg_token and tg_chat:
             os.environ["TELEGRAM_TOKEN"]   = tg_token
             os.environ["TELEGRAM_CHAT_ID"] = tg_chat
@@ -514,6 +585,10 @@ df_ag = pd.DataFrame()
 tickers_cartera = []
 precios_dict = {}
 prop_nombre = ""
+price_coverage_pct = 100.0
+tickers_sin_precio: list[str] = []
+valoracion_audit: dict = {}
+precio_records: dict = {}
 
 _cartera_sin_datos = cartera_activa.endswith("| (sin datos)")
 if cartera_activa != "-- Todas las carteras --" and not _cartera_sin_datos and not trans.empty:
@@ -539,9 +614,44 @@ if cartera_activa != "-- Todas las carteras --" and not _cartera_sin_datos and n
     if not df_ag.empty:
         tickers_cartera = df_ag["TICKER"].str.upper().tolist()
         precios_dict_live = cached_precios_actuales(tuple(tickers_cartera), ccl)
-        # Resolver precios con jerarquía: live → fallback Balanz → 0
-        precios_dict = cs.resolver_precios(tickers_cartera, precios_dict_live, ccl,
-                                           universo_df=engine_data.universo_df)
+        try:
+            from core.price_engine import PriceEngine, records_tras_rellenar_ppc
+            from services.valoracion_audit import auditar_inferido_live_vs_resto, auditar_valoracion_por_tipo
+
+            _pe = PriceEngine(universo_df=engine_data.universo_df)
+            _records = _pe.get_portfolio(tickers_cartera, ccl, precios_live_override=precios_dict_live)
+            price_coverage_pct = _pe.cobertura_pct(_records)
+            tickers_sin_precio = _pe.tickers_sin_precio(_records)
+            precios_dict = _pe.to_precios_ars(_records)
+            _precios_pre_ppc = dict(precios_dict)
+            if tickers_sin_precio:
+                precios_dict = cs.rellenar_precios_desde_ultimo_ppc(
+                    trans, cartera_activa, tickers_cartera, precios_dict, float(ccl or 0)
+                )
+                _records = records_tras_rellenar_ppc(
+                    _records, _precios_pre_ppc, precios_dict, float(ccl or 0)
+                )
+                tickers_sin_precio = [
+                    t for t in tickers_cartera if float(precios_dict.get(str(t).upper(), 0) or 0) <= 0
+                ]
+                price_coverage_pct = (
+                    round(100.0 * (len(tickers_cartera) - len(tickers_sin_precio)) / len(tickers_cartera), 1)
+                    if tickers_cartera else 100.0
+                )
+            precio_records = _records
+        except Exception as exc:
+            _log_degradacion("app_main_price_engine_fallo", exc)
+            # Fallback controlado
+            precios_dict = cs.resolver_precios(
+                tickers_cartera, precios_dict_live, ccl, universo_df=engine_data.universo_df
+            )
+            tickers_sin_precio = [
+                t for t in tickers_cartera if float(precios_dict.get(str(t).upper(), 0) or 0) <= 0
+            ]
+            price_coverage_pct = (
+                round(100.0 * (len(tickers_cartera) - len(tickers_sin_precio)) / len(tickers_cartera), 1)
+                if tickers_cartera else 100.0
+            )
         prop_nombre = cartera_activa.split("|")[0].strip() if "|" in cartera_activa else cartera_activa
         _log.info("Cartera activa cargada: %s (%d posiciones)", cartera_activa, len(df_ag))
 
@@ -567,8 +677,8 @@ if _cliente_id and not st.session_state.get("_objetivos_alertas_verificados"):
             _n_alertas = ab.verificar_objetivos_por_vencer(_df_obj_alerta, _cliente_nombre)
             if _n_alertas > 0:
                 st.toast(f"⏰ {_n_alertas} objetivo(s) próximos a vencer — alertas Telegram enviadas", icon="⏰")
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_degradacion("objetivos_alerta_verificacion_error", exc, cliente_id=int(_cliente_id))
     st.session_state["_objetivos_alertas_verificados"] = True
 
 # Métricas header (usando cartera_service)
@@ -576,6 +686,18 @@ if not df_ag.empty and precios_dict:
     df_ag = cs.calcular_posicion_neta(
         df_ag, precios_dict, ccl, universo_df=engine_data.universo_df
     )
+    if precio_records:
+        try:
+            from services.valoracion_audit import auditar_valoracion_por_tipo
+            valoracion_audit = auditar_valoracion_por_tipo(df_ag, precio_records)
+        except Exception as exc:
+            _log_degradacion("app_main_valoracion_audit_records_fallo", exc)
+    else:
+        try:
+            from services.valoracion_audit import auditar_inferido_live_vs_resto
+            valoracion_audit = auditar_inferido_live_vs_resto(df_ag, precios_dict_live, precios_dict)
+        except Exception as exc:
+            _log_degradacion("app_main_valoracion_audit_inferido_fallo", exc)
     # F6: metricas_resumen cacheada con TTL=60s — evita recalcular en cada render
     try:
         _df_ag_json = df_ag.to_json(orient="records", date_format="iso")
@@ -655,8 +777,8 @@ if not df_ag.empty and precios_dict:
         _df_scores_sb = st.session_state.get("df_scores", pd.DataFrame())
         if not _df_scores_sb.empty and "Senal" in _df_scores_sb.columns:
             _n_alertas_mod23 = int((_df_scores_sb["Senal"].str.contains("SALIR|REDUCIR", na=False)).sum())
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_degradacion("mod23_alertas_sidebar_error", exc)
     if _n_alertas_mod23 == 0:
         st.sidebar.markdown("🟢 **MOD-23:** Sin alertas")
     elif _n_alertas_mod23 <= 2:
@@ -695,6 +817,7 @@ from ui.tab_reporte import render_tab_reporte
 from ui.tab_riesgo import render_tab_riesgo
 from ui.tab_universo import render_tab_universo
 from ui.carga_activos import render_carga_activos
+from ui.navigation import render_main_tabs
 
 # ─── CONTEXTO COMPARTIDO ──────────────────────────────────────────────────────
 # Empaqueta todas las dependencias en un dict; cada render_tab extrae lo que necesita.
@@ -709,6 +832,10 @@ ctx = {
     "df_clientes":      df_clientes,
     "df_analisis":      df_analisis,
     "metricas":         metricas if not df_ag.empty and precios_dict else {},
+    "price_coverage_pct": price_coverage_pct,
+    "tickers_sin_precio": tickers_sin_precio,
+    "valoracion_audit": valoracion_audit,
+    "precio_records": precio_records,
     # Cliente activo
     "cliente_id":       _cliente_id,
     "cliente_nombre":   _cliente_nombre,
@@ -746,24 +873,18 @@ ctx = {
     "asignar_sector":  asignar_sector,
     "render_carga_activos_fn": render_carga_activos,
     "user_role":       _app_role,
+    "tenant_id":       _MQ26_DB_TENANT_ID,
+    "login_user":      st.session_state.get("app_login_user", ""),
+    "session_correlation_id": st.session_state.get("app_auth_token", ""),
 }
 
-# ─── TABS PRINCIPALES (6 — flujo institucional) ───────────────────────────────
-t1, t2, t3, t4, t5, t6 = st.tabs([
-    "📊 1. Cartera & Libro Mayor",
-    "🔍 2. Universo & Señales",
-    "🔬 3. Optimización",
-    "📈 4. Riesgo & Simulación",
-    "🛒 5. Mesa de Ejecución",
-    "📄 6. Reporte",
-])
-
-with t1: render_tab_cartera(ctx)
-with t2: render_tab_universo(ctx)
-with t3: render_tab_optimizacion(ctx)
-with t4: render_tab_riesgo(ctx)
-with t5: render_tab_ejecucion(ctx)
-with t6: render_tab_reporte(ctx)
+# ─── TABS PRINCIPALES — navegación por rol ────────────────────────────────────
+# navigation.py es la única fuente de verdad para tabs por rol:
+#   inversor  → 1 tab "Mi Cartera" (tab_inversor)
+#   estudio   → 6 tabs institucionales
+#   admin     → 7 tabs (institucionales + Admin)
+#   viewer/otros → 6 tabs institucionales
+render_main_tabs(ctx, app_kind="app", role=_app_role)
 
 
 # ── Motor de Salida — accesible desde sidebar ─────────────────────────────────

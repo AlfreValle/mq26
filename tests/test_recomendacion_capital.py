@@ -1,6 +1,7 @@
 """tests/test_recomendacion_capital.py — Motor recomendación capital S5."""
 import pandas as pd
 
+from core.renta_fija_ar import es_renta_fija
 from services.recomendacion_capital import recomendar
 
 
@@ -130,7 +131,7 @@ def test_recomendacion_capital_cero():
     assert r.compras_recomendadas == []
 
 
-def test_renta_ar_placeholder_va_a_pendientes():
+def test_renta_ar_placeholder_o_compra_rf_concreta():
     df = pd.DataFrame(
         [{"TICKER": "SPY", "VALOR_ARS": 100_000.0, "TIPO": "CEDEAR", "PESO_PCT": 1.0}]
     )
@@ -149,7 +150,8 @@ def test_renta_ar_placeholder_va_a_pendientes():
         p for p in r.pendientes_proxima_inyeccion
         if p.get("ticker") == "_RENTA_AR" or "ON/Bonos AR" in str(p.get("motivo", ""))
     ]
-    assert pend_renta
+    hay_compra_rf = any(es_renta_fija(c.ticker) for c in r.compras_recomendadas)
+    assert hay_compra_rf or pend_renta
 
 
 def test_recomendar_precios_vacios_no_falla():
@@ -163,8 +165,8 @@ def test_recomendar_precios_vacios_no_falla():
         precios_dict={},
         diagnostico=None,
     )
-    assert r.n_compras == 0
     assert r.capital_remanente_ars >= 0.0
+    assert r.n_compras >= 0
 
 
 def test_alerta_mercado_sin_compras():

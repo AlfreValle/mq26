@@ -117,6 +117,15 @@ class TestPriceEnginePortfolio:
         assert rec.source == PriceSource.FALLBACK_HARD
         assert rec.precio_cedear_ars == pytest.approx(9_999.0)
 
+    def test_fallback_bd_tiene_prioridad_sobre_hard(self):
+        engine = self._engine()
+        engine._fallback_bd["TESTBD"] = 8_888.0
+        engine._fallback_hard["TESTBD"] = 9_999.0
+        with patch.object(engine, "_try_live", return_value=None):
+            rec = engine.get("TESTBD", ccl=1500.0)
+        assert rec.source == PriceSource.FALLBACK_BD
+        assert rec.precio_cedear_ars == pytest.approx(8_888.0)
+
     def test_cobertura_cien_pct_cuando_todos_validos(self):
         engine = self._engine()
         records = engine.get_portfolio(
@@ -162,6 +171,23 @@ class TestPriceEnginePortfolio:
         engine = self._engine()
         engine.refresh_fallback({"NEWTKR": 5_000.0})
         assert engine._fallback_hard.get("NEWTKR") == pytest.approx(5_000.0)
+
+    def test_yfinance_circuit_off_usa_fallback_bd(self):
+        """Si el circuit breaker bloquea yfinance, _try_live sale al instante y sigue la cadena hacia BD."""
+        engine = self._engine()
+        engine._fallback_bd["CBTEST"] = 6_543.0
+        engine._ratios["CBTEST"] = 10.0
+        with patch.object(PriceEngine, "_yfinance_habilitado", staticmethod(lambda: False)):
+            with patch.object(engine, "_try_byma", return_value=None):
+                rec = engine.get("CBTEST", ccl=1500.0)
+        assert rec.source == PriceSource.FALLBACK_BD
+        assert rec.precio_cedear_ars == pytest.approx(6_543.0)
+
+    def test_reload_fallback_bd_actualiza_mapa(self):
+        engine = self._engine()
+        with patch("core.db_manager.obtener_precios_fallback", return_value={"REL1": 111.0}):
+            engine._reload_fallback_bd()
+        assert engine._fallback_bd.get("REL1") == pytest.approx(111.0)
 
 
 class TestRecordsTrasPPC:

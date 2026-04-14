@@ -13,6 +13,9 @@ import streamlit as st
 
 from core.logging_config import get_logger
 from core.panel_precios import validar_panel_precios
+from core.structured_logging import log_degradacion
+from ui.rbac import can_action as _can_action_rbac
+from ui.mq26_ux import dataframe_auto_height
 
 _log = get_logger(__name__)
 
@@ -89,7 +92,8 @@ def render_tab_optimizacion(ctx: dict) -> None:
     _boton_exportar  = ctx["_boton_exportar"]
     horizonte_label  = ctx.get("horizonte_label", "1 año")
     cliente_perfil   = ctx.get("cliente_perfil", "Moderado")
-    _is_viewer       = str(ctx.get("user_role", "admin")).lower() == "viewer"
+    _can_write       = _can_action_rbac(ctx, "write")
+    _is_viewer       = not _can_write
 
     _preset_suite = st.session_state.get("mq26_asesor_suite_preset")
     if _preset_suite:
@@ -106,270 +110,226 @@ def render_tab_optimizacion(ctx: dict) -> None:
     ])
 
     # ══════════════════════════════════════════════════════════════════
-    # SUB-TAB 1: COMPARATIVA ACTUAL VS ÓPTIMA
+    # SUB-TAB 1: COMPARATIVA AUTOMÁTICA — 3 MODELOS
     # ══════════════════════════════════════════════════════════════════
     with sub_comp:
-        st.subheader("📊 Comparativa — Cartera Actual vs Cartera Óptima")
-        st.caption(f"Horizonte del cliente: **{horizonte_label}**  |  Perfil: **{cliente_perfil}**")
+        st.subheader("📊 Comparativa — Cartera Actual vs Mejores 3 Modelos")
+        st.caption(f"Horizonte: **{horizonte_label}** | Perfil: **{cliente_perfil}** | Cartera: **{prop_nombre or 'activa'}**")
 
         if df_ag.empty or not tickers_cartera:
             st.info("Seleccioná una cartera activa para ver la comparativa.")
         else:
-            col_c1, col_c2, col_c3 = st.columns([2, 1, 1])
-            with col_c1:
-                modelo_comp = st.selectbox(
-                    "Modelo para cartera óptima:",
-                    ["Sharpe", "Sortino", "CVaR", "Paridad de Riesgo", "Kelly", "Min Drawdown", "Multi-Objetivo"],
-                    key="comp_modelo",
+            _MODELOS_AUTO = ["Sharpe", "Sortino", "Paridad de Riesgo"]
+            _COLORES = {"Actual": "#2E86AB", "Sharpe": "#27AE60", "Sortino": "#F39C12", "Paridad de Riesgo": "#9B59B6"}
+
+            col_p1, col_p2 = st.columns([2, 3])
+            with col_p1:
+                period_comp = st.radio(
+                    "Período histórico:", ["1y", "2y", "3y"],
+                    horizontal=True, index=0, key="comp_period",
                 )
-            with col_c2:
-                period_comp = st.selectbox("Histórico:", ["6mo","1y","2y","3y"], index=1, key="comp_period")
-            with col_c3:
-                # MQ2-D9: restricción de turnover máximo
-                max_turnover_pct = st.slider(
-                    "Turnover máximo %", min_value=10, max_value=100, value=30, step=5,
-                    key="max_turnover", help="Límite de cambio de peso respecto a la cartera actual"
-                )
-            st.caption("Optimización — costos / turnover (A11/A12)")
-            col_ca, col_cb, col_cc = st.columns(3)
-            with col_ca:
-                comp_lambda_trade = st.slider(
-                    "λ en función objetivo (turnover+comisión)",
-                    min_value=0.0,
-                    max_value=3.0,
-                    value=0.0,
-                    step=0.05,
-                    key="comp_lambda_trade",
-                    help="Penaliza ∑|w−w_actual| dentro del minimizar (Sharpe, etc.).",
-                )
-            with col_cb:
-                comp_sanitize = st.checkbox(
-                    "Winsorizar retornos (outliers)", value=False, key="comp_sanitize_ret"
-                )
-            with col_cc:
-                comp_l1_cap = st.checkbox(
-                    "Tope duro L1 |w−w_prev|", value=False, key="comp_hard_l1",
-                    help="Activa restricción en el optimizador; el valor sigue el slider «Turnover máximo %» como fracción del máximo teórico.",
-                )
+            with col_p2:
+                st.info("🤖 Los 3 modelos se calculan automáticamente con tu cartera actual.")
 
             if st.button("📊 Calcular comparativa", type="primary", key="btn_comp"):
-                st.session_state["mq26_export_weights_ok"] = False
-                with st.spinner("Calculando carteras..."):
+                st.session_state.pop("comp_resultado", None)
+                with st.spinner("Optimizando 3 modelos con tu cartera actual..."):
                     try:
                         hist_c = cached_historico(tuple(tickers_cartera), period_comp)
                         tickers_c_ok = [t for t in tickers_cartera if t in hist_c.columns]
+                        # Incluir también tickers que hayan sido renombrados (mapeo YF→original)
+                        if not tickers_c_ok:
+                            tickers_c_ok = [c for c in hist_c.columns if c != "SPY"]
+
                         if len(tickers_c_ok) < 2:
-                            st.error("Insuficientes datos históricos.")
+                            st.error(f"Se necesitan al menos 2 activos con datos históricos. Disponibles: {list(hist_c.columns)}")
                         else:
-                            _wp_c = _w_prev_desde_df_ag(df_ag, tickers_c_ok)
-                            _l1max = None
-                            if comp_l1_cap and _wp_c is not None:
-                                _l1max = (max_turnover_pct / 100.0) * max(1.0, float(len(tickers_c_ok)))
-                            risk_c = RiskEngine(
-                                hist_c[tickers_c_ok],
-                                w_prev=_wp_c,
-                                lambda_turnover=comp_lambda_trade,
-                                lambda_tc=comp_lambda_trade,
-                                max_turnover_l1=_l1max,
-                                sanitize_returns=comp_sanitize,
-                            )
-                            if (
-                                comp_sanitize
-                                and getattr(risk_c, "returns_sanitize_report", None)
-                                and risk_c.returns_sanitize_report.get("n_recortes_total", 0) > 0
-                            ):
-                                st.warning(
-                                    "Retornos winsorizados: **"
-                                    + str(risk_c.returns_sanitize_report["n_recortes_total"])
-                                    + "** recortes en el panel (C02)."
+                            _prices_ok, _prices_msg = validar_panel_precios(hist_c, tickers_c_ok, min_obs=20)
+                            if not _prices_ok:
+                                st.error(f"**Datos insuficientes:** {_prices_msg}")
+                            else:
+                                _wp = _w_prev_desde_df_ag(df_ag, tickers_c_ok)
+                                risk_c = RiskEngine(
+                                    hist_c[tickers_c_ok],
+                                    w_prev=_wp,
+                                    lambda_turnover=0.0,
+                                    lambda_tc=0.0,
+                                    sanitize_returns=True,
                                 )
-                            st.session_state["risk_cov_psd_ok"] = bool(risk_c.cov_psd_ok)
-                            st.session_state["risk_cov_psd_message"] = getattr(
-                                risk_c, "cov_psd_message", ""
-                            )
-                            _prices_ok_c, _prices_msg_c = validar_panel_precios(
-                                hist_c, tickers_c_ok, min_obs=30,
-                            )
-                            st.session_state["risk_prices_panel_ok"] = _prices_ok_c
-                            st.session_state["risk_prices_msg"] = _prices_msg_c
-                            if not _prices_ok_c:
-                                st.error("**Precios incompletos (E02):** " + _prices_msg_c)
-                            if not risk_c.cov_psd_ok:
-                                st.error(
-                                    "**Covarianza no utilizable:** "
-                                    + str(getattr(risk_c, "cov_psd_message", ""))
-                                )
-                            elif getattr(risk_c, "cov_psd_message", "") and "verificada" not in risk_c.cov_psd_message.lower():
-                                st.warning(f"Covarianza ajustada (PSD): {risk_c.cov_psd_message}")
-
-                            pesos_optimos: dict[str, float] = {}
-                            if risk_c.cov_psd_ok and _prices_ok_c:
-                                pesos_optimos = risk_c.optimizar(modelo_comp if modelo_comp != "Multi-Objetivo"
-                                                                 else None)
-                                if modelo_comp == "Multi-Objetivo":
-                                    pesos_optimos = risk_c.optimizar_multiobjetivo()
-                                total_po = sum(pesos_optimos.values())
-                                if total_po > 0:
-                                    pesos_optimos = {t: p/total_po for t, p in pesos_optimos.items()}
-
-                            # MQ2-D9: aplicar restricción de turnover
-                            if risk_c.cov_psd_ok and _prices_ok_c and pesos_optimos and "PESO_PCT" in df_ag.columns and max_turnover_pct < 100:
-                                _pesos_act = dict(zip(
-                                    df_ag["TICKER"].str.upper(),
-                                    df_ag["PESO_PCT"].fillna(0)
-                                ))
-                                _max_delta = max_turnover_pct / 100.0
-                                for _t_to in list(pesos_optimos.keys()):
-                                    _peso_act = _pesos_act.get(_t_to, 0.0)
-                                    _peso_opt = pesos_optimos[_t_to]
-                                    if abs(_peso_opt - _peso_act) > _max_delta:
-                                        _dir = 1 if _peso_opt > _peso_act else -1
-                                        pesos_optimos[_t_to] = _peso_act + _dir * _max_delta
-                                # Re-normalizar post-restricción
-                                _total_r = sum(pesos_optimos.values())
-                                if _total_r > 0:
-                                    pesos_optimos = {t: p/_total_r for t, p in pesos_optimos.items()}
-
-                            if risk_c.cov_psd_ok and _prices_ok_c and pesos_optimos:
-                                # Pesos actuales desde df_ag
-                                valor_total = df_ag.get("VALOR_ARS", pd.Series(dtype=float)).sum()
-                                pesos_actuales = {}
-                                if valor_total > 0:
-                                    for _, r in df_ag.iterrows():
-                                        t = str(r.get("TICKER",""))
-                                        if t in tickers_c_ok:
-                                            pesos_actuales[t] = float(r.get("VALOR_ARS",0)) / valor_total
+                                if not risk_c.cov_psd_ok:
+                                    st.error("**Covarianza no utilizable:** " + str(getattr(risk_c, "cov_psd_message", "")))
                                 else:
-                                    pesos_actuales = {t: 1/len(tickers_c_ok) for t in tickers_c_ok}
+                                    # Pesos actuales
+                                    val_total = float(df_ag.get("VALOR_ARS", pd.Series(dtype=float)).sum())
+                                    pesos_actuales: dict[str, float] = {}
+                                    for _, r in df_ag.iterrows():
+                                        t = str(r.get("TICKER", "")).upper()
+                                        if t in tickers_c_ok and val_total > 0:
+                                            pesos_actuales[t] = float(r.get("VALOR_ARS", 0)) / val_total
+                                    if not pesos_actuales:
+                                        pesos_actuales = {t: 1/len(tickers_c_ok) for t in tickers_c_ok}
 
-                                st.session_state["pesos_actuales"]  = pesos_actuales
-                                st.session_state["pesos_optimos"]   = pesos_optimos
-                                st.session_state["tickers_comp_ok"] = tickers_c_ok
-                                st.session_state["hist_comp"]       = hist_c
-                                st.session_state["modelo_comp"]     = modelo_comp
-                                st.session_state["pesos_opt"]       = pesos_optimos
-                                st.session_state["modelo_opt"]      = modelo_comp
-                                st.session_state["tickers_opt"]     = tickers_c_ok
-                                st.session_state["hist_opt"]        = hist_c
-                                st.session_state["mq26_export_weights_ok"] = True
-                            elif not risk_c.cov_psd_ok or not _prices_ok_c:
-                                for _k in ("pesos_actuales", "pesos_optimos", "tickers_comp_ok", "hist_comp"):
-                                    st.session_state.pop(_k, None)
-                                st.session_state["mq26_export_weights_ok"] = False
+                                    # Optimizar 3 modelos
+                                    resultados: dict[str, dict] = {}
+                                    for modelo in _MODELOS_AUTO:
+                                        try:
+                                            pw = risk_c.optimizar(modelo)
+                                            tot = sum(pw.values())
+                                            if tot > 0:
+                                                pw = {k: v/tot for k, v in pw.items()}
+                                            resultados[modelo] = pw
+                                        except Exception as _em:
+                                            _log.warning("Modelo %s falló: %s", modelo, _em)
+
+                                    if not resultados:
+                                        st.error("Ningún modelo pudo optimizar con los datos disponibles.")
+                                    else:
+                                        st.session_state["comp_resultado"] = {
+                                            "tickers":         tickers_c_ok,
+                                            "hist":            hist_c,
+                                            "pesos_actuales":  pesos_actuales,
+                                            "resultados":      resultados,
+                                            "period":          period_comp,
+                                        }
+                                        st.session_state["pesos_opt"]    = resultados.get("Sharpe", {})
+                                        st.session_state["modelo_opt"]   = "Sharpe"
+                                        st.session_state["tickers_opt"]  = tickers_c_ok
+                                        st.session_state["hist_opt"]     = hist_c
+                                        st.session_state["mq26_export_weights_ok"] = True
                     except Exception as e:
-                        st.error(f"Error: {e}")
+                        st.error(f"Error inesperado: {e}")
+                        _log.exception("Comparativa automática falló")
 
-            if "pesos_actuales" in st.session_state and "pesos_optimos" in st.session_state:
-                pesos_act  = st.session_state["pesos_actuales"]
-                pesos_opt  = st.session_state["pesos_optimos"]
-                tickers_co = st.session_state.get("tickers_comp_ok", tickers_cartera)
-                hist_co    = st.session_state.get("hist_comp", pd.DataFrame())
-                mod_co     = st.session_state.get("modelo_comp", "Sharpe")
+            # ── Resultados ──────────────────────────────────────────────────
+            comp_res = st.session_state.get("comp_resultado")
+            if comp_res:
+                tickers_co    = comp_res["tickers"]
+                hist_co       = comp_res["hist"]
+                pesos_act     = comp_res["pesos_actuales"]
+                resultados    = comp_res["resultados"]
+                ret_d         = hist_co[tickers_co].pct_change().dropna()
 
-                # Tabla de pesos lado a lado
-                st.divider()
-                df_comp_pesos = pd.DataFrame({
-                    "Ticker":        tickers_co,
-                    "Peso Actual %": [round(pesos_act.get(t,0)*100, 2) for t in tickers_co],
-                    f"Peso Óptimo % ({mod_co})": [round(pesos_opt.get(t,0)*100, 2) for t in tickers_co],
-                })
-                df_comp_pesos["Diferencia %"] = (
-                    df_comp_pesos[f"Peso Óptimo % ({mod_co})"] - df_comp_pesos["Peso Actual %"]
-                ).round(2)
-                df_comp_pesos = df_comp_pesos.sort_values("Peso Actual %", ascending=False)
-
-                def _color_diff(val):
-                    if isinstance(val, (int, float)):
-                        if val > 2:   return "color:#27AE60;font-weight:bold"
-                        if val < -2:  return "color:#E74C3C;font-weight:bold"
-                    return ""
-
-                st.markdown("#### ⚖️ Pesos — Actual vs Óptima")
-                st.dataframe(
-                    df_comp_pesos.style
-                    .format({c: "{:.2f}%" for c in df_comp_pesos.columns if "%" in c})
-                    .map(_color_diff, subset=["Diferencia %"]), use_container_width=True, hide_index=True,
-                )
-
-                # Métricas de ambas carteras
-                ret_d_c = hist_co[tickers_co].pct_change().dropna()
-                w_act   = np.array([pesos_act.get(t, 0) for t in tickers_co])
-                w_opt   = np.array([pesos_opt.get(t, 0) for t in tickers_co])
-                w_act   = w_act / w_act.sum() if w_act.sum() > 0 else w_act
-                w_opt   = w_opt / w_opt.sum() if w_opt.sum() > 0 else w_opt
-
-                def _metricas(w):
-                    r = (ret_d_c @ w).values
-                    ret_a = r.mean() * 252
-                    vol_a = r.std() * np.sqrt(252)
+                def _metricas(w_dict: dict) -> dict:
+                    w = np.array([w_dict.get(t, 0) for t in tickers_co])
+                    s = w.sum()
+                    if s > 0: w = w / s
+                    r = (ret_d @ w).values
+                    ret_a  = r.mean() * 252
+                    vol_a  = r.std() * np.sqrt(252)
                     sharpe = (ret_a - RISK_FREE_RATE) / vol_a if vol_a > 0 else 0
                     down   = np.minimum(0, r)
-                    sortino = (ret_a - RISK_FREE_RATE) / np.sqrt(np.mean(down**2)*252) if np.mean(down**2)>0 else 0
-                    eq = np.cumprod(1+r)
-                    mdd = float((eq/np.maximum.accumulate(eq)-1).min()) if len(eq)>0 else 0
-                    return ret_a, vol_a, sharpe, sortino, mdd, r
+                    sortino = (ret_a - RISK_FREE_RATE) / np.sqrt(np.mean(down**2) * 252) if np.mean(down**2) > 0 else 0
+                    eq  = np.cumprod(1 + r)
+                    mdd = float((eq / np.maximum.accumulate(eq) - 1).min()) if len(eq) > 0 else 0
+                    return {"ret": ret_a, "vol": vol_a, "sharpe": sharpe, "sortino": sortino, "mdd": mdd, "r": r}
 
-                ret_a_ac, vol_a_ac, sh_ac, so_ac, mdd_ac, r_ac = _metricas(w_act)
-                ret_a_op, vol_a_op, sh_op, so_op, mdd_op, r_op = _metricas(w_opt)
+                met_act = _metricas(pesos_act)
+                met_mod = {m: _metricas(pw) for m, pw in resultados.items()}
 
+                # ── Tabla de métricas comparativa ─────────────────────────
                 st.divider()
-                st.markdown("#### 📊 Métricas comparativas")
-                col_m1, col_m2 = st.columns(2)
-                with col_m1:
-                    st.markdown("**Cartera Actual**")
-                    st.metric("Retorno anual",  f"{ret_a_ac:.1%}")
-                    st.metric("Sharpe",         f"{sh_ac:.2f}")
-                    st.metric("Volatilidad",    f"{vol_a_ac:.1%}")
-                    st.metric("Max Drawdown",   f"{mdd_ac:.1%}")
-                with col_m2:
-                    st.markdown(f"**Cartera Óptima ({mod_co})**")
-                    st.metric("Retorno anual",  f"{ret_a_op:.1%}", f"{(ret_a_op-ret_a_ac)*100:.1f}pp")
-                    st.metric("Sharpe",         f"{sh_op:.2f}",   f"{sh_op-sh_ac:+.2f}")
-                    st.metric("Volatilidad",    f"{vol_a_op:.1%}", f"{(vol_a_op-vol_a_ac)*100:.1f}pp")
-                    st.metric("Max Drawdown",   f"{mdd_op:.1%}",  f"{(mdd_op-mdd_ac)*100:.1f}pp")
+                st.markdown("#### 📊 Métricas clave — Cartera Actual vs 3 Modelos Óptimos")
+                _nombres = ["Actual"] + list(resultados.keys())
+                _met_all = [met_act] + [met_mod[m] for m in resultados]
+                df_met = pd.DataFrame({
+                    "Cartera":          _nombres,
+                    "Retorno anual":    [f"{m['ret']:.1%}" for m in _met_all],
+                    "Volatilidad":      [f"{m['vol']:.1%}" for m in _met_all],
+                    "Sharpe":           [f"{m['sharpe']:.2f}" for m in _met_all],
+                    "Sortino":          [f"{m['sortino']:.2f}" for m in _met_all],
+                    "Max Drawdown":     [f"{m['mdd']:.1%}" for m in _met_all],
+                })
+                st.dataframe(
+                    df_met,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=dataframe_auto_height(df_met),
+                )
 
-                # Radar chart
+                # ── Tabla de pesos ─────────────────────────────────────────
                 st.divider()
-                st.markdown("#### 🕸️ Radar comparativo")
-                _met_r  = ["Retorno", "Sharpe", "Sortino", "Max DD (inv)", "Volatilidad (inv)"]
-                _vals_r = [
-                    [ret_a_ac, sh_ac, so_ac, -mdd_ac, -vol_a_ac],
-                    [ret_a_op, sh_op, so_op, -mdd_op, -vol_a_op],
-                ]
-                _mn = [min(_vals_r[0][i], _vals_r[1][i]) for i in range(len(_met_r))]
-                _mx = [max(_vals_r[0][i], _vals_r[1][i]) for i in range(len(_met_r))]
-                def _norm(v, mn, mx): return (v-mn)/(mx-mn) if mx>mn else 0.5
-                fig_r2 = go.Figure()
-                for lbl, vals in [("Actual", _vals_r[0]), (f"Óptima ({mod_co})", _vals_r[1])]:
-                    normed = [_norm(vals[i], _mn[i], _mx[i]) for i in range(len(_met_r))]
-                    fig_r2.add_trace(go.Scatterpolar(
-                        r=normed + [normed[0]], theta=_met_r + [_met_r[0]],
-                        fill="toself", name=lbl, opacity=0.4,
+                st.markdown("#### ⚖️ Pesos por activo — Actual vs 3 Modelos")
+                df_pesos = pd.DataFrame({"Ticker": tickers_co})
+                df_pesos["Actual %"] = [round(pesos_act.get(t, 0) * 100, 1) for t in tickers_co]
+                for m, pw in resultados.items():
+                    df_pesos[f"{m} %"] = [round(pw.get(t, 0) * 100, 1) for t in tickers_co]
+                for m in resultados:
+                    col_name = f"{m} %"
+                    df_pesos[f"Δ {m}"] = (df_pesos[col_name] - df_pesos["Actual %"]).round(1)
+                df_pesos = df_pesos.sort_values("Actual %", ascending=False)
+
+                def _color_delta(val):
+                    try:
+                        v = float(val)
+                        if v >  3: return "color:#27AE60;font-weight:bold"
+                        if v < -3: return "color:#E74C3C;font-weight:bold"
+                    except Exception:
+                        pass
+                    return ""
+
+                delta_cols = [c for c in df_pesos.columns if c.startswith("Δ")]
+                pct_cols   = [c for c in df_pesos.columns if c.endswith("%")]
+                styler = (
+                    df_pesos.style
+                    .format({c: "{:.1f}%" for c in pct_cols})
+                    .format({c: "{:+.1f}pp" for c in delta_cols})
+                    .map(_color_delta, subset=delta_cols)
+                )
+                st.dataframe(
+                    styler,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=dataframe_auto_height(df_pesos),
+                )
+
+                # ── Radar ──────────────────────────────────────────────────
+                st.divider()
+                st.markdown("#### 🕸️ Radar comparativo — 4 dimensiones de riesgo/retorno")
+                _dim = ["Retorno", "Sharpe", "Sortino", "Baja Volatilidad", "Bajo Drawdown"]
+                all_met = [met_act] + list(met_mod.values())
+                all_lbl = ["Actual"] + list(resultados.keys())
+                _raw = [[m["ret"], m["sharpe"], m["sortino"], -m["vol"], -m["mdd"]] for m in all_met]
+                _mn  = [min(v[i] for v in _raw) for i in range(5)]
+                _mx  = [max(v[i] for v in _raw) for i in range(5)]
+                def _n(v, mn, mx): return (v - mn) / (mx - mn) if mx > mn else 0.5
+                fig_radar = go.Figure()
+                for lbl, raw in zip(all_lbl, _raw):
+                    normed = [_n(raw[i], _mn[i], _mx[i]) for i in range(5)]
+                    fig_radar.add_trace(go.Scatterpolar(
+                        r=normed + [normed[0]], theta=_dim + [_dim[0]],
+                        fill="toself", name=lbl, opacity=0.35,
+                        line=dict(color=_COLORES.get(lbl, "#999"), width=2),
                     ))
-                fig_r2.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0,1])),
-                                     height=380, showlegend=True)
-                st.plotly_chart(fig_r2, use_container_width=True)
+                fig_radar.update_layout(
+                    polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+                    height=420, showlegend=True,
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.2),
+                )
+                st.plotly_chart(fig_radar, use_container_width=True)
 
-                # Equity curves comparativas
+                # ── Equity curves ──────────────────────────────────────────
                 st.divider()
-                st.markdown("#### 📈 Equity Curves — Actual vs Óptima vs Benchmark")
-                eq_ac = np.cumprod(1 + r_ac) * 100
-                eq_op = np.cumprod(1 + r_op) * 100
-                idx_r = ret_d_c.index[:min(len(eq_ac), len(eq_op))]
-                fig_eq2 = go.Figure()
-                fig_eq2.add_trace(go.Scatter(x=idx_r, y=eq_ac[:len(idx_r)],
-                                             name="Actual", line=dict(color="#2E86AB", width=2)))
-                fig_eq2.add_trace(go.Scatter(x=idx_r, y=eq_op[:len(idx_r)],
-                                             name=f"Óptima ({mod_co})", line=dict(color="#27AE60", width=2)))
+                st.markdown("#### 📈 Performance histórica — base 100")
+                fig_eq = go.Figure()
+                for lbl, met in zip(all_lbl, all_met):
+                    eq = np.cumprod(1 + met["r"]) * 100
+                    fig_eq.add_trace(go.Scatter(
+                        x=list(ret_d.index[:len(eq)]), y=eq,
+                        name=lbl, line=dict(color=_COLORES.get(lbl, "#999"), width=2),
+                    ))
                 if "SPY" in hist_co.columns:
-                    spy_r = hist_co["SPY"].pct_change().dropna()
+                    spy_r  = hist_co["SPY"].pct_change().dropna()
                     spy_eq = np.cumprod(1 + spy_r.values) * 100
-                    fig_eq2.add_trace(go.Scatter(x=list(spy_r.index)[:len(spy_eq)], y=spy_eq,
-                                                  name="SPY Benchmark",
-                                                  line=dict(color="#888", width=1.5, dash="dash")))
-                fig_eq2.update_layout(title="Performance histórica — base 100",
-                                      height=400, template="plotly_dark")
-                st.plotly_chart(fig_eq2, use_container_width=True)
+                    fig_eq.add_trace(go.Scatter(
+                        x=list(spy_r.index[:len(spy_eq)]), y=spy_eq,
+                        name="SPY Benchmark", line=dict(color="#888", width=1.5, dash="dash"),
+                    ))
+                fig_eq.update_layout(
+                    title=f"Período: {comp_res['period']} | Todas las carteras base 100",
+                    height=420, template="plotly_dark",
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.2),
+                )
+                st.plotly_chart(fig_eq, use_container_width=True)
 
     # ══════════════════════════════════════════════════════════════════
     # SUB-TAB 2: LAB QUANT (contenido original)
@@ -578,7 +538,14 @@ def render_tab_optimizacion(ctx: dict) -> None:
                             f"**#{_srow['id']}** · {_srow['modelo']} · "
                             f"Sharpe: {_sh_s} · {_srow['timestamp']}"
                         )
-            except Exception:
+            except Exception as _e_snaps:
+                log_degradacion(
+                    "ui.tab_optimizacion",
+                    "listar_snapshots_lab",
+                    _e_snaps,
+                    cartera=str(prop_nombre)[:80],
+                    cliente_id=ctx.get("cliente_id"),
+                )
                 st.caption("Escenarios no disponibles.")
 
         if _btn_lab:
@@ -675,8 +642,14 @@ def render_tab_optimizacion(ctx: dict) -> None:
                                             resultados[modelo] = _calcular_metricas_modelo(
                                                 ret_port, w_arr, pesos_m, tickers_ok, RISK_FREE_RATE
                                             )
-                                        except Exception:
-                                            pass
+                                        except Exception as _e_mod:
+                                            log_degradacion(
+                                                "ui.tab_optimizacion",
+                                                "lab_quant_modelo_fallo",
+                                                _e_mod,
+                                                modelo=modelo,
+                                                n_tickers=len(tickers_ok),
+                                            )
 
                                     try:
                                         _mo_w = {
@@ -699,8 +672,13 @@ def render_tab_optimizacion(ctx: dict) -> None:
                                         resultados["Multi-Objetivo"] = _calcular_metricas_modelo(
                                             ret_port_mo, w_mo, pesos_mo, tickers_ok, RISK_FREE_RATE
                                         )
-                                    except Exception:
-                                        pass
+                                    except Exception as _e_mo:
+                                        log_degradacion(
+                                            "ui.tab_optimizacion",
+                                            "lab_quant_multiobjetivo_fallo",
+                                            _e_mo,
+                                            n_tickers=len(tickers_ok),
+                                        )
 
                                     try:
                                         _bl_views = st.session_state.get("bl_views_df", [])
@@ -725,8 +703,13 @@ def render_tab_optimizacion(ctx: dict) -> None:
                                         resultados["Black-Litterman"] = _calcular_metricas_modelo(
                                             ret_port_bl, w_bl, pesos_bl, tickers_ok, RISK_FREE_RATE
                                         )
-                                    except Exception:
-                                        pass
+                                    except Exception as _e_bl:
+                                        log_degradacion(
+                                            "ui.tab_optimizacion",
+                                            "lab_quant_black_litterman_fallo",
+                                            _e_bl,
+                                            n_tickers=len(tickers_ok),
+                                        )
 
                                     if not resultados:
                                         st.error("Ningún modelo pudo ejecutarse. Verificá que los activos tengan datos históricos suficientes.")
@@ -899,7 +882,12 @@ def render_tab_optimizacion(ctx: dict) -> None:
                     [(t, round(p*100, 2)) for t, p in pesos_act_bt.items()],
                     columns=["Activo", "Peso %"]
                 ).sort_values("Peso %", ascending=False)
-                st.dataframe(df_pesos_bt.style.format({"Peso %": "{:.2f}%"}), use_container_width=True, hide_index=True, height=200)
+                st.dataframe(
+                    df_pesos_bt.style.format({"Peso %": "{:.2f}%"}),
+                    use_container_width=True,
+                    hide_index=True,
+                    height=dataframe_auto_height(df_pesos_bt),
+                )
             else:
                 st.info("Sin pesos activos. Ejecutá el Lab Quant o la Comparativa primero.")
 
@@ -1039,7 +1027,12 @@ def _renderizar_resultados(ctx: dict) -> None:
     })
     for col in df_met.columns:
         styled_met2 = styled_met2.map(lambda v, c=col: _color_umbral(v, c), subset=[col])
-    st.dataframe(styled_met2, use_container_width=True)
+    st.dataframe(
+        styled_met2,
+        use_container_width=True,
+        hide_index=True,
+        height=dataframe_auto_height(df_met),
+    )
     st.caption("🟦 Azul = mejor en columna | 🟢 Verde = calidad institucional | 🟡 Amarillo = aceptable | 🔴 Rojo = bajo umbral")
     _col_exp1, _col_exp2 = st.columns(2)
     with _col_exp1:
@@ -1137,7 +1130,10 @@ def _renderizar_resultados(ctx: dict) -> None:
         return ""
 
     st.dataframe(
-        df_pesos_comp.style.format("{:.1%}").map(_color_peso), use_container_width=True,
+        df_pesos_comp.style.format("{:.1%}").map(_color_peso),
+        use_container_width=True,
+        hide_index=True,
+        height=dataframe_auto_height(df_pesos_comp),
     )
 
     # Equity curves superpuestas
@@ -1308,36 +1304,41 @@ def _renderizar_resultados(ctx: dict) -> None:
                 lambda p: round(capital_nuevo * p / 100, 2)
             )
         st.dataframe(
-            df_disp.style.format({"Peso %": "{:.2f}%"}), use_container_width=True, hide_index=True,
+            df_disp.style.format({"Peso %": "{:.2f}%"}),
+            use_container_width=True,
+            hide_index=True,
+            height=dataframe_auto_height(df_disp),
         )
-        try:
-            from services.portfolio_snapshot import guardar_snapshot
-            snap_pesos = {}
-            if df_disp is not None and not df_disp.empty:
-                for _, rw in df_disp.iterrows():
-                    t = str(rw.get("Activo", rw.get("Ticker", rw.get("TICKER", "")))).strip().upper()
-                    p = float(rw.get("Peso %", rw.get("peso", 0)) or 0)
-                    if t:
-                        snap_pesos[t] = round(p / 100.0, 6)
-            _snap_met = {
-                k: float(v) for k, v in (r_sel or {}).items()
-                if isinstance(v, (int, float))
-            }
-            guardar_snapshot(
-                cartera=str(ctx.get("cartera_activa", "")),
-                modelo=str(modelo_elegido),
-                pesos=snap_pesos,
-                metricas=_snap_met,
-                cliente_id=ctx.get("cliente_id"),
-            )
-            _try_registrar_optimization_audit(
-                ctx,
-                accion="snapshot_guardado",
-                modelo=str(modelo_elegido),
-                pesos=snap_pesos,
-            )
-        except Exception:
-            pass
+        if st.button("💾 Guardar snapshot del modelo activo", key="btn_guardar_snapshot_modelo_activo", disabled=_is_viewer):
+            try:
+                from services.portfolio_snapshot import guardar_snapshot
+                snap_pesos = {}
+                if df_disp is not None and not df_disp.empty:
+                    for _, rw in df_disp.iterrows():
+                        t = str(rw.get("Activo", rw.get("Ticker", rw.get("TICKER", "")))).strip().upper()
+                        p = float(rw.get("Peso %", rw.get("peso", 0)) or 0)
+                        if t:
+                            snap_pesos[t] = round(p / 100.0, 6)
+                _snap_met = {
+                    k: float(v) for k, v in (r_sel or {}).items()
+                    if isinstance(v, (int, float))
+                }
+                guardar_snapshot(
+                    cartera=str(ctx.get("cartera_activa", "")),
+                    modelo=str(modelo_elegido),
+                    pesos=snap_pesos,
+                    metricas=_snap_met,
+                    cliente_id=ctx.get("cliente_id"),
+                )
+                _try_registrar_optimization_audit(
+                    ctx,
+                    accion="snapshot_guardado",
+                    modelo=str(modelo_elegido),
+                    pesos=snap_pesos,
+                )
+                st.success("Snapshot guardado.")
+            except Exception as _e_snapshot:
+                st.error(f"No se pudo guardar el snapshot: {_e_snapshot}")
         st.caption(f"Modelo activo usado en Backtest y Stress Test: **{modelo_elegido}**")
 
     # ── TAB: BACKTEST MULTI-MODELO ────────────────────────────────────────────
@@ -1457,7 +1458,9 @@ def _renderizar_resultados(ctx: dict) -> None:
                             "Skew":     "{:.3f}",
                             "Sharpe SPY": "{:.3f}",
                         }),
-                    use_container_width=True, hide_index=True,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=dataframe_auto_height(df_comp),
                 )
 
                 # ── Indicadores fundamentales del modelo ganador ───────────

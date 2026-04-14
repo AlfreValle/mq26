@@ -5,14 +5,17 @@ Sin Streamlit: solo strings CSS y constantes para contraste WCAG AA en modo clar
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 # Referencia documental (no sustituye auditoría de accesibilidad completa)
 TOKENS_LIGHT = {
-    "bg": "#f8fafc",
+    "bg": "#f1f5f9",
     "surface": "#ffffff",
+    "surface_2": "#f8fafc",
+    "surface_3": "#e2e8f0",
     "text": "#0f172a",
-    "text_muted": "#475569",
-    "border": "rgba(15,23,42,0.12)",
+    "text_muted": "#64748b",
+    "border": "rgba(15,23,42,0.1)",
     "accent": "#2563eb",
     "success": "#059669",
     "warning": "#d97706",
@@ -52,3 +55,19 @@ def css_hub_responsive_block() -> str:
 def inject_theme_css_fragments() -> str:
     """Fragmentos adicionales inyectados tras style.css (run_mq26)."""
     return css_hub_responsive_block()
+
+
+def build_theme_css_bundle(base_dir: Path, *, use_light: bool) -> tuple[str, str]:
+    """
+    Carga style.css + fragmentos; opcionalmente style_retail_light.css (segundo bloque).
+    Usado en run_mq26 y app_main para misma apariencia (login legible en claro).
+    """
+    _css_path = base_dir / "assets" / "style.css"
+    _extra = _css_path.read_text(encoding="utf-8") if _css_path.exists() else ""
+    _extra += inject_theme_css_fragments()
+    _light = ""
+    if use_light:
+        _light_path = base_dir / "assets" / "style_retail_light.css"
+        if _light_path.exists():
+            _light = _light_path.read_text(encoding="utf-8")
+    return _extra, _light

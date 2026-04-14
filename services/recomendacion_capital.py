@@ -25,8 +25,39 @@ from core.diagnostico_types import (
 )
 from core.perfil_allocation import target_rv_efectivo
 from core.renta_fija_ar import es_renta_fija
+from services.cartera_service import resolver_precios
 from services.diagnostico_cartera import _pct_rf_actual, _piso_defensivo_requerido
 from services.favoritos_mes import aplicar_prioridad_favoritos, load_favoritos_mes
+
+
+def _enriquecer_precios_recomendacion(
+    precios_dict: dict[str, float],
+    perfil: str,
+    ccl: float,
+    universo_df: pd.DataFrame | None,
+    favoritos_mes: dict[str, Any] | None,
+) -> dict[str, float]:
+    """
+    El contexto suele traer solo cotizaciones de la cartera; el modelo ideal incluye ON/RV
+    que hay que poder cotizar para armar órdenes enteras.
+    """
+    base = {str(k).upper(): float(v) for k, v in (precios_dict or {}).items()}
+    ideal = CARTERA_IDEAL.get(perfil, CARTERA_IDEAL["Moderado"])
+    extras: set[str] = {str(k).upper() for k in ideal if k and not str(k).startswith("_")}
+    if favoritos_mes:
+        extras |= {str(x).upper() for x in (favoritos_mes.get("rf") or []) if x}
+        extras |= {str(x).upper() for x in (favoritos_mes.get("rv") or []) if x}
+    need = sorted(t for t in extras if base.get(t, 0) <= 0)
+    if not need:
+        return base
+    resolved = resolver_precios(need, base, ccl, universo_df)
+    out = dict(base)
+    for k, v in resolved.items():
+        ku = str(k).upper()
+        fv = float(v or 0)
+        if fv > 0:
+            out[ku] = fv
+    return out
 
 
 def _pct_defensivo_from_df(df_ag: pd.DataFrame, universo_df: pd.DataFrame | None) -> float:
@@ -122,8 +153,21 @@ def recomendar(
 ) -> RecomendacionResult:
     fecha = date.today().isoformat()
     perfil_n = perfil_diagnostico_valido(perfil)
-    ccl_f = max(float(ccl or 0.0), 1e-9)
+    ccl_f = float(ccl or 0.0)
     cap = max(0.0, float(capital_ars or 0.0))
+    if ccl_f <= 0:
+        return RecomendacionResult(
+            cliente_nombre=cliente_nombre,
+            perfil=perfil_n,
+            capital_disponible_ars=cap,
+            capital_disponible_usd=0.0,
+            ccl=0.0,
+            fecha_recomendacion=fecha,
+            alerta_mercado=True,
+            mensaje_alerta="CCL inválido. No se puede calcular recomendación confiable.",
+            resumen_recomendacion=_trunc("CCL inválido. Revisá el dato de mercado antes de recomendar.", 200),
+            pct_defensivo_pre=_pct_defensivo_from_df(df_ag, universo_df),
+        )
     capital_usd = cap / ccl_f
 
     alerta, msg_alerta = _alerta_mercado(market_stress)
@@ -159,6 +203,10 @@ def recomendar(
     fav_doc = load_favoritos_mes() if favoritos_mes is None else favoritos_mes
     fav_rf = list(fav_doc.get("rf") or [])
     fav_rv = list(fav_doc.get("rv") or [])
+
+    precios_dict = _enriquecer_precios_recomendacion(
+        precios_dict or {}, perfil_n, ccl_f, universo_df, fav_doc
+    )
 
     ideal = CARTERA_IDEAL.get(perfil_n, CARTERA_IDEAL["Moderado"])
     total_valor = float(pd.to_numeric(df_ag["VALOR_ARS"], errors="coerce").fillna(0.0).sum()) if not df_ag.empty else 0.0
@@ -198,22 +246,31 @@ def recomendar(
 
     pendientes: list[dict[str, Any]] = []
     delta_ideal: dict[str, float] = {}
+    renta_ar_gap = 0.0
     for tk, ideal_w in ideal.items():
         if tk == "_RENTA_AR":
-            act = renta_ar_act
-            d = float(ideal_w) - act
-            if d > 1e-6:
-                pendientes.append({
-                    "ticker": "_RENTA_AR",
-                    "precio_ars": 0.0,
-                    "falta_ars": 0.0,
-                    "motivo": RENTA_AR_PENDIENTE_MSG,
-                })
+            renta_ar_gap = float(ideal_w) - renta_ar_act
             continue
         act = peso_actual.get(tk.upper(), 0.0)
         d = float(ideal_w) - act
         if d > 1e-6:
             delta_ideal[tk.upper()] = d
+
+    if renta_ar_gap > 1e-6:
+        _px = lambda t: float(precios_dict.get(t, precios_dict.get(t.upper(), 0.0)) or 0.0)
+        tiene_rf_cotizable = any(
+            _es_compra_defensiva(kt)
+            and float(delta_ideal.get(kt, 0.0)) > 1e-6
+            and _px(kt) > 0
+            for kt in delta_ideal
+        )
+        if not tiene_rf_cotizable:
+            pendientes.append({
+                "ticker": "_RENTA_AR",
+                "precio_ars": 0.0,
+                "falta_ars": 0.0,
+                "motivo": RENTA_AR_PENDIENTE_MSG,
+            })
 
     candidatos: list[tuple[str, PrioridadAccion, float]] = []
 
@@ -280,6 +337,12 @@ def recomendar(
             continue
         precio = float(precios_dict.get(t, precios_dict.get(t.upper(), 0.0)) or 0.0)
         if precio <= 0:
+            pendientes.append({
+                "ticker": t,
+                "precio_ars": 0.0,
+                "falta_ars": 0.0,
+                "motivo": "Sin precio ARS en MQ26 (cotización / paridad); no se puede calcular unidades.",
+            })
             continue
         need_ars = delt * escala_valor
         capital_para = min(capital_restante, need_ars)

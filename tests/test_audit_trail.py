@@ -19,7 +19,7 @@ class TestImport:
         assert at is not None
 
     def test_funciones_publicas_son_callables(self):
-        for fn in ("registrar_orden", "listar_ordenes"):
+        for fn in ("registrar_orden", "listar_ordenes", "registrar_recomendacion_evento"):
             assert callable(getattr(at, fn)), f"{fn} no es callable"
 
 
@@ -59,6 +59,9 @@ class TestRegistrarOrden:
             ticker="GLD",
             cantidad=1.0,
             precio_ars=50_000.0,
+            tenant_id="default",
+            actor="tester",
+            correlation_id="corr-1",
             cartera="Agresiva",
             modelo="MV_OPT",
         )
@@ -158,3 +161,41 @@ class TestListarOrdenes:
         assert ids_en_orden_listado == sorted(ids_en_orden_listado, reverse=True)
         assert ids_en_orden_listado[0] == id_segundo
         assert ids_en_orden_listado[1] == id_primero
+
+
+class TestAuditoriaRecomendaciones:
+    def test_registra_evento_simulacion(self, db_en_memoria):
+        rid = at.registrar_recomendacion_evento(
+            evento="SIMULACION_RECOMENDACION",
+            origen="primera_cartera",
+            cliente_id=123,
+            cliente_nombre="Cliente Demo",
+            tenant_id="default",
+            actor="tester",
+            correlation_id="corr-sim",
+            cartera="Cliente Demo | Principal",
+            perfil="Moderado",
+            capital_ars=500000.0,
+            filas=4,
+            payload={"alerta_mercado": False},
+        )
+        assert isinstance(rid, int)
+        assert rid > 0
+
+    def test_registra_evento_ejecucion(self, db_en_memoria):
+        rid = at.registrar_recomendacion_evento(
+            evento="EJECUCION_CONFIRMADA",
+            origen="capital_incremental",
+            cliente_id=456,
+            cliente_nombre="Cliente 2",
+            tenant_id="default",
+            actor="tester",
+            correlation_id="corr-exec",
+            cartera="Cliente 2 | Principal",
+            perfil="Conservador",
+            capital_ars=250000.0,
+            filas=2,
+            payload={"confirmacion_broker": True},
+        )
+        assert isinstance(rid, int)
+        assert rid > 0

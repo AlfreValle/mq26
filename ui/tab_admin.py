@@ -335,7 +335,7 @@ def _render_app_usuarios_admin(ctx: dict, tenant_id: str, df_clientes: pd.DataFr
             nu_pwd = st.text_input("Contraseña (min. 8)", type="password", key="adm_nu_pwd")
             nu_rol = st.selectbox(
                 "Rol en BD",
-                ["inversor", "estudio", "asesor", "super_admin"],
+                ["inversor", "estudio", "super_admin"],
                 index=0,
                 key="adm_nu_rol",
             )
@@ -344,7 +344,7 @@ def _render_app_usuarios_admin(ctx: dict, tenant_id: str, df_clientes: pd.DataFr
                 ["retail", "profesional"],
                 index=1,
                 key="adm_nu_rama",
-                help="Inversor: retail. Estudio/asesor: profesional.",
+                help="Inversor: retail. Estudio: profesional.",
             )
             sel_lbl = st.multiselect(
                 "Clientes vinculados",

@@ -1,37 +1,268 @@
 /*
-  MQ26 — Retail light overlay (inyectado después de style.css si MQ26_RETAIL_LIGHT=1).
-  Contraste orientativo AA para texto principal sobre fondo claro.
+  MQ26 — Tema claro (inyectado después de style.css cuando Modo claro está activo).
+  Redefine todos los tokens :root del design system para contraste coherente en fondo claro.
 */
+
 :root {
-  --c-bg:           #f1f5f9;
-  --c-surface:      #ffffff;
-  --c-surface-2:    #e2e8f0;
-  --c-surface-3:    #cbd5e1;
-  --c-border:       rgba(15, 23, 42, 0.12);
-  --c-border-2:     rgba(15, 23, 42, 0.18);
-  --c-text:         #0f172a;
-  --c-text-2:       #334155;
-  --c-text-3:       #64748b;
-  --c-text-inv:     #f8fafc;
-  --c-accent:       #2563eb;
-  --c-accent-2:     #1d4ed8;
-  --c-accent-muted: rgba(37, 99, 235, 0.12);
-  --shadow-md:      0 4px 12px rgba(15, 23, 42, 0.08);
+  --font-ui: 'Barlow', system-ui, sans-serif;
+  --font-body: 'Barlow', system-ui, sans-serif;
+  --font-title: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
+  --font-heading: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
+  --font-subtitle: 'Barlow', system-ui, sans-serif;
+  --fw-regular: 400;
+  --fw-semibold: 600;
+  --fw-extrabold: 800;
+  --c-bg: #F5EDD0;
+  --c-surface: #ffffff;
+  --c-surface-2: #f8fafc;
+  --c-surface-3: #e2e8f0;
+  --c-border: rgba(15, 23, 42, 0.1);
+  --c-border-2: rgba(15, 23, 42, 0.16);
+  --c-border-focus: rgba(139, 26, 46, 0.45);
+  --c-text: #2A1800;
+  --c-text-2: #334155;
+  --c-text-3: #64748b;
+  --c-text-inv: #f8fafc;
+  --c-accent: #8B1A2E;
+  --c-accent-2: #7a1728;
+  --c-accent-3: #64141f;
+  --c-accent-muted: rgba(139, 26, 46, 0.1);
+  --c-accent-glow: rgba(139, 26, 46, 0.18);
+  --c-green: #3d6b36;
+  --c-green-muted: rgba(61, 107, 54, 0.1);
+  --c-green-glow: rgba(61, 107, 54, 0.15);
+  --c-yellow: #9a7320;
+  --c-yellow-muted: rgba(154, 115, 32, 0.12);
+  --c-red: #a0321e;
+  --c-red-muted: rgba(160, 50, 30, 0.1);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 28px rgba(15, 23, 42, 0.1);
+  --shadow-accent: 0 0 24px rgba(37, 99, 235, 0.12);
+  --c-tab-hover-bg: rgba(15, 23, 42, 0.06);
+  --c-btn-primary-fg: #ffffff;
+  --c-btn-primary-shadow: 0 1px 2px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --c-btn-primary-shadow-hover: var(--shadow-accent), 0 4px 14px rgba(37, 99, 235, 0.28);
+  --c-progress-shine-mid: rgba(255, 255, 255, 0.55);
+  --c-accent-border-strong: rgba(37, 99, 235, 0.32);
+
+  /* Semánticos (paridad con style.css oscuro; comité M91–M100) */
+  --c-surface-elevated: #e8eef5;
+  --c-overlay: rgba(15, 23, 42, 0.45);
+  --c-overlay-sm: rgba(15, 23, 42, 0.2);
+  --c-gain: var(--c-green);
+  --c-loss: var(--c-red);
+  --c-neutral-fin: var(--c-text-2);
+  --c-gain-bg: rgba(5, 150, 105, 0.08);
+  --c-loss-bg: rgba(220, 38, 38, 0.08);
+  --grad-verde: linear-gradient(135deg, rgba(5, 150, 105, 0.14) 0%, rgba(5, 150, 105, 0.03) 100%);
+  --grad-amarillo: linear-gradient(135deg, rgba(217, 119, 6, 0.14) 0%, rgba(217, 119, 6, 0.03) 100%);
+  --grad-rojo: linear-gradient(135deg, rgba(220, 38, 38, 0.14) 0%, rgba(220, 38, 38, 0.03) 100%);
+  --c-prio-critica: #b91c1c;
+  --c-prio-alta: #c2410c;
+  --c-prio-media: #2563eb;
+  --c-prio-baja: #059669;
+  --c-prio-ninguna: var(--c-text-3);
+
+  /* Paridad tipografía / breakpoints con style.css (P3-UX-02) */
+  --text-xs: 0.64rem;
+  --text-sm: 0.8rem;
+  --text-base: 1rem;
+  --text-md: 1.25rem;
+  --text-lg: 1.563rem;
+  --text-xl: 1.953rem;
+  --text-2xl: 2.441rem;
+  --bp-sm: 640px;
+  --bp-md: 1024px;
+  --bp-lg: 1440px;
 }
 
-html, body {
+html,
+body {
   background: var(--c-bg) !important;
   color: var(--c-text) !important;
 }
 
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
+[data-testid="stMain"] > div,
 [data-testid="block-container"] {
   background: var(--c-bg) !important;
   color: var(--c-text) !important;
 }
 
+/* Barra superior / header de Streamlit */
+header[data-testid="stHeader"] {
+  background: var(--c-surface) !important;
+  border-bottom: 1px solid var(--c-border) !important;
+}
+
+section[data-testid="stSidebar"],
 [data-testid="stSidebar"] {
   background: var(--c-surface) !important;
   border-right: 1px solid var(--c-border) !important;
+}
+
+/* Toolbars y desplegables BaseWeb */
+[data-testid="stToolbar"] {
+  background: transparent !important;
+}
+
+div[data-baseweb="popover"],
+div[data-baseweb="menu"],
+ul[role="listbox"],
+div[data-baseweb="modal"] [data-baseweb="modal-dialog"] {
+  background: var(--c-surface) !important;
+  color: var(--c-text) !important;
+  border: 1px solid var(--c-border) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+div[data-baseweb="popover"] li,
+ul[role="listbox"] li {
+  color: var(--c-text) !important;
+}
+
+div[data-baseweb="popover"] li:hover,
+ul[role="listbox"] li:hover {
+  background: var(--c-surface-2) !important;
+}
+
+/* Data editor / dataframe host */
+[data-testid="stDataEditor"] [data-testid="data_editor"],
+[data-testid="stDataFrame"] > div {
+  background: var(--c-surface) !important;
+}
+
+/* Spinner y estados vacíos */
+[data-testid="stSpinner"] > div {
+  border-color: var(--c-accent-muted) !important;
+  border-top-color: var(--c-accent) !important;
+}
+
+/* Popover nativo Streamlit */
+div[data-testid="stPopoverBody"] {
+  background: var(--c-surface) !important;
+  border: 1px solid var(--c-border) !important;
+  color: var(--c-text) !important;
+}
+
+/* Slider track (relleno de fondo) */
+[data-testid="stSlider"] [data-testid="stTickBar"] {
+  background: var(--c-surface-3) !important;
+}
+
+/* ── Retail light: markdown, métricas, tabs, formularios (Sprint 21) ─────── */
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] span {
+  color: var(--c-text) !important;
+}
+
+[data-testid="metric-container"] {
+  background-color: var(--c-surface) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: 10px !important;
+}
+
+[data-testid="metric-container"] [data-testid="stMetricLabel"] {
+  color: var(--c-text-2) !important;
+}
+
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+  color: var(--c-text) !important;
+}
+
+[data-testid="stTabs"] button {
+  color: var(--c-text-2) !important;
+}
+
+[data-testid="stTabs"] button[aria-selected="true"] {
+  color: var(--c-accent) !important;
+  border-bottom-color: var(--c-accent) !important;
+}
+
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+textarea {
+  background-color: var(--c-surface) !important;
+  border-color: var(--c-border-2) !important;
+  color: var(--c-text) !important;
+}
+
+[data-testid="stExpander"] {
+  background-color: var(--c-surface) !important;
+  border: 1px solid var(--c-border) !important;
+}
+
+[data-testid="stSelectbox"] > div > div {
+  background-color: var(--c-surface) !important;
+  color: var(--c-text) !important;
+}
+
+.stButton > button:not([kind="primary"]) {
+  background-color: var(--c-surface-2) !important;
+  border-color: var(--c-border-2) !important;
+  color: var(--c-text) !important;
+}
+
+[data-testid="stDataFrame"] {
+  border: 1px solid var(--c-border) !important;
+}
+
+[data-testid="stAlert"] {
+  color: var(--c-text) !important;
+}
+
+/* ── M371–M420: Overrides tema claro retail ───────────────────────────────── */
+[data-testid="stSidebar"] {
+  box-shadow: 4px 0 14px rgba(15, 23, 42, 0.06) !important;
+}
+
+[data-testid="stAlert"][data-type="success"] {
+  background: var(--c-gain-bg) !important;
+  border-left-color: var(--c-gain) !important;
+}
+
+[data-testid="stAlert"][data-type="error"] {
+  background: var(--c-loss-bg) !important;
+  border-left-color: var(--c-loss) !important;
+}
+
+[data-testid="stDataFrame"] th {
+  background: var(--c-surface-2) !important;
+  color: var(--c-text-2) !important;
+}
+
+.mq-sem-dot--verde { box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.14) !important; }
+.mq-sem-dot--amarillo { box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.14) !important; }
+.mq-sem-dot--rojo { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.14) !important; }
+
+.mq-obs--baja { background: var(--grad-verde); }
+.mq-obs--alta { background: var(--grad-amarillo); }
+.mq-obs--critica { background: var(--grad-rojo); }
+
+@media (max-width: 768px) {
+  [data-testid="block-container"] {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+}
+
+/* ── Pantalla de login (check_password): placeholders y legales legibles ─── */
+[data-testid="stForm"] [data-testid="stWidgetLabel"] p,
+[data-testid="stTextInput"] [data-testid="stWidgetLabel"] p,
+[data-testid="stTextInput"] label {
+  color: var(--c-text-2) !important;
+}
+
+[data-testid="stTextInput"] input::placeholder {
+  color: var(--c-text-3) !important;
+  opacity: 1 !important;
+}
+
+section.main .stCaption,
+section.main [data-testid="stCaption"] {
+  color: var(--c-text-2) !important;
 }

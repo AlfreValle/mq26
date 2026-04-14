@@ -1,6 +1,8 @@
 """
 services/byma_provider.py — Proveedor REST genérico para precios BYMA / tercero.
 
+Contrato y variables: ver docs/product/BYMA_CAMPOS_Y_ESCALAS_MQ26.md (§6).
+
 Configuración (opcional):
   MQ26_BYMA_API_URL   — base URL (ej. https://api.proveedor.com/v1)
   MQ26_BYMA_API_KEY   — header Authorization Bearer o X-Api-Key según MQ26_BYMA_AUTH_HEADER

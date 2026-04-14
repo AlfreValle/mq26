@@ -157,7 +157,39 @@ def _capturar_snapshot_pre_carga(ctx: dict) -> None:
         st.session_state.pop("inv_ux_before_load", None)
 
 
-def _persist_filas(ctx: dict, filas: list[dict[str, Any]], modo: str) -> None:
+def aplicar_vaciar_cartera(ctx: dict, cartera: str) -> int:
+    """
+    Elimina todas las filas del Maestra_Transaccional cuyo CARTERA coincide con `cartera`.
+    Devuelve cuántas filas se quitaron. Si hubo cambios, invalida cachés de Streamlit.
+    """
+    ed = ctx.get("engine_data")
+    if ed is None:
+        raise RuntimeError("Motor de datos no disponible.")
+    c = str(cartera or "").strip()
+    if not c or c == "-- Todas las carteras --":
+        raise RuntimeError("Cartera inválida.")
+    trans = ed.cargar_transaccional().copy()
+    if trans.empty or "CARTERA" not in trans.columns:
+        return 0
+    mask = trans["CARTERA"].astype(str).str.strip() != c
+    nuevos = trans.loc[mask].reset_index(drop=True)
+    n_rem = int(len(trans) - len(nuevos))
+    if n_rem:
+        ed.guardar_transaccional(nuevos)
+        from core.cache_manager import invalidar_cache_tras_cambio_transaccional
+
+        invalidar_cache_tras_cambio_transaccional()
+    return n_rem
+
+
+def _persist_filas(
+    ctx: dict,
+    filas: list[dict[str, Any]],
+    modo: str,
+    *,
+    cartera_override: str | None = None,
+    session_keys_clear: list[str] | None = None,
+) -> None:
     ed = ctx.get("engine_data")
     if ed is None:
         st.error("Motor de datos no disponible.")
@@ -170,9 +202,12 @@ def _persist_filas(ctx: dict, filas: list[dict[str, Any]], modo: str) -> None:
     except Exception as e:
         st.error(f"No se pudo leer el transaccional: {e}")
         return
-    cart = _cartera_csv(ctx)
+    cart = (cartera_override or _cartera_csv(ctx)).strip()
     for f in filas:
-        f.setdefault("CARTERA", cart)
+        if cartera_override:
+            f["CARTERA"] = cart
+        else:
+            f.setdefault("CARTERA", cart)
     cols = list(df_prev.columns) if not df_prev.empty else [
         "CARTERA", "FECHA_COMPRA", "TICKER", "CANTIDAD", "PPC_USD", "PPC_ARS", "TIPO", "LAMINA_VN",
     ]
@@ -189,10 +224,16 @@ def _persist_filas(ctx: dict, filas: list[dict[str, Any]], modo: str) -> None:
     try:
         _capturar_snapshot_pre_carga(ctx)
         ed.guardar_transaccional(out)
+        from core.cache_manager import invalidar_cache_tras_cambio_transaccional
+
+        invalidar_cache_tras_cambio_transaccional()
         st.success(f"Listo: guardamos **{len(filas)}** compra(s). Tu cartera se actualizó.")
         st.session_state["inv_ultima_carga"] = filas[-1] if filas else {}
         st.session_state.pop("inv_diagnostico", None)
         st.session_state.pop("diagnostico_cache", None)
+        if session_keys_clear:
+            for _k in session_keys_clear:
+                st.session_state.pop(_k, None)
         st.rerun()
     except Exception as e:
         st.error(f"No se pudo guardar: {e}")
@@ -439,12 +480,13 @@ def _render_carga_on(ctx: dict) -> None:
     if st.button("Guardar", disabled=vn <= 0 or par <= 0, key="ca_on_save", use_container_width=True):
         tipo_g = "BONO_USD" if meta and str(meta.get("tipo", "")).upper() == "BONO_USD" else "ON_USD"
         ppc_usd = par / 100.0
+        ppc_ars_unit = (monto_ars / vn) if vn > 0 else 0.0
         _persist_filas(ctx, [{
             "FECHA_COMPRA": fc,
             "TICKER": ticker,
             "CANTIDAD": float(vn),
             "PPC_USD": round(ppc_usd, 6),
-            "PPC_ARS": round(monto_ars, 4),
+            "PPC_ARS": round(ppc_ars_unit, 6),
             "TIPO": tipo_g,
             "LAMINA_VN": float("nan"),
         }], modo=st.session_state.get("ca_merge_mode", "agregar"))
@@ -470,31 +512,45 @@ def _render_carga_letra(ctx: dict) -> None:
     )
     ccl = float(ctx.get("ccl") or 1.0)
     ppc_usd = round((pagado / vn) / ccl, 8) if vn and ccl else 0.0
+    ppc_ars_unit = (pagado / vn) if vn > 0 else 0.0
     if st.button("Guardar", disabled=vn <= 0, key="ca_letra_save", use_container_width=True):
         _persist_filas(ctx, [{
             "FECHA_COMPRA": fc,
             "TICKER": ticker or "LETRA",
             "CANTIDAD": float(vn),
             "PPC_USD": max(ppc_usd, 1e-8),
-            "PPC_ARS": round(pagado, 4),
+            "PPC_ARS": round(ppc_ars_unit, 6),
             "TIPO": "LETRA",
             "LAMINA_VN": float("nan"),
         }], modo=st.session_state.get("ca_merge_mode", "agregar"))
 
 
-def _broker_to_maestra_rows(df_imp: pd.DataFrame, ctx: dict) -> list[dict[str, Any]]:
-    """Convierte filas del importador a esquema Maestra_Transaccional."""
+def _broker_to_maestra_rows(
+    df_imp: pd.DataFrame,
+    ctx: dict,
+    *,
+    incluir_ventas: bool = False,
+) -> list[dict[str, Any]]:
+    """Convierte filas del importador a esquema Maestra_Transaccional.
+    Las ventas se guardan con CANTIDAD negativa (posición neta y FIFO en el motor).
+    """
     cart = _cartera_csv(ctx)
     ccl = float(ctx.get("ccl") or 1.0)
     out: list[dict[str, Any]] = []
     for _, r in df_imp.iterrows():
-        if str(r.get("Tipo_Op", "")).upper() != "COMPRA":
+        tipo_op = str(r.get("Tipo_Op", "")).upper()
+        if tipo_op == "COMPRA":
+            sign = 1
+        elif incluir_ventas and tipo_op == "VENTA":
+            sign = -1
+        else:
             continue
         tick = str(
             r.get("TICKER", r.get("Ticker", "")),
         ).strip().upper()
-        cant = int(float(r.get("CANTIDAD", r.get("Cantidad", 0)) or 0))
-        if cant <= 0 or not tick:
+        cant_raw = int(float(r.get("CANTIDAD", r.get("Cantidad", 0)) or 0))
+        cant = sign * abs(cant_raw) if cant_raw != 0 else 0
+        if cant == 0 or not tick:
             continue
         precio_ars = float(r.get("Precio_ARS", 0) or 0)
         ppc_usd = float(r.get("PPC_USD", 0) or 0)
@@ -516,12 +572,90 @@ def _broker_to_maestra_rows(df_imp: pd.DataFrame, ctx: dict) -> list[dict[str, A
             "FECHA_COMPRA": fc,
             "TICKER": tick,
             "CANTIDAD": cant,
-            "PPC_USD": round(ppc_usd, 6) if ppc_usd > 0 else round(precio_ars / ccl, 6),
+            "PPC_USD": round(ppc_usd, 6) if ppc_usd > 0 else round(precio_ars / max(ccl, 1e-9), 6),
             "PPC_ARS": round(precio_ars, 4),
             "TIPO": tipo_m,
             "LAMINA_VN": float("nan"),
         })
     return out
+
+
+def _render_carga_venta_simple(ctx: dict) -> None:
+    """Venta manual: CANTIDAD negativa (compatible con agregar_cartera / FIFO)."""
+    st.markdown("##### Registrar una venta")
+    st.caption(
+        "Indicá ticker, cuántas unidades vendiste y el precio por unidad (como en el comprobante). "
+        "MQ26 guarda la operación con cantidad **negativa** y actualiza tu posición neta."
+    )
+    ccl = float(ctx.get("ccl") or 1.0)
+    ticker = st.text_input("Ticker BYMA", "", key="ca_vta_tick").strip().upper()
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        cant = st.number_input(
+            "Unidades vendidas",
+            min_value=1.0,
+            value=1.0,
+            step=1.0,
+            key="ca_vta_cant",
+        )
+    es_usd = st.checkbox(
+        "Precio en USD MEP (typ. CEDEAR)",
+        value=False,
+        key="ca_vta_usd",
+        help="Desmarcado: precio en pesos por cuotaparte (acciones locales o si ya cargaste ARS).",
+    )
+    with c2:
+        lab = "Precio USD MEP c/u" if es_usd else "Precio ARS c/u"
+        px = st.number_input(lab, min_value=0.0, value=0.0, step=0.01, key="ca_vta_px")
+    with c3:
+        fc = st.date_input("Fecha de la venta", value=date.today(), key="ca_vta_fecha")
+    if es_usd:
+        ppc_usd = float(px)
+        ppc_ars = float(px) * ccl
+    else:
+        ppc_ars = float(px)
+        ppc_usd = round(float(px) / max(ccl, 1e-9), 8) if ccl else 0.0
+    tipo_u = "CEDEAR"
+    udf = ctx.get("universo_df")
+    ct = _ticker_col_univ(udf)
+    if udf is not None and ct is not None and ticker:
+        row = udf[udf[ct].astype(str).str.upper() == ticker.upper()]
+        if not row.empty:
+            tipo_cell = row.iloc[0].get("TIPO", row.iloc[0].get("Tipo", ""))
+            tipo_u = str(tipo_cell).strip().upper() or "CEDEAR"
+    if tipo_u in ("ACCION", "ACCIÓN"):
+        tipo_u = "ACCION_LOCAL"
+    if tipo_u not in (
+        "ETF",
+        "CEDEAR",
+        "ACCION_LOCAL",
+        "ON",
+        "ON_USD",
+        "BONO",
+        "BONO_USD",
+        "LETRA",
+    ):
+        tipo_u = "CEDEAR"
+    st.session_state.setdefault("ca_merge_mode", "agregar")
+    if st.button(
+        "Registrar venta",
+        disabled=cant < 1 or px <= 0 or not ticker,
+        key="ca_vta_save",
+        use_container_width=True,
+    ):
+        _persist_filas(
+            ctx,
+            [{
+                "FECHA_COMPRA": fc,
+                "TICKER": ticker,
+                "CANTIDAD": -float(abs(cant)),
+                "PPC_USD": round(ppc_usd, 6),
+                "PPC_ARS": round(ppc_ars, 4),
+                "TIPO": tipo_u,
+                "LAMINA_VN": float("nan"),
+            }],
+            modo=st.session_state.get("ca_merge_mode", "agregar"),
+        )
 
 
 def _render_importar_broker(ctx: dict) -> None:
@@ -585,6 +719,12 @@ def _render_importar_broker(ctx: dict) -> None:
                 st.info(resumen)
         if df_imp is not None and not df_imp.empty:
             st.dataframe(df_imp.head(30), use_container_width=True)
+            incluir_v = st.checkbox(
+                "Incluir ventas del archivo (reducen o cierran posiciones)",
+                value=False,
+                key="ca_imp_incluir_ventas",
+                help="Cada venta se importa con cantidad negativa; el motor recalcula posición y PPC (FIFO si está activo).",
+            )
             modo = st.radio(
                 "Si ya tenés operaciones para esta cartera:",
                 ("agregar", "sobrescribir"),
@@ -593,9 +733,13 @@ def _render_importar_broker(ctx: dict) -> None:
             )
             st.session_state["ca_merge_mode"] = modo
             if st.button("Confirmar importación", key="ca_imp_ok", use_container_width=True):
-                filas = _broker_to_maestra_rows(df_imp, ctx)
+                filas = _broker_to_maestra_rows(df_imp, ctx, incluir_ventas=incluir_v)
                 if not filas:
-                    st.error("No quedaron filas COMPRA válidas.")
+                    st.error(
+                        "No quedaron filas COMPRA ni VENTA válidas."
+                        if incluir_v
+                        else "No quedaron filas COMPRA válidas."
+                    )
                 else:
                     _persist_filas(ctx, filas, modo=modo)
     plantilla = (
@@ -613,18 +757,19 @@ def _render_importar_broker(ctx: dict) -> None:
 def render_carga_activos(ctx: dict) -> None:
     """Menú principal de carga de activos."""
     ttab = st.session_state.get("inv_carga_tab")
-    if ttab in ("importar", "manual"):
+    if ttab in ("importar", "manual", "venta"):
         st.session_state["ca_menu_main"] = ttab
         st.session_state.pop("inv_carga_tab", None)
 
     st.markdown("### Sumar operaciones a tu cartera")
     modo = st.radio(
         "¿Qué querés hacer?",
-        ("importar", "manual", "historial"),
+        ("importar", "manual", "venta", "historial"),
         format_func=lambda x: {
             "importar": "Importar archivo del broker",
             "manual": "Cargar una compra manual",
-            "historial": "Ver historial de compras",
+            "venta": "Registrar una venta",
+            "historial": "Ver historial de operaciones",
         }[x],
         horizontal=True,
         key="ca_menu_main",
@@ -633,6 +778,9 @@ def render_carga_activos(ctx: dict) -> None:
 
     if modo == "importar":
         _render_importar_broker(ctx)
+        return
+    if modo == "venta":
+        _render_carga_venta_simple(ctx)
         return
     if modo == "historial":
         st.caption(historial_meses_copy())

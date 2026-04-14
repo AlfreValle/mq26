@@ -20,7 +20,13 @@ from config import (
     SECTORES,
     UNIVERSO_BASE,
 )
-from core.pricing_utils import ccl_historico_por_fecha, obtener_ratio as ratio_desde_universo_o_config
+from core.pricing_utils import (
+    ccl_historico_por_fecha,
+    es_renta_fija_local,
+    obtener_ratio as ratio_desde_universo_o_config,
+)
+from core.renta_fija_ar import get_meta as rf_get_meta
+from core.transaccional_repository import load_transaccional, save_transaccional
 
 
 # ─── UTILIDADES ───────────────────────────────────────────────────────────────
@@ -69,8 +75,22 @@ def alinear_panel_precios_cierre(
 
 def ticker_yahoo(ticker: str, universo_df=None) -> str:
     t = ticker.upper().strip()
-    traducciones = {"BRKB":"BRK-B","BRK/B":"BRK-B","YPFD":"YPF",
-                    "CEPU":"CEPU.BA","TGNO4":"TGNO4.BA","PAMP":"PAM","DISN":"DIS"}
+    traducciones = {
+        "BRKB": "BRK-B", "BRK/B": "BRK-B",
+        "YPFD": "YPF",
+        "CEPU": "CEPU.BA", "TGNO4": "TGNO4.BA",
+        "PAMP": "PAM", "DISN": "DIS",
+        # CEDEARs argentinos → subyacente en Yahoo Finance
+        "TLCTO": "TEO",   # Telecom Argentina → TEO (NYSE)
+        "PN4O":  "PAM",   # Pampa Energía → PAM (NYSE)
+        "GGAL":  "GGAL",  # Grupo Financiero Galicia → GGAL (NASDAQ)
+        "SUPV":  "SUPV",  # Grupo Supervielle → SUPV (NYSE)
+        "BBAR":  "BBAR",  # Banco BBVA Argentina → BBAR (NYSE)
+        "IRSA":  "IRS",   # IRSA → IRS (NYSE)
+        "TECO2": "TEO",   # Telecom Argentina clase B → TEO (NYSE)
+        "LOMA":  "LOMA",  # Loma Negra → LOMA (NYSE)
+        "COME":  "COME.BA",
+    }
     if universo_df is not None and not universo_df.empty:
         row = universo_df[universo_df["Ticker"].str.upper() == t]
         if not row.empty and "Tipo" in row.columns:
@@ -113,18 +133,29 @@ class DataEngine:
         except Exception as e:
             raise RuntimeError(f"Error cargando universo: {e}") from e
 
+    @staticmethod
+    def _tipo_normalizado_por_ticker(ticker: str, tipo_raw: str) -> str:
+        """
+        Si el ticker pertenece al catálogo de renta fija, prioriza ese tipo.
+        Evita errores de carga donde una ON viene como CEDEAR.
+        """
+        meta = rf_get_meta(str(ticker).upper().strip())
+        if meta and meta.get("tipo"):
+            return str(meta.get("tipo")).upper().strip()
+        return str(tipo_raw or "CEDEAR").upper().strip()
+
     def cargar_transaccional(self) -> pd.DataFrame:
-        if RUTA_TRANSAC.exists():
-            df = pd.read_csv(RUTA_TRANSAC, encoding="utf-8-sig")
+        df = load_transaccional()
+        if not df.empty:
             if "FECHA_COMPRA" in df.columns:
                 df["FECHA_COMPRA"] = pd.to_datetime(df["FECHA_COMPRA"], errors="coerce").dt.date
-            for col in ["PPC_USD","PPC_ARS"]:
-                if col in df.columns: df[col] = df[col].apply(limpiar_ppc)
+            for col in ["PPC_USD", "PPC_ARS"]:
+                if col in df.columns:
+                    df[col] = df[col].apply(limpiar_ppc)
             if "LAMINA_VN" not in df.columns:
                 df["LAMINA_VN"] = float("nan")
             else:
                 df["LAMINA_VN"] = pd.to_numeric(df["LAMINA_VN"], errors="coerce")
-            # Validación D3: informar filas problemáticas sin crashear
             self._validacion_csv = self._validar_csv(df)
             return df
         return self._migrar_desde_maestra()
@@ -208,13 +239,14 @@ class DataEngine:
             "LAMINA_VN":    pd.to_numeric(_lam, errors="coerce"),
         })
         trans = trans[trans["CANTIDAD"] != 0].reset_index(drop=True)
-        trans.to_csv(RUTA_TRANSAC, index=False)
+        # SSOT: nunca escribir transaccional directo a CSV fuera del repositorio.
+        save_transaccional(trans)
         return trans
 
     def guardar_transaccional(self, df: pd.DataFrame):
         df = df.dropna(subset=["TICKER"])
         df = df[df["CANTIDAD"] != 0]
-        df.to_csv(RUTA_TRANSAC, index=False)
+        save_transaccional(df)
 
     def cargar_analisis(self) -> pd.DataFrame:
         if RUTA_ANALISIS.exists():
@@ -236,43 +268,64 @@ class DataEngine:
             cant_neta     = g["CANTIDAD"].sum()
             buys          = g[g["CANTIDAD"] > 0]
             cant_comprada = buys["CANTIDAD"].sum()
-            tipo_instr    = str(g["TIPO"].iloc[0]) if "TIPO" in g.columns else "CEDEAR"
+            tipo_raw      = str(g["TIPO"].iloc[0]) if "TIPO" in g.columns else "CEDEAR"
+            tipo_instr    = self._tipo_normalizado_por_ticker(str(ticker_key), tipo_raw)
             es_local      = es_instrumento_local_ars(str(ticker_key), tipo_instr)
             _lam_s = pd.to_numeric(g.get("LAMINA_VN", pd.Series(dtype=float)), errors="coerce").dropna()
             lamina_vn = float(_lam_s.iloc[0]) if not _lam_s.empty else float("nan")
 
             inv_comprada  = (buys["CANTIDAD"] * buys["PPC_USD"]).sum()
             ppc_prom      = inv_comprada / cant_comprada if cant_comprada > 0 else 0.0
-            ratio         = 1.0 if es_local else float(self.obtener_ratio(str(ticker_key)))
 
             inv_ars_hist = 0.0
+            primera_compra = None
             if not buys.empty and "FECHA_COMPRA" in buys.columns:
+                _fc = pd.to_datetime(buys["FECHA_COMPRA"], errors="coerce").dropna()
+                if not _fc.empty:
+                    try:
+                        primera_compra = _fc.min().date()
+                    except Exception:
+                        primera_compra = None
                 for _, row in buys.iterrows():
                     cant_r = float(row["CANTIDAD"])
+                    fecha_key = str(row.get("FECHA_COMPRA", ""))[:7]
+                    ccl_hist = ccl_historico_por_fecha(fecha_key, fallback=1350.0)
                     if es_local:
-                        # Instrumento local ARS: usar PPC_ARS directo si está disponible,
-                        # o PPC_USD como precio en ARS (convención para locales).
+                        # Instrumento local ARS:
+                        # - Acciones locales: PPC_ARS directo o fallback PPC_USD como ARS.
+                        # - Renta fija local (ON/bonos/letras): normalizar por paridad (% del nominal)
+                        #   para mantener unidad homogénea de lámina.
                         ppc_ars_r = float(row.get("PPC_ARS", 0) or 0)
+                        ppc_usd_r = float(row.get("PPC_USD", 0) or 0)
+                        if es_renta_fija_local(tipo_instr):
+                            # ON/bonos suelen venir con PPC_USD como paridad (%), ej 100.8.
+                            # Si PPC_ARS está 100x inflado, priorizar derivar por paridad.
+                            if ppc_usd_r > 0:
+                                inv_ars_hist += cant_r * (ppc_usd_r / 100.0) * ccl_hist
+                            elif ppc_ars_r > 0:
+                                inv_ars_hist += cant_r * ppc_ars_r
+                            else:
+                                inv_ars_hist += 0.0
+                            continue
                         if ppc_ars_r > 0:
                             inv_ars_hist += cant_r * ppc_ars_r
                         else:
                             # fallback: PPC_USD interpretado como precio ARS
-                            inv_ars_hist += cant_r * float(row["PPC_USD"])
+                            inv_ars_hist += cant_r * ppc_usd_r
                     else:
-                        # CEDEAR: fórmula estándar con CCL histórico y ratio
-                        fecha_key = str(row.get("FECHA_COMPRA", ""))[:7]
-                        ccl_hist  = ccl_historico_por_fecha(fecha_key, fallback=1350.0)
-                        inv_ars_hist += cant_r * float(row["PPC_USD"]) * ccl_hist * ratio
+                        # CEDEAR: PPC_USD = USD por certificado; costo ARS = × CCL en fecha
+                        inv_ars_hist += cant_r * float(row["PPC_USD"]) * ccl_hist
 
             rows.append({
-                "TICKER":            ticker_key,
-                "CANTIDAD_TOTAL":    cant_neta,
-                "PPC_USD_PROM":      ppc_prom,
-                "INV_USD_TOTAL":     inv_comprada,
-                "INV_ARS_HISTORICO": inv_ars_hist,
-                "TIPO":              tipo_instr,
-                "ES_LOCAL":          es_local,
-                "LAMINA_VN":         lamina_vn,
+                "TICKER":                ticker_key,
+                "CANTIDAD_TOTAL":        cant_neta,
+                "PPC_USD_PROM":          ppc_prom,
+                "INV_USD_TOTAL":         inv_comprada,
+                "INV_ARS_HISTORICO":     inv_ars_hist,
+                "FECHA_PRIMERA_COMPRA":  primera_compra,
+                "TIPO":                  tipo_instr,
+                "ES_LOCAL":              es_local,
+                "LAMINA_VN":             lamina_vn,
             })
 
         if not rows:
@@ -337,29 +390,57 @@ class DataEngine:
             ppc_fifo  = self.calcular_ppc_fifo(g)
             cant_comp = g[g["CANTIDAD"] > 0]["CANTIDAD"].sum()
             inv_comp  = (g[g["CANTIDAD"] > 0]["CANTIDAD"] * g[g["CANTIDAD"] > 0]["PPC_USD"]).sum()
-            tipo_instr = str(g["TIPO"].iloc[0]) if "TIPO" in g.columns else "CEDEAR"
+            tipo_raw = str(g["TIPO"].iloc[0]) if "TIPO" in g.columns else "CEDEAR"
+            tipo_instr = self._tipo_normalizado_por_ticker(str(ticker_key), tipo_raw)
             es_local = es_instrumento_local_ars(str(ticker_key), tipo_instr)
             ratio = 1.0 if es_local else float(self.obtener_ratio(str(ticker_key)))
             _lam_s = pd.to_numeric(g.get("LAMINA_VN", pd.Series(dtype=float)), errors="coerce").dropna()
             lamina_vn = float(_lam_s.iloc[0]) if not _lam_s.empty else float("nan")
 
             inv_ars_hist = 0.0
+            primera_compra = None
             buys = g[g["CANTIDAD"] > 0]
             if not buys.empty and "FECHA_COMPRA" in buys.columns:
+                _fc = pd.to_datetime(buys["FECHA_COMPRA"], errors="coerce").dropna()
+                if not _fc.empty:
+                    try:
+                        primera_compra = _fc.min().date()
+                    except Exception:
+                        primera_compra = None
                 for _, row in buys.iterrows():
                     fecha_key = str(row.get("FECHA_COMPRA", ""))[:7]
                     ccl_hist  = ccl_historico_por_fecha(fecha_key, fallback=1350.0)
-                    inv_ars_hist += float(row["CANTIDAD"]) * float(row["PPC_USD"]) * ccl_hist * ratio
+                    cant_r = float(row["CANTIDAD"])
+                    ppc_usd_r = float(row.get("PPC_USD", 0) or 0)
+                    ppc_ars_r = float(row.get("PPC_ARS", 0) or 0)
+                    if es_local:
+                        # RF local: PPC_USD en fuente suele venir como paridad (%), normalizar por 100.
+                        if es_renta_fija_local(tipo_instr):
+                            if ppc_usd_r > 0:
+                                inv_ars_hist += cant_r * (ppc_usd_r / 100.0) * ccl_hist
+                            elif ppc_ars_r > 0:
+                                inv_ars_hist += cant_r * ppc_ars_r
+                            else:
+                                inv_ars_hist += 0.0
+                        else:
+                            # Acciones/otros locales en ARS.
+                            if ppc_ars_r > 0:
+                                inv_ars_hist += cant_r * ppc_ars_r
+                            else:
+                                inv_ars_hist += cant_r * ppc_usd_r
+                    else:
+                        inv_ars_hist += cant_r * ppc_usd_r * ccl_hist * ratio
 
             rows.append({
-                "TICKER":            ticker_key,
-                "CANTIDAD_TOTAL":    cant_neta,
-                "PPC_USD_PROM":      ppc_fifo,
-                "INV_USD_TOTAL":     inv_comp,
-                "INV_ARS_HISTORICO": inv_ars_hist,
-                "TIPO":              tipo_instr,
-                "ES_LOCAL":          es_local,
-                "LAMINA_VN":         lamina_vn,
+                "TICKER":                ticker_key,
+                "CANTIDAD_TOTAL":        cant_neta,
+                "PPC_USD_PROM":          ppc_fifo,
+                "INV_USD_TOTAL":         inv_comp,
+                "INV_ARS_HISTORICO":     inv_ars_hist,
+                "FECHA_PRIMERA_COMPRA":  primera_compra,
+                "TIPO":                  tipo_instr,
+                "ES_LOCAL":              es_local,
+                "LAMINA_VN":             lamina_vn,
             })
 
         if not rows:
@@ -445,10 +526,15 @@ class DataEngine:
         if ccl <= 0:
             ccl = CCL_FALLBACK
 
-        # Construir listas de tickers para BA y US
-        ratios_map: dict[str, float] = {t: self.obtener_ratio(t) for t in tickers}
-        tickers_ba = [f"{t}.BA" for t in tickers]
-        tickers_us = [ticker_yahoo(t, self.universo_df) for t in tickers]
+        # Separar renta fija (ON/bonos) para evitar comparar escalas distintas
+        # contra Yahoo de equity (ej. TLCTO -> TEO).
+        rf_tickers = [t for t in tickers if rf_get_meta(str(t).upper().strip()) is not None]
+        rv_tickers = [t for t in tickers if t not in rf_tickers]
+
+        # Construir listas de tickers para BA y US (solo RV/CEDEAR)
+        ratios_map: dict[str, float] = {t: self.obtener_ratio(t) for t in rv_tickers}
+        tickers_ba = [f"{t}.BA" for t in rv_tickers]
+        tickers_us = [ticker_yahoo(t, self.universo_df) for t in rv_tickers]
         all_tickers = list(set(tickers_ba + tickers_us))
 
         try:
@@ -467,7 +553,7 @@ class DataEngine:
             last_prices = {}
 
         precios: dict[str, float] = {}
-        for t in tickers:
+        for t in rv_tickers:
             ratio = ratios_map[t]
             t_yf  = ticker_yahoo(t, self.universo_df)
             p_ba  = last_prices.get(f"{t}.BA", 0.0)
@@ -484,6 +570,38 @@ class DataEngine:
             elif p_teo > 0:
                 precios[t] = round(p_teo, 2)
             else:
+                precios[t] = 0.0
+
+        # Renta fija: priorizar BYMA live / paridad de catálogo (misma unidad de lámina).
+        if rf_tickers:
+            try:
+                from services.byma_market_data import enriquecer_on_desde_byma
+
+                byma_live = enriquecer_on_desde_byma(ccl)
+            except Exception:
+                byma_live = {}
+            for t in rf_tickers:
+                tu = str(t).upper().strip()
+                live = byma_live.get(tu) if isinstance(byma_live, dict) else None
+                if isinstance(live, dict):
+                    try:
+                        par_live = float(live.get("paridad_ref") or 0.0)
+                    except (TypeError, ValueError):
+                        par_live = 0.0
+                    if par_live > 0:
+                        precios[t] = round((par_live / 100.0) * ccl, 2)
+                        continue
+                    px_live = float(live.get("precio_ars") or 0.0)
+                    if px_live > 0:
+                        precios[t] = round(px_live, 2)
+                        continue
+                meta = rf_get_meta(tu)
+                if meta:
+                    par = float(meta.get("paridad_ref") or 0.0)
+                    mon = str(meta.get("moneda") or "USD").upper()
+                    if par > 0:
+                        precios[t] = round((par / 100.0) * ccl, 2) if mon == "USD" else round(par, 2)
+                        continue
                 precios[t] = 0.0
         return precios
 
@@ -504,8 +622,16 @@ class DataEngine:
         Si el panel queda con menos de min_filas y relax_alignment_if_short=True,
         reintenta con ffill acotado (fallback documentado en SOURCES.md).
         """
-        tickers_yf = list({ticker_yahoo(t, self.universo_df) for t in tickers})
-        tickers_yf = list(set(tickers_yf + ["SPY"]))
+        # Mapeo original → YF y reverso YF → original (primer ticker que lo pidió)
+        _orig_to_yf: dict[str, str] = {}
+        for t in tickers:
+            _orig_to_yf[t.upper()] = ticker_yahoo(t, self.universo_df)
+        _yf_to_orig: dict[str, str] = {}
+        for orig, yf_t in _orig_to_yf.items():
+            if yf_t not in _yf_to_orig:
+                _yf_to_orig[yf_t] = orig
+
+        tickers_yf = list(set(_orig_to_yf.values()) | {"SPY"})
         from core.historical_cache import (
             historico_cache_get,
             historico_cache_key,
@@ -513,7 +639,7 @@ class DataEngine:
         )
 
         _ck = historico_cache_key(
-            tickers_yf,
+            sorted(tickers_yf),
             period,
             align_calendar_strict=align_calendar_strict,
             relax_alignment_if_short=relax_alignment_if_short,
@@ -528,6 +654,16 @@ class DataEngine:
                 data = data.to_frame(name=tickers_yf[0])
             if "BRK-B" in data.columns:
                 data = data.rename(columns={"BRK-B": "BRKB"})
+                _yf_to_orig["BRKB"] = _yf_to_orig.pop("BRK-B", _yf_to_orig.get("BRKB", "BRKB"))
+            # Renombrar columnas YF → nombre original del portfolio
+            _rename_back = {yf_t: orig for yf_t, orig in _yf_to_orig.items() if yf_t in data.columns and yf_t != orig}
+            if _rename_back:
+                data = data.rename(columns=_rename_back)
+            # Eliminar columnas completamente vacías (tickers sin datos en YF)
+            data = data.dropna(axis=1, how="all")
+            if data.empty or data.shape[1] == 0:
+                historico_cache_set(_ck, pd.DataFrame())
+                return pd.DataFrame()
             if align_calendar_strict:
                 aligned = alinear_panel_precios_cierre(data, strict_inner=True)
                 if relax_alignment_if_short and len(aligned) < min_filas:

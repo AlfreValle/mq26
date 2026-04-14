@@ -8,6 +8,8 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 from core.auth import has_feature
+from ui.mq26_ux import dataframe_auto_height
+from ui.rbac import can_action as _can_action_rbac
 
 
 
@@ -31,7 +33,12 @@ def _render_historial_snapshots(ctx: dict) -> None:
     st.caption("Compará los pesos recomendados en distintas fechas.")
     tabla = snaps[["id", "modelo", "timestamp"]].copy()
     tabla.columns = ["ID", "Modelo", "Fecha"]
-    st.dataframe(tabla, use_container_width=True, hide_index=True)
+    st.dataframe(
+        tabla,
+        use_container_width=True,
+        hide_index=True,
+        height=dataframe_auto_height(tabla, min_px=120, max_px=280),
+    )
 
     ids_disp = snaps["id"].tolist()
     if len(ids_disp) >= 2:
@@ -84,6 +91,32 @@ def render_tab_reporte(ctx: dict) -> None:
     cliente_nombre   = ctx.get("cliente_nombre", prop_nombre)
     horizonte_label  = ctx.get("horizonte_label", "1 año")
     cliente_perfil   = ctx.get("cliente_perfil", "Moderado")
+    _can_write       = _can_action_rbac(ctx, "write")
+
+    # Enriquecer reporte/export con trazabilidad de fuente de precio por ticker.
+    rec_px = ctx.get("precio_records") or {}
+    if isinstance(df_ag, pd.DataFrame) and not df_ag.empty and "TICKER" in df_ag.columns:
+        def _label_fuente_precio(tk) -> str:
+            from core.price_engine import PriceSource
+
+            r = rec_px.get(str(tk).upper().strip())
+            if r is None:
+                return "—"
+            src = getattr(r, "source", None)
+            if src in (PriceSource.LIVE_YFINANCE, PriceSource.LIVE_BYMA):
+                return "LIVE"
+            if src == PriceSource.FALLBACK_BD:
+                return "FALLBACK_BD"
+            if src == PriceSource.FALLBACK_HARD:
+                return "FALLBACK_HARD"
+            if src == PriceSource.FALLBACK_PPC:
+                return "FALLBACK_PPC"
+            if src == PriceSource.MISSING:
+                return "MISSING"
+            return getattr(src, "label", str(src)) if src else "—"
+
+        df_ag = df_ag.copy()
+        df_ag["FUENTE_PRECIO"] = df_ag["TICKER"].astype(str).map(_label_fuente_precio)
 
     # ── MODO PRESENTACIÓN (H12) ───────────────────────────────────────────────
     modo_pres = st.session_state.get("modo_presentacion", False)
@@ -164,7 +197,10 @@ def render_tab_reporte(ctx: dict) -> None:
         st.dataframe(
             df_obj.style
             .format({"Monto ARS": "${:,.0f}"}, na_rep="—")
-            .map(_color_est, subset=["Estado"]), use_container_width=True, hide_index=True,
+            .map(_color_est, subset=["Estado"]),
+            use_container_width=True,
+            hide_index=True,
+            height=dataframe_auto_height(df_obj, min_px=140, max_px=360),
         )
 
         # Acciones sobre objetivos
@@ -178,7 +214,7 @@ def render_tab_reporte(ctx: dict) -> None:
                     format_func=lambda oid: f"#{oid} — {df_obj[df_obj['ID']==oid]['Motivo'].iloc[0][:40]}",
                     key="rpt_sel_objetivo",
                 )
-                if st.button("✅ Marcar como completado", key="btn_rpt_completar"):
+                if st.button("✅ Marcar como completado", key="btn_rpt_completar", disabled=not _can_write):
                     dbm.marcar_objetivo_completado(int(sel_obj))
                     st.success(f"✅ Objetivo #{sel_obj} marcado como completado.")
                     st.rerun()
@@ -196,7 +232,7 @@ def render_tab_reporte(ctx: dict) -> None:
                                 key=f"rpt_plazo_{ov['ID']}")
                             nuevo_motivo_r = st.text_input("Motivo:", value=str(ov["Motivo"]),
                                                             key=f"rpt_motivo_{ov['ID']}")
-                            if st.form_submit_button("🔄 Renovar"):
+                            if st.form_submit_button("🔄 Renovar", disabled=not _can_write):
                                 dbm.actualizar_objetivo(
                                     int(ov["ID"]), plazo_label=nuevo_plazo_r,
                                     motivo=nuevo_motivo_r, estado="ACTIVO")
@@ -225,7 +261,10 @@ def render_tab_reporte(ctx: dict) -> None:
             st.dataframe(
                 df_c.style.format({
                     "Precio ARS": "${:,.2f}", "Total ARS": "${:,.0f}", "Comisión": "${:,.0f}",
-                }), use_container_width=True, hide_index=True,
+                }),
+                use_container_width=True,
+                hide_index=True,
+                height=dataframe_auto_height(df_c, min_px=120, max_px=320),
             )
 
         if tiene_rebalanceo:
@@ -237,14 +276,16 @@ def render_tab_reporte(ctx: dict) -> None:
                 st.dataframe(df_ventas_reb.style.format({
                     "precio_ars": "${:,.2f}", "valor_nocional": "${:,.0f}",
                     "alpha_neto": "${:,.0f}",
-                }), use_container_width=True, hide_index=True)
+                }), use_container_width=True, hide_index=True,
+                    height=dataframe_auto_height(df_ventas_reb, min_px=120, max_px=300))
 
             if not df_compras_reb.empty:
                 st.markdown("#### 🟢 Compras — Rebalanceo")
                 st.dataframe(df_compras_reb.style.format({
                     "precio_ars": "${:,.2f}", "valor_nocional": "${:,.0f}",
                     "alpha_neto": "${:,.0f}",
-                }), use_container_width=True, hide_index=True)
+                }), use_container_width=True, hide_index=True,
+                    height=dataframe_auto_height(df_compras_reb, min_px=120, max_px=300))
 
         if tiene_inyeccion and tiene_rebalanceo:
             st.success("✅ Sesión combinada: Rebalanceo + Inyección de capital. Ambas recomendaciones incluidas en el reporte.")
@@ -473,11 +514,12 @@ def render_tab_reporte(ctx: dict) -> None:
                             _pdf.cell(0, 10, "Posicion Actual", ln=True)
                             _pdf.line(10, _pdf.get_y(), _pdf.w - 10, _pdf.get_y())
                             _pdf.ln(3)
-                            _cols_pdf = ["TICKER", "CANTIDAD", "VALOR_ARS", "PNL"]
+                            _cols_pdf = ["TICKER", "FUENTE_PRECIO", "CANTIDAD", "VALOR_ARS", "PNL"]
                             _cols_ok  = [c for c in _cols_pdf if c in df_ag.columns]
                             if _cols_ok:
                                 _header_pdf = {"TICKER": "Ticker", "CANTIDAD": "Cant.",
-                                               "VALOR_ARS": "Valor ARS", "PNL": "P&L ARS"}
+                                               "VALOR_ARS": "Valor ARS", "PNL": "P&L ARS",
+                                               "FUENTE_PRECIO": "Fuente px"}
                                 _pdf.set_fill_color(46, 134, 171)
                                 _pdf.set_text_color(255, 255, 255)
                                 _pdf.set_font("Helvetica", "B", 9)

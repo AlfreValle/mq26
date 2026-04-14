@@ -154,6 +154,8 @@ class TestEvaluarSalida:
         assert r["progreso_pct"] == 0.0
         assert r["precio_target"] == 0.0
         assert "senal" in r
+        assert "quality_flags" in r
+        assert "ppc_invalido" in r["quality_flags"]
 
     def test_retorna_claves_requeridas(self):
         from services.motor_salida import evaluar_salida

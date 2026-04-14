@@ -5,13 +5,19 @@ Rediseño v9: hero minimalista, cards limpias, feedback inmediato.
 from __future__ import annotations
 
 import html as html_module
+import os
 from datetime import datetime
 
 import streamlit as st
 
 
-def render_pantalla_ingreso(dbm, app_title: str = "MQ26",
-                             app_icon: str = "📈") -> None:
+def render_pantalla_ingreso(
+    dbm,
+    app_title: str = "MQ26",
+    app_icon: str = "📈",
+    *,
+    tenant_id: str | None = None,
+) -> None:
     """
     Pantalla de selección/creación de cliente.
     Llama a st.stop() si no se selecciona cliente.
@@ -19,66 +25,38 @@ def render_pantalla_ingreso(dbm, app_title: str = "MQ26",
     _icon = html_module.escape(app_icon)
     _title = html_module.escape(app_title)
 
-    # ── MEJORA 41: Hero section limpio ────────────────────────────────────────
-    st.markdown(f"""
-    <div style="
-        text-align:center;
-        padding: 3rem 0 2rem 0;
-    ">
-        <div style="
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            width:52px; height:52px;
-            background:rgba(59,130,246,0.12);
-            border:1px solid rgba(59,130,246,0.25);
-            border-radius:14px;
-            font-size:1.5rem;
-            margin-bottom:1.25rem;
-        ">{_icon}</div>
-        <h1 style="
-            font-family:'DM Sans',sans-serif;
-            font-size:1.5rem;
-            font-weight:600;
-            letter-spacing:-0.03em;
-            color:#f1f5f9;
-            margin:0 0 0.4rem 0;
-        ">Master Quant</h1>
-        <p style="
-            font-size:0.8125rem;
-            color:#4b5563;
-            margin:0;
-            letter-spacing:0.01em;
-        ">¿Con qué cartera trabajamos hoy?</p>
+    # ── Hero: mismas clases que run_mq26._pantalla_ingreso (design system) ─────
+    st.markdown(
+        f"""
+    <div class="mq-motion-page-fade mq-login-hero">
+        <div class="mq-login-hero-icon" aria-hidden="true">{_icon}</div>
+        <h1>Master Quant</h1>
+        <p>¿Con qué cartera trabajamos hoy?</p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     col_sel, col_sep, col_nuevo = st.columns([5, 1, 5])
 
     # ── MEJORA 42: Selector de cliente existente ──────────────────────────────
     with col_sel:
-        st.markdown("""
-        <p style="font-size:0.72rem;font-weight:600;color:#4b5563;
-                  text-transform:uppercase;letter-spacing:0.07em;
-                  margin-bottom:0.75rem;">
-            Cliente existente
-        </p>""", unsafe_allow_html=True)
+        st.markdown(
+            '<p class="mq-login-col-label">Cliente existente</p>',
+            unsafe_allow_html=True,
+        )
 
-        df_cli = dbm.obtener_clientes_df()
+        _tid = (tenant_id or os.environ.get("MQ26_DB_TENANT_ID") or "default").strip() or "default"
+        df_cli = dbm.obtener_clientes_df(tenant_id=_tid)
 
         if df_cli.empty:
-            st.markdown("""
-            <div style="
-                background:#0f1117;
-                border:1px dashed rgba(255,255,255,0.08);
-                border-radius:12px;
-                padding:2rem;
-                text-align:center;
-            ">
-                <p style="color:#4b5563;font-size:0.8125rem;margin:0;">
-                    Sin clientes aún.<br>Creá el primero al lado →
-                </p>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(
+                """
+            <div class="mq-login-empty">
+                <p>Sin clientes aún.<br>Creá el primero al lado →</p>
+            </div>""",
+                unsafe_allow_html=True,
+            )
         else:
             opciones = ["— Elegir —"] + df_cli["Nombre"].tolist()
             sel = st.selectbox(
@@ -108,57 +86,36 @@ def render_pantalla_ingreso(dbm, app_title: str = "MQ26",
                 horiz_esc = html_module.escape(str(row.get("Horizonte", "1 año")))
                 cap_usd = float(row.get("Capital_USD", 0) or 0)
 
-                st.markdown(f"""
-                <div style="
-                    background:#161b27;
-                    border:1px solid rgba(255,255,255,0.08);
-                    border-radius:12px;
-                    padding:1.25rem 1.5rem;
-                    margin-top:0.75rem;
-                ">
-                    <div style="display:flex;justify-content:space-between;
-                                align-items:flex-start;margin-bottom:0.75rem;">
+                st.markdown(
+                    f"""
+                <div class="mq-login-client-card">
+                    <div class="mq-login-client-head">
                         <div>
-                            <div style="font-weight:600;font-size:0.9375rem;
-                                        color:#f1f5f9;letter-spacing:-0.01em;">
-                                {sel_esc}
-                            </div>
+                            <div class="mq-login-client-title">{sel_esc}</div>
                         </div>
-                        <span style="
-                            background:rgba({rgb},0.15);
-                            color:{perfil_color};
-                            font-size:0.65rem;font-weight:600;
-                            padding:2px 8px;border-radius:999px;
-                            text-transform:uppercase;letter-spacing:0.05em;
-                        ">{perfil_esc}</span>
+                        <span class="mq-login-badge-perfil"
+                            style="background:rgba({rgb},0.15);color:{perfil_color};">{perfil_esc}</span>
                     </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+                    <div class="mq-login-grid-2">
                         <div>
-                            <div style="font-size:0.65rem;color:#4b5563;
-                                        text-transform:uppercase;letter-spacing:0.06em;">
-                                Horizonte
-                            </div>
-                            <div style="font-size:0.8125rem;color:#94a3b8;margin-top:2px;">
-                                {horiz_esc}
-                            </div>
+                            <div class="mq-inv-kpi-label">Horizonte</div>
+                            <div class="mq-login-kpi-val">{horiz_esc}</div>
                         </div>
                         <div>
-                            <div style="font-size:0.65rem;color:#4b5563;
-                                        text-transform:uppercase;letter-spacing:0.06em;">
-                                Capital inicial
-                            </div>
-                            <div style="font-family:'DM Mono',monospace;
-                                        font-size:0.8125rem;color:#94a3b8;margin-top:2px;">
-                                USD {cap_usd:,.0f}
-                            </div>
+                            <div class="mq-inv-kpi-label">Capital inicial</div>
+                            <div class="mq-login-kpi-val-mono">USD {cap_usd:,.0f}</div>
                         </div>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
 
                 # ── MEJORA 44: Botón de ingreso prominente ────────────────────
-                st.markdown("<div style='height:0.75rem'></div>",
-                            unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="mq-login-spacer-md"></div>',
+                    unsafe_allow_html=True,
+                )
                 if st.button(
                     "Ingresar →",
                     type="primary",
@@ -175,31 +132,23 @@ def render_pantalla_ingreso(dbm, app_title: str = "MQ26",
 
     # ── MEJORA 45: Separador vertical ─────────────────────────────────────────
     with col_sep:
-        st.markdown("""
-        <div style="
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            height:100%;
-            padding-top:2rem;
-        ">
-            <div style="flex:1;width:1px;background:rgba(255,255,255,0.06);"></div>
-            <span style="
-                font-size:0.65rem;color:#4b5563;
-                padding:0.5rem 0;letter-spacing:0.05em;
-            ">o</span>
-            <div style="flex:1;width:1px;background:rgba(255,255,255,0.06);"></div>
+        st.markdown(
+            """
+        <div class="mq-login-vsep">
+            <div class="mq-login-vsep-line"></div>
+            <span class="mq-login-vsep-mid">o</span>
+            <div class="mq-login-vsep-line"></div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
     # ── MEJORA 46: Formulario nuevo cliente rediseñado ─────────────────────────
     with col_nuevo:
-        st.markdown("""
-        <p style="font-size:0.72rem;font-weight:600;color:#4b5563;
-                  text-transform:uppercase;letter-spacing:0.07em;
-                  margin-bottom:0.75rem;">
-            Nuevo cliente
-        </p>""", unsafe_allow_html=True)
+        st.markdown(
+            '<p class="mq-login-col-label">Nuevo cliente</p>',
+            unsafe_allow_html=True,
+        )
 
         # ── MEJORA 47: Form sin borde por defecto (aplicado via CSS) ──────────
         with st.form("form_nuevo_cliente_ingreso", clear_on_submit=True):
@@ -261,16 +210,13 @@ def render_pantalla_ingreso(dbm, app_title: str = "MQ26",
 
     # ── MEJORA 49: Footer de versión ──────────────────────────────────────────
     _y = datetime.now().year
-    st.markdown(f"""
-    <div style="
-        text-align:center;
-        padding-top:3rem;
-        padding-bottom:1rem;
-    ">
-        <span style="font-size:0.65rem;color:#1f2937;letter-spacing:0.08em;">
-            Master Quant · {_y}
-        </span>
+    st.markdown(
+        f"""
+    <div class="mq-login-footer">
+        <span>Master Quant · {_y}</span>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     st.stop()

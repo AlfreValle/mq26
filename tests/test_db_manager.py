@@ -256,6 +256,7 @@ class TestActualizarCliente:
         try:
             dbm.actualizar_cliente(
                 nid, "Upd_S30", "Agresivo", 8_000.0, "Empresa", "3 años",
+                tenant_id="default",
             )
         except Exception as e:
             pytest.fail(f"actualizar_cliente lanzó: {e}")
@@ -265,6 +266,7 @@ class TestActualizarCliente:
         nid = dbm.registrar_cliente("Upd_S30b", "Conservador", 500.0)
         dbm.actualizar_cliente(
             nid, "Upd_S30b", "Agresivo", 8_000.0, "Empresa", "3 años",
+            tenant_id="default",
         )
         c = dbm.obtener_cliente(nid)
         assert c.get("perfil_riesgo") == "Agresivo"
@@ -323,3 +325,41 @@ def test_version_universo_incrementa_en_update(db_en_memoria):
     assert v1 == v0 + 1
     df1 = dbm.get_activos_df()
     assert int(df1.loc[df1["ticker_local"] == "ZZUVER", "universo_version"].iloc[0]) == v1
+
+
+def test_p1_adm01_registrar_admin_audit_event_y_redaccion(db_en_memoria):
+    import json as _json
+
+    dbm = db_en_memoria
+    dbm.registrar_admin_audit_event(
+        "app_usuario.create",
+        actor="pytest_admin",
+        tenant_id="t1",
+        detail={
+            "username": "u1",
+            "password_hash": "bcrypt_should_not_appear",
+            "nested": {"oauth_token": "secret"},
+        },
+    )
+    rows = dbm.list_global_param_audit(None, limit=50, param_prefix=dbm.ADMIN_AUDIT_KEY_PREFIX)
+    assert rows
+    top = rows[0]
+    assert top["param_key"] == "ADMIN.app_usuario.create"
+    assert top["changed_by"] == "pytest_admin"
+    body = _json.loads(top["new_value"])
+    assert body["tenant_id"] == "t1"
+    d = body["detail"]
+    assert d["username"] == "u1"
+    assert d["password_hash"] == "[REDACTED]"
+    assert d["nested"]["oauth_token"] == "[REDACTED]"
+
+
+def test_p1_adm01_list_global_param_audit_prefix_independiente_de_param_global(db_en_memoria):
+    dbm = db_en_memoria
+    dbm.guardar_config("RISK_FREE_RATE", "0.051", audit_user="pytest")
+    dbm.registrar_admin_audit_event("demo.regenerada", actor="a", detail={"demo_path": "/tmp/x.db"})
+    admin_only = dbm.list_global_param_audit(None, limit=20, param_prefix=dbm.ADMIN_AUDIT_KEY_PREFIX)
+    assert admin_only
+    assert all(str(r.get("param_key", "")).startswith("ADMIN.") for r in admin_only)
+    risk_only = dbm.list_global_param_audit("RISK_FREE_RATE", limit=20)
+    assert any(r.get("param_key") == "RISK_FREE_RATE" for r in risk_only)

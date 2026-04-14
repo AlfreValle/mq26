@@ -156,16 +156,15 @@ def _score_dim_cobertura(pct_actual: float, piso_req: float) -> float:
     return _clip(min(r, 1.0) * 100.0, 0.0, 100.0)
 
 
-def _score_dim_alineacion_rf_rv(
+def _score_dim_alineacion_con_targets(
     perfil: str,
-    horizonte_label: str,
     pct_rf: float,
     pct_rv: float,
+    trf: float,
+    trv: float,
 ) -> float:
-    """Paz mental: cercanía al target RF/RV del perfil (+ bandas RV Muy arriesgado)."""
+    """Cercanía a targets RF/RV explícitos (+ bandas RV Muy arriesgado respecto al target teórico)."""
     p = perfil_diagnostico_valido(perfil)
-    trf = target_rf_efectivo(p, horizonte_label)
-    trv = target_rv_efectivo(p, horizonte_label)
     err = max(abs(pct_rf - trf), abs(pct_rv - trv))
     if err <= 0.05:
         sc = 100.0
@@ -184,20 +183,65 @@ def _score_dim_alineacion_rf_rv(
     return float(_clip(sc, 0.0, 100.0))
 
 
+def _score_dim_alineacion_rf_rv(
+    perfil: str,
+    horizonte_label: str,
+    pct_rf: float,
+    pct_rv: float,
+) -> float:
+    """Paz mental: cercanía al target RF/RV del perfil (+ bandas RV Muy arriesgado)."""
+    p = perfil_diagnostico_valido(perfil)
+    trf = target_rf_efectivo(p, horizonte_label)
+    trv = target_rv_efectivo(p, horizonte_label)
+    return _score_dim_alineacion_con_targets(p, pct_rf, pct_rv, trf, trv)
+
+
+def _limite_concentracion_adaptativo(limite_perfil: float, n_posiciones: int) -> float:
+    """
+    Carteras chicas (pocas líneas): un peso ~1/N es normal; sube el tope para no marcar
+    'concentración' en canastas recién armadas (p. ej. 3 nombres ~33% c/u).
+    """
+    if n_posiciones <= 0:
+        return limite_perfil
+    if n_posiciones > 6:
+        return limite_perfil
+    piso_canasta = min(0.46, (1.0 / float(n_posiciones)) + 0.05)
+    return float(max(limite_perfil, piso_canasta))
+
+
 def _score_dim_concentracion(
     df_ag: pd.DataFrame,
     limite_fraccion: float,
 ) -> tuple[float, list[tuple[str, float]]]:
     if df_ag is None or df_ag.empty:
         return 100.0, []
+    n = len(df_ag)
+    limite_e = _limite_concentracion_adaptativo(limite_fraccion, n)
     excedentes: list[tuple[str, float]] = []
     for _, row in df_ag.iterrows():
         t = _ticker_u(row)
         w = _fraccion_peso(row)
-        if w > limite_fraccion + 1e-9:
+        if w > limite_e + 1e-9:
             excedentes.append((t, w))
     pen = min(75, 25 * len(excedentes))
     return float(_clip(100.0 - pen, 0.0, 100.0)), excedentes
+
+
+def _cartera_todo_comprado_reciente(df_ag: pd.DataFrame | None, dias_umbral: int = 14) -> bool:
+    """True si todas las FECHA_COMPRA están en la ventana reciente (cartera recién armada)."""
+    if df_ag is None or df_ag.empty or "FECHA_COMPRA" not in df_ag.columns:
+        return False
+    try:
+        fechas = pd.to_datetime(df_ag["FECHA_COMPRA"], errors="coerce").dropna()
+        if fechas.empty:
+            return False
+        for d in fechas:
+            dd = d.date() if hasattr(d, "date") else d
+            if (date.today() - dd).days > dias_umbral:
+                return False
+        return True
+    except Exception:
+        return False
 
 
 def _score_dim_rendimiento(
@@ -215,6 +259,9 @@ def _score_dim_rendimiento(
                 dias = max(1, (date.today() - first).days)
         except Exception:
             dias = 365
+    # Sin historia: no penalizar el primer mes como si fuera bajo benchmark anualizado
+    if dias <= 21:
+        return 82.0, ben * (dias / 365.0)
     bench_frac = ben * (dias / 365.0)
     diff = float(pnl_frac_usd) - bench_frac
     if diff >= 0.05:
@@ -260,6 +307,16 @@ def _prioridad_ord(p: PrioridadAccion) -> int:
     return order.get(p, 4)
 
 
+def pct_renta_fija_cartera(
+    df_ag: pd.DataFrame | None,
+    universo_df: pd.DataFrame | None = None,
+) -> float:
+    """Fracción 0–1 de renta fija en la cartera (misma lógica que el diagnóstico)."""
+    if df_ag is None or df_ag.empty:
+        return 0.0
+    return float(_pct_rf_actual(df_ag, universo_df))
+
+
 def diagnosticar(
     df_ag: pd.DataFrame,
     perfil: str,
@@ -269,10 +326,15 @@ def diagnosticar(
     universo_df: pd.DataFrame | None = None,
     senales_salida: list[dict[str, Any]] | None = None,
     cliente_nombre: str = "",
+    *,
+    mix_objetivo_rf: float | None = None,
 ) -> DiagnosticoResult:
     """
     Produce DiagnosticoResult. `senales_salida` debe ser lista de dicts retornados por
     `evaluar_salida` por posición; si es None, la dimensión 4 no penaliza.
+
+    `mix_objetivo_rf`: si se informa (p. ej. mix real tras «Primera cartera»), la alineación RF/RV
+    se mide contra ese valor en lugar del solo el target genérico del perfil.
 
     Convención de conteo: `prioridad` numérica del dict — 3 = ALTA, 2 = MEDIA (como motor_salida).
     """
@@ -335,22 +397,40 @@ def diagnosticar(
             n_senales_salida_medias=n_media,
         )
 
-    if senales_salida is None:
+    senales_eff = senales_salida
+    if senales_eff is not None and _cartera_todo_comprado_reciente(df_ag, dias_umbral=14):
+        # Cartera recién comprada: no usar señales técnicas de venta como si fuera desalineación.
+        senales_eff = None
+
+    if senales_eff is None:
         n_alta, n_media, d4 = 0, 0, 100.0
     else:
-        n_alta, n_media, d4 = _conteo_senales(senales_salida)
+        n_alta, n_media, d4 = _conteo_senales(senales_eff)
     d4 = _clip(d4, 0.0, 100.0)
 
-    limite = LIMITE_CONCENTRACION.get(perfil_n, LIMITE_CONCENTRACION["Moderado"])
+    limite_base = LIMITE_CONCENTRACION.get(perfil_n, LIMITE_CONCENTRACION["Moderado"])
+    limite_e = _limite_concentracion_adaptativo(limite_base, len(df_ag))
     pct_rf = _pct_rf_actual(df_ag, universo_df)
     pct_rv = max(0.0, min(1.0, 1.0 - pct_rf))
-    piso = _piso_defensivo_requerido(perfil_n, horizonte_label)
+    piso_perfil = _piso_defensivo_requerido(perfil_n, horizonte_label)
     trv = target_rv_efectivo(perfil_n, horizonte_label)
+    if mix_objetivo_rf is not None:
+        try:
+            piso = float(_clip(float(mix_objetivo_rf), 0.0, 1.0))
+        except (TypeError, ValueError):
+            piso = piso_perfil
+    else:
+        piso = piso_perfil
+    trv_alin = max(0.0, min(1.0, 1.0 - piso))
     d1 = _clip(
-        _score_dim_alineacion_rf_rv(perfil_n, horizonte_label, pct_rf, pct_rv), 0.0, 100.0
+        _score_dim_alineacion_con_targets(
+            perfil_n, pct_rf, pct_rv, piso, trv_alin
+        ),
+        0.0,
+        100.0,
     )
 
-    d2, excedentes = _score_dim_concentracion(df_ag, limite)
+    d2, excedentes = _score_dim_concentracion(df_ag, limite_base)
     d2 = _clip(d2, 0.0, 100.0)
 
     if not metricas:
@@ -447,7 +527,7 @@ def diagnosticar(
                 icono="⚠️",
                 titulo=f"Concentración elevada en {t_ex}",
                 texto_corto=_trunc_text(
-                    f"{t_ex} representa {w_ex*100:.0f}% de la cartera (límite {limite*100:.0f}%).",
+                    f"{t_ex} representa {w_ex*100:.0f}% de la cartera (límite {limite_e*100:.0f}%).",
                     120,
                 ),
                 cifra_clave=f"{w_ex*100:.0f}% del total; si {t_ex} cae 20% ≈ -{imp:.1f}% cartera",
@@ -538,11 +618,16 @@ def diagnosticar(
     else:
         titulo_sem = "Tu cartera requiere atención prioritaria"
 
+    _plan_note = (
+        " Objetivo RF/RV tomado de tu armado reciente en la app (no solo el mix genérico del perfil)."
+        if mix_objetivo_rf is not None
+        else ""
+    )
     resumen = _trunc_text(
         f"Score {stotal:.0f}/100 ({sem.value}). RF ~{pct_rf*100:.0f}% (obj. ~{piso*100:.0f}%) · "
         f"RV ~{pct_rv*100:.0f}%. "
         f"{'Hay ' + str(len(excedentes)) + ' activo(s) sobre el límite de concentración. ' if excedentes else ''}"
-        f"P&L USD acumulado {pnl_frac*100:.1f}%.",
+        f"P&L sobre costo (referencia) {pnl_frac*100:.1f}%.{_plan_note}",
         500,
     )
 

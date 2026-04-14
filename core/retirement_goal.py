@@ -46,37 +46,66 @@ def _simulate_retirement_montecarlo(
     n_meses_desacum: int,
     retornos_diarios: np.ndarray,
     n_sim: int = 5000,
+    *,
+    capital_inicial: float = 0.0,
+    seed: int = 42,
+    objetivo_umbral_usd: float | None = None,
 ) -> dict:
     """
     Simulación Montecarlo de retiro.
     p10/p50/p90 = patrimonio final al terminar la fase de desacumulación.
     prob_no_agotar = fracción de simulaciones con capital final > 0.
     Bootstrap sobre retornos MENSUALES (convertidos desde diarios con ventanas de 21 días).
+    capital_inicial: patrimonio al inicio de la fase de acumulación (USD).
+    objetivo_umbral_usd: si se informa, se calcula prob. de final >= umbral.
     """
-    rng = np.random.default_rng(seed=42)
+    rng = np.random.default_rng(seed=int(seed))
     r_mensual = _daily_to_monthly(np.asarray(retornos_diarios, dtype=float))
     if r_mensual.size == 0:
         r_mensual = np.array([0.005])
 
     total_meses = n_meses_acum + n_meses_desacum
     vals = np.empty(n_sim, dtype=float)
+    cap0 = float(capital_inicial)
 
     for i in range(n_sim):
         idx   = rng.integers(0, len(r_mensual), size=total_meses)
         draws = r_mensual[idx]
-        cap   = 0.0
+        cap   = cap0
         for t in range(n_meses_acum):
             cap = (cap + aporte_mensual) * (1.0 + draws[t])
         for t in range(n_meses_desacum):
             cap = (cap - retiro_mensual) * (1.0 + draws[n_meses_acum + t])
         vals[i] = cap
 
-    return {
+    out = {
         "p10":            float(np.percentile(vals, 10)),
         "p50":            float(np.percentile(vals, 50)),
         "p90":            float(np.percentile(vals, 90)),
         "prob_no_agotar": float(np.mean(vals > 0)),
     }
+    if objetivo_umbral_usd is not None and float(objetivo_umbral_usd) > 0:
+        out["prob_supera_objetivo"] = float(np.mean(vals >= float(objetivo_umbral_usd)))
+    return out
+
+
+def serie_patrimonio_mensual(
+    capital_inicial_usd: float = 0.0,
+    aporte_mensual_usd: float = 0.0,
+    retorno_anual: float = 0.0,
+    meses: int = 0,
+) -> list[float]:
+    """
+    Patrimonio al cierre de cada mes (1..meses), determinístico, mismo compuesto que _simulate_retirement_simple.
+    """
+    rm = (1.0 + float(retorno_anual)) ** (1.0 / 12.0) - 1.0
+    cap = float(capital_inicial_usd)
+    ap = float(aporte_mensual_usd)
+    out: list[float] = []
+    for _ in range(int(max(0, meses))):
+        cap = (cap + ap) * (1.0 + rm)
+        out.append(float(cap))
+    return out
 
 
 def _simulate_retirement_simple(
@@ -106,6 +135,8 @@ def simulate_retirement(
     aporte_mensual_usd: float | None = None,
     retorno_anual: float | None = None,
     meses: int | None = None,
+    objetivo_umbral_usd: float | None = None,
+    mc_seed: int = 42,
 ) -> dict:
     """
     Montecarlo si `retornos_diarios` está presente; si no, proyección simple
@@ -119,6 +150,9 @@ def simulate_retirement(
             int(n_meses_desacum or 0),
             retornos_diarios,
             n_sim=n_sim,
+            capital_inicial=float(capital_inicial_usd or 0.0),
+            seed=int(mc_seed),
+            objetivo_umbral_usd=objetivo_umbral_usd,
         )
     simple_args = (
         capital_inicial_usd is not None
@@ -146,4 +180,7 @@ def simulate_retirement(
         int(n_meses_desacum or 0),
         arr,
         n_sim=n_sim,
+        capital_inicial=float(capital_inicial_usd or 0.0),
+        seed=int(mc_seed),
+        objetivo_umbral_usd=objetivo_umbral_usd,
     )

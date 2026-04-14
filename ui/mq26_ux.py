@@ -12,26 +12,68 @@ import pandas as pd
 import streamlit as st
 
 
-# ── MEJORA 51: Helper de colores por semáforo ─────────────────────────────────
+# ── MEJORA 51: Etiquetas por semáforo (colores vía CSS mq-sem-label-text--*) ─
 SEMAFORO_CONFIG = {
-    "verde":    {"color": "var(--c-green)", "bg": "var(--c-green-muted)",
-                 "glow": "var(--c-green-glow)",  "label": "Cartera en orden"},
-    "amarillo": {"color": "var(--c-yellow)", "bg": "var(--c-yellow-muted)",
-                 "glow": "rgba(245,158,11,0.15)", "label": "Hay ajustes recomendados"},
-    "rojo":     {"color": "var(--c-red)", "bg": "var(--c-red-muted)",
-                 "glow": "rgba(239,68,68,0.15)",  "label": "Cartera necesita atención"},
+    "verde":    {"label": "Cartera en orden"},
+    "amarillo": {"label": "Hay ajustes recomendados"},
+    "rojo":     {"label": "Cartera necesita atención"},
 }
 
 
-def plotly_chart_layout_base(**overrides) -> dict:
-    """Layout Plotly alineado a tokens MQ26 (I-89; --c-text-2 ≈ 148,163,184)."""
+def _session_light_mode() -> bool:
+    """Tema claro retail (`mq_light_mode`) para Plotly; default True si no hay sesión."""
+    try:
+        import streamlit as st
+
+        return bool(st.session_state.get("mq_light_mode", True))
+    except Exception:
+        return True
+
+
+def plotly_chart_layout_base(*, light: bool | None = None, **overrides) -> dict:
+    """
+    Layout Plotly alineado a tokens MQ26 (P3-UX-02): Barlow + color de eje legible
+    en tema claro u oscuro (Plotly no lee variables CSS).
+    """
+    _light = _session_light_mode() if light is None else bool(light)
+    # Oscuro: --c-text-2 (#a8a39a); claro: texto secundario slate (~--c-text-2 light)
+    _color = "rgb(51, 65, 85)" if _light else "rgb(168, 163, 154)"
     base: dict = {
         "plot_bgcolor": "rgba(0,0,0,0)",
         "paper_bgcolor": "rgba(0,0,0,0)",
-        "font": dict(family="DM Sans, sans-serif", size=12, color="rgb(148, 163, 184)"),
+        "font": dict(family="Barlow, sans-serif", size=12, color=_color),
     }
     base.update(overrides)
     return base
+
+
+def dataframe_auto_height(
+    rows_or_df,
+    *,
+    min_px: int = 140,
+    max_px: int = 560,
+    header_px: int = 56,
+    row_px: int = 30,
+) -> int:
+    """
+    Altura responsiva para st.dataframe (P3-UX-01): pocas filas → tabla baja;
+    muchas filas → tope `max_px` (lectura notebook y desktop sin scroll infinito).
+
+    Acepta DataFrame, Styler (pandas) o número de filas.
+    """
+    try:
+        src = rows_or_df
+        if hasattr(src, "data") and hasattr(src.data, "index"):
+            src = src.data  # pandas.io.formats.style.Styler
+        if hasattr(src, "index"):
+            n = int(len(src.index))
+        else:
+            n = int(src)
+    except Exception:
+        n = 0
+    n = max(0, n)
+    h = int(header_px + (n * row_px))
+    return max(int(min_px), min(int(max_px), h))
 
 
 def hero_alignment_bar_html(pct: float, label: str = "Alineación con tu plan") -> str:
@@ -40,13 +82,11 @@ def hero_alignment_bar_html(pct: float, label: str = "Alineación con tu plan") 
     lab = html_module.escape(label)
     return f"""
     <div class="mq-hero-gauge mq-hub-stack">
-      <div style="font-size:0.72rem;font-weight:600;color:var(--c-text-3);
-                  text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem;">{lab}</div>
-      <div class="mq26-progress-bar-container" style="height:10px;border-radius:6px;">
+      <div class="mq-label mq-hero-gauge__label">{lab}</div>
+      <div class="mq26-progress-bar-container mq-hero-gauge__track">
         <div class="mq26-progress-bar mq26-progress-verde" style="width:{p:.1f}%;max-width:100%;"></div>
       </div>
-      <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:600;
-                  color:var(--c-text);margin-top:0.4rem;">{p:.0f} / 100</div>
+      <div class="mq-hero-number">{p:.0f} / 100</div>
     </div>
     """
 
@@ -67,9 +107,8 @@ def semaforo_html(valor: str, score: float | None = None,
     <div class="mq-sem-wrap">
         <div class="mq-sem-dot mq-sem-dot--{_cls}"></div>
         <div class="mq-sem-label">
-            <span style="font-weight:600;color:{cfg['color']};">{titulo_txt}</span>
-            <span style="color:var(--c-text-3);font-size:0.72rem;
-                         font-family:'DM Mono',monospace;">{score_txt}</span>
+            <span class="mq-sem-label-text mq-sem-label-text--{_cls}">{titulo_txt}</span>
+            <span class="mq-sem-score">{score_txt}</span>
         </div>
     </div>
     """
@@ -122,14 +161,10 @@ def defensive_bar_html(pct_actual: float, pct_required: float,
         estado = "!"
     width_pct = min(pct_actual / max(pct_required, 0.01) * 100, 100)
     return f"""
-    <div style="margin-bottom:0.75rem;">
-        <div style="display:flex;justify-content:space-between;
-                    align-items:center;margin-bottom:0.35rem;">
-            <span style="font-size:0.72rem;color:var(--c-text-3);
-                         font-weight:500;text-transform:uppercase;
-                         letter-spacing:0.06em;">{label}</span>
-            <span style="font-family:'DM Mono',monospace;font-size:0.75rem;
-                         color:var(--c-text-2);">
+    <div class="mq-def-bar-wrap">
+        <div class="mq-def-bar-head">
+            <span class="mq-def-bar-label">{label}</span>
+            <span class="mq-def-bar-value">
                 {estado} {pct_actual:.1%} / {pct_required:.1%}
             </span>
         </div>

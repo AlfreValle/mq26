@@ -1,8 +1,11 @@
 """Tests para textos de UI inversor (sin Streamlit)."""
 from services.copy_inversor import (
+    GLOSARIO_INVERSOR,
     antes_despues_defensivo,
+    copy_rebalanceo_humano,
     defensivo_vs_perfil,
     participacion_txt,
+    pasos_onboarding_hub,
     patrimonio_dual_line,
 )
 
@@ -24,3 +27,19 @@ def test_antes_despues():
 def test_patrimonio_dual():
     s = patrimonio_dual_line(10_000.0, 15_000_000.0, 1500.0)
     assert "USD" in s and "ARS" in s
+
+
+def test_glosario_inversor_claves():
+    assert "salud_score" in GLOSARIO_INVERSOR
+    assert "0–100" in GLOSARIO_INVERSOR["salud_score"] or "0-100" in GLOSARIO_INVERSOR["salud_score"]
+
+
+def test_copy_rebalanceo_humano_contiene_broker():
+    s = copy_rebalanceo_humano()
+    assert "MQ26" in s and "broker" in s.lower()
+
+
+def test_pasos_onboarding_tres():
+    pasos = pasos_onboarding_hub()
+    assert len(pasos) == 3
+    assert all(len(t) == 2 for t in pasos)

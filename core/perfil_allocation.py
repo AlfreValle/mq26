@@ -6,7 +6,7 @@ Versión publicada con cada diagnóstico para trazabilidad.
 """
 from __future__ import annotations
 
-RULESET_VERSION = "2026.04.3"
+RULESET_VERSION = "2026.04.4"
 
 # Mismo conjunto que core/diagnostico_types.AJUSTE_HORIZONTE_CORTO (evita import circular).
 _HORIZONTE_CORTO_RF: frozenset[str] = frozenset({"1 mes", "3 meses", "6 meses"})
@@ -64,3 +64,15 @@ def exceso_rv_muy_arriesgado(pct_rv_actual: float) -> str:
     if pct_rv_actual > 0.75 + 1e-9:
         return "amarillo"
     return ""
+
+
+def get_mix_rf_rv(perfil: str) -> dict[str, float]:
+    """
+    Mix RF/RV por perfil. Fuente única de verdad para la cartera óptima.
+    Retorna {"rf_pct": float, "rv_pct": float}.
+    """
+    p = (perfil or "Moderado").strip()
+    if p not in TARGET_RF_RV_BY_PERFIL:
+        p = "Moderado"
+    rf_frac, rv_frac = TARGET_RF_RV_BY_PERFIL[p]
+    return {"rf_pct": rf_frac * 100.0, "rv_pct": rv_frac * 100.0}

@@ -1,25 +1,19 @@
 """
 Autenticación de usuarios MQ26 almacenados en BD (app_usuarios / app_usuario_cliente).
 
-Sin Streamlit. Misma huella SHA-256 en hex que core.auth (verificar_password).
+Sin Streamlit. Soporta bcrypt (estándar) y migración lazy desde SHA-256 legacy.
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
 from typing import Any
+from core.password_hashing import hash_password_bcrypt, verify_password
 
 # Rol en BD → clave interna de sesión (compatible con get_user_role)
 SESSION_ROLE_BY_DB: dict[str, str] = {
     "super_admin": "admin",
-    "asesor": "asesor",
-    "estudio": "viewer",
+    "estudio": "estudio",
     "inversor": "inversor",
 }
-
-
-def _digest(plain: str) -> str:
-    return hashlib.sha256(plain.encode()).hexdigest()
 
 
 def authenticate_app_user(tenant_id: str, username: str, plain_password: str) -> dict[str, Any] | None:
@@ -48,8 +42,13 @@ def authenticate_app_user(tenant_id: str, username: str, plain_password: str) ->
         )
         if u is None:
             return None
-        if not hmac.compare_digest(u.password_hash, _digest(plain_password)):
+        ok_pwd, needs_upgrade = verify_password(plain_password, u.password_hash)
+        if not ok_pwd:
             return None
+        if needs_upgrade:
+            # Migración lazy: al autenticar legacy SHA-256, se reescribe en bcrypt.
+            u.password_hash = hash_password_bcrypt(plain_password)
+            s.flush()
         session_role = SESSION_ROLE_BY_DB.get(u.rol)
         if not session_role:
             return None
@@ -68,10 +67,16 @@ def authenticate_app_user(tenant_id: str, username: str, plain_password: str) ->
         rama = u.rama if u.rama in ("retail", "profesional") else (
             "retail" if u.rol == "inversor" else "profesional"
         )
+        default_id: int | None
+        if u.rol == "super_admin":
+            default_id = None
+        else:
+            default_id = int(u.cliente_default_id) if u.cliente_default_id is not None else None
         return {
             "session_role": session_role,
             "rama": rama,
             "allowed_cliente_ids": allowed,
+            "cliente_default_id": default_id,
             "user_id": u.id,
             "username": u.username,
         }

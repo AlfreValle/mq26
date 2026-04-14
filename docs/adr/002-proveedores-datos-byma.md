@@ -36,4 +36,6 @@ Apps retail y wealth suelen combinar: feed licenciado o datos del propio broker 
 
 - ADR 001 — inventario de fuentes actuales
 - [ADR 003 — Convención de precios y lineage](003-convencion-precios-y-lineage.md) — alineación CEDEAR/bonos vs fuentes indirectas
+- [`docs/product/BYMA_CAMPOS_Y_ESCALAS_MQ26.md`](../product/BYMA_CAMPOS_Y_ESCALAS_MQ26.md) — mapeo campo API Open Data → significado MQ26, escalas ON y REST opcional (**P2-BYMA-01**)
+- [`docs/product/BYMA_INGESTA_BD_P2_BYMA02.md`](../product/BYMA_INGESTA_BD_P2_BYMA02.md) — ingesta a `precios_fallback` con misma escala (**P2-BYMA-02**)
 - `services/cafci_connector.py` — `obtener_catalogo_fondos_cacheado`

@@ -83,6 +83,80 @@ def test_ppc_usd_sub_ratio_una_vez():
     assert result["PPC_USD_SUB"].iloc[0] == pytest.approx(150.0, rel=0.01)
 
 
+def test_pnl_pct_usd_accion_local_coherente():
+    """Local ARS: PNL_PCT_USD = (VALOR-INV)/INV (antes mezclaba ARS con USD)."""
+    import services.cartera_service as cs
+    df = pd.DataFrame({
+        "TICKER":             ["GGAL"],
+        "CANTIDAD_TOTAL":     [100.0],
+        "PPC_USD_PROM":       [5_000.0],
+        "ES_LOCAL":           [True],
+        "TIPO":               ["ACCION_LOCAL"],
+        "INV_ARS_HISTORICO":  [500_000.0],
+    })
+    result = cs.calcular_posicion_neta(df, {"GGAL": 5_500.0}, ccl=1_200.0)
+    assert result["PNL_PCT_USD"].iloc[0] == pytest.approx(50_000 / 500_000, abs=0.001)
+
+
+def test_rellenar_precios_on_usd_usa_paridad_sobre_100():
+    """Sin live: último PPC_USD en ON USD es paridad % → precio ARS = (PPC/100)×CCL, no PPC×CCL."""
+    import services.cartera_service as cs
+
+    trans = pd.DataFrame(
+        [
+            {
+                "CARTERA": "X",
+                "TICKER": "TLCTO",
+                "TIPO": "ON_USD",
+                "PPC_USD": 100.0,
+                "PPC_ARS": 0.0,
+                "FECHA_COMPRA": "2026-04-10",
+            }
+        ]
+    )
+    out = cs.rellenar_precios_desde_ultimo_ppc(
+        trans, "X", ["TLCTO"], {"TLCTO": 0.0}, ccl=1481.89
+    )
+    assert out["TLCTO"] == pytest.approx(1481.89, rel=1e-4)
+
+
+def test_calcular_posicion_neta_on_usd_sin_hist_ppc_ars_es_paridad():
+    """Sin INV_ARS_HISTORICO: PPC_USD_PROM en ON USD se interpreta como paridad %."""
+    import services.cartera_service as cs
+
+    df = pd.DataFrame({
+        "TICKER": ["TLCTO"],
+        "CANTIDAD_TOTAL": [1.0],
+        "PPC_USD_PROM": [100.0],
+        "ES_LOCAL": [True],
+        "TIPO": ["ON_USD"],
+    })
+    r = cs.calcular_posicion_neta(df, {"TLCTO": 1481.89}, ccl=1481.89)
+    assert r["PPC_ARS"].iloc[0] == pytest.approx(1481.89, rel=1e-4)
+    assert r["INV_ARS"].iloc[0] == pytest.approx(1481.89, rel=1e-4)
+    assert r["VALOR_ARS"].iloc[0] == pytest.approx(1481.89, rel=1e-4)
+    assert abs(float(r["PNL_ARS"].iloc[0])) < 1.0
+
+
+def test_calcular_posicion_neta_on_usd_normaliza_precio_100x_con_hist():
+    """Si PRECIO_ARS queda 100x por encima de PPC_ARS en ON USD, corrige escala en valoración."""
+    import services.cartera_service as cs
+
+    df = pd.DataFrame({
+        "TICKER": ["TLCTO"],
+        "CANTIDAD_TOTAL": [750.0],
+        "PPC_USD_PROM": [14.77],
+        "ES_LOCAL": [True],
+        "TIPO": ["ON_USD"],
+        "INV_ARS_HISTORICO": [11_075.0],  # PPC_ARS histórico ~14,77
+    })
+    r = cs.calcular_posicion_neta(df, {"TLCTO": 1488.56}, ccl=1488.56)
+    assert r["PRECIO_ARS"].iloc[0] == pytest.approx(14.8856, rel=1e-4)
+    assert r["VALOR_ARS"].iloc[0] == pytest.approx(11_164.2, rel=1e-4)
+    assert r["PNL_PCT"].iloc[0] < 0.02  # evita +9.980% artificial
+    assert r["ESCALA_PRECIO_RF"].iloc[0] == "÷100 vs PPC"  # P2-RF-04 trazabilidad
+
+
 def test_pnl_pct_usd_correcto():
     """
     B2: 10 AAPL a PPC=7.50 USD/CEDEAR; precio sube a 10 USD/CEDEAR.
