@@ -79,7 +79,8 @@ class TestScoreFundamentalMocked:
         with patch("services.scoring_engine.yf") as mock_yf:
             mock_yf.Ticker.return_value = mock_ticker
             score, detalle = score_fundamental("AAPL", "CEDEAR")
-        assert detalle["pe_score"] == 25
+        # pe_score max = 18 en el motor elite (era 25 en arquitectura anterior)
+        assert detalle["pe_score"] == 18
 
     def test_score_pe_alto_da_puntos_bajos(self):
         from services.scoring_engine import score_fundamental
@@ -88,7 +89,8 @@ class TestScoreFundamentalMocked:
         with patch("services.scoring_engine.yf") as mock_yf:
             mock_yf.Ticker.return_value = mock_ticker
             _, detalle = score_fundamental("AAPL", "CEDEAR")
-        assert detalle["pe_score"] == 0
+        # P/E muy alto: 1 pto residual (era 0 en arquitectura anterior)
+        assert detalle["pe_score"] == 1
 
     def test_score_roe_alto(self):
         from services.scoring_engine import score_fundamental
@@ -97,7 +99,8 @@ class TestScoreFundamentalMocked:
         with patch("services.scoring_engine.yf") as mock_yf:
             mock_yf.Ticker.return_value = mock_ticker
             _, detalle = score_fundamental("AAPL", "CEDEAR")
-        assert detalle["roe_score"] == 20
+        # roe_score max = 15 en el motor elite (era 20 en arquitectura anterior)
+        assert detalle["roe_score"] == 15
 
     def test_score_deuda_cero(self):
         from services.scoring_engine import score_fundamental
@@ -106,7 +109,8 @@ class TestScoreFundamentalMocked:
         with patch("services.scoring_engine.yf") as mock_yf:
             mock_yf.Ticker.return_value = mock_ticker
             _, detalle = score_fundamental("AAPL", "CEDEAR")
-        assert detalle["deuda_score"] == 15
+        # deuda_score max = 12 en el motor elite (era 15 en arquitectura anterior)
+        assert detalle["deuda_score"] == 12
 
     def test_score_tipo_bono_no_usa_yfinance_principal(self):
         from services.scoring_engine import score_fundamental
@@ -184,7 +188,7 @@ class TestScoreTecnicoMocked:
         assert detalle["precio"] > 0
 
     def test_precio_bien_sobre_sma_da_40pts(self):
-        """Precio muy por encima de SMA150 → sma_score = 40."""
+        """Precio muy por encima de SMA150 → sma_score = 25 (motor elite, era 40)."""
         from services.scoring_engine import score_tecnico
         n = 200
         # Precios que crecen rápido: último precio >> SMA150
@@ -195,7 +199,8 @@ class TestScoreTecnicoMocked:
         with patch("services.scoring_engine.yf") as mock_yf:
             mock_yf.Ticker.return_value = mock_ticker
             _, detalle = score_tecnico("AAPL", "CEDEAR")
-        assert detalle["sma_score"] == 40
+        # sma_score max = 25 en motor elite (era 40 en arquitectura anterior)
+        assert detalle["sma_score"] == 25
 
 
 # ─── score_sector_contexto — ramas no cubiertas ──────────────────────────────
@@ -253,7 +258,8 @@ class TestScoreSectorContextoRamas:
         try:
             CONTEXTO_MACRO["riesgo_pais"] = "BAJO"
             _, detalle = score_sector_contexto("YPFD", "Acción Local")
-            assert detalle["ajuste_arg"] == 15
+            # Motor elite: cepo PARCIAL agrega +1 → 16 (era 15 en arquitectura anterior)
+            assert detalle["ajuste_arg"] == 16
         finally:
             CONTEXTO_MACRO.update(original)
 
@@ -263,7 +269,8 @@ class TestScoreSectorContextoRamas:
         try:
             CONTEXTO_MACRO["riesgo_pais"] = "MEDIO"
             _, detalle = score_sector_contexto("GGAL", "Acción Local")
-            assert detalle["ajuste_arg"] == 5
+            # Motor elite: ajuste base medio + ciclo sector recovery → 8 (era 5)
+            assert detalle["ajuste_arg"] == 8
         finally:
             CONTEXTO_MACRO.update(original)
 
@@ -273,7 +280,8 @@ class TestScoreSectorContextoRamas:
         try:
             CONTEXTO_MACRO["riesgo_pais"] = "ALTO"
             _, detalle = score_sector_contexto("PAMP", "Acción Local")
-            assert detalle["ajuste_arg"] == -5
+            # Motor elite: -4 (era -5 en arquitectura anterior)
+            assert detalle["ajuste_arg"] == -4
         finally:
             CONTEXTO_MACRO.update(original)
 
@@ -348,7 +356,8 @@ class TestCalcularScoreConSerie:
         from services.scoring_engine import _calcular_score_con_serie
         result = _calcular_score_con_serie("AAPL", "CEDEAR", serie_larga)
         detalle_tec = result.get("Detalle_Tec", {})
-        assert detalle_tec.get("sma_score", 0) == 40
+        # sma_score max = 25 en motor elite (era 40 en arquitectura anterior)
+        assert detalle_tec.get("sma_score", 0) == 25
 
     def test_precio_presente_en_resultado(self, serie_larga):
         from services.scoring_engine import _calcular_score_con_serie

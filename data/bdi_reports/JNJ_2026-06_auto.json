@@ -1,0 +1,217 @@
+{
+  "ticker": "JNJ",
+  "exchange": "AUTO",
+  "fecha_publicacion": "2026-06-03",
+  "autor": "MQ26 Motor Multifactor v2 (Capas 1+2+3)",
+  "auto_generated": true,
+  "fuentes": [
+    "yfinance fundamentales (Capa 1)",
+    "Scoring Multifactor 35/30/20/15 (Capa 2)",
+    "BDI Generator volatilidad-adaptativa (Capa 3)"
+  ],
+  "recomendacion": "MANTENER",
+  "precio_actual_usd": 224.18,
+  "precio_objetivo_usd": 381.1,
+  "potencial_pct": 70.0,
+  "horizonte_meses": 12,
+  "calificacion_total": 3.52,
+  "cal_fundamental": 3.8,
+  "cal_tecnico": 2.4,
+  "cal_sectorial": 3.8,
+  "scoring_multifactor": {
+    "score_total": 69.1,
+    "score_valor": 59.3,
+    "score_calidad": 92.3,
+    "score_momentum": 47.0,
+    "score_sectorial": 75.2,
+    "pesos": {
+      "valor": 0.35,
+      "calidad": 0.3,
+      "momentum": 0.2,
+      "sectorial": 0.15
+    }
+  },
+  "perfil_minimo": "Muy arriesgado",
+  "peso_cartera_pct_min": 0.02,
+  "peso_cartera_pct_max": 0.08,
+  "tipo_cartera_sugerida": "Según perfil + constraints del motor de cartera",
+  "tramos_entrada": [
+    {
+      "tramo": 1,
+      "proporcion": 0.4,
+      "precio_min_usd": 219.69,
+      "precio_max_usd": 228.66,
+      "comentario": "A mercado / zona actual"
+    },
+    {
+      "tramo": 2,
+      "proporcion": 0.35,
+      "precio_min_usd": 183.09,
+      "precio_max_usd": 186.79,
+      "comentario": "Soporte intermedio (≈-18%)"
+    },
+    {
+      "tramo": 3,
+      "proporcion": 0.25,
+      "precio_min_usd": 154.33,
+      "precio_max_usd": 160.63,
+      "comentario": "Soporte fuerte (sobrerreacción, ≈-30%)"
+    }
+  ],
+  "niveles_seguimiento": {
+    "stop_loss_usd": 145.71,
+    "stop_tipo": "Cierre semanal por debajo de USD 145.71 (-35% — ajustado a HV 1850%)",
+    "primer_objetivo_usd": 302.64,
+    "primer_objetivo_accion": "Toma de ganancia parcial (50% posición)",
+    "objetivo_final_usd": 381.1,
+    "factor_riesgo": 0.35,
+    "hv20d_usado": 18.5
+  },
+  "datos_clave": {
+    "precio_usd": 224.175003,
+    "rango_52sem_min_usd": 149.039993,
+    "rango_52sem_max_usd": 251.710007,
+    "market_cap_usd": 539637871820.1682,
+    "pe_ttm": 25.976246,
+    "pe_forward": 17.627506,
+    "pb_ratio": 6.645175,
+    "ps_ratio": 5.600111,
+    "peg_ratio": 2.93,
+    "roe_pct": 26.416,
+    "roa_pct": 8.424,
+    "margen_neto_pct": 21.834,
+    "margen_operativo_pct": 27.407999999999998,
+    "margen_bruto_pct": 68.035,
+    "deuda_equity": 67.73,
+    "current_ratio": 1.025,
+    "crecimiento_ingresos_pct": 9.9,
+    "crecimiento_ganancias_pct": -52.400000000000006,
+    "dividendo_yield_pct": 240.0,
+    "dividendo_anual_usd": 5.36,
+    "payout_pct": 60.25,
+    "beta": 0.263,
+    "hv20d": 18.5,
+    "proximo_earnings": null,
+    "ex_dividend_date": "2026-05-25"
+  },
+  "tesis_resumen": "📊 JNJ muestra señales sólidas. La empresa es de altísima calidad (ROE, márgenes y solvencia top), y supera ampliamente a la mediana de Drug Manufacturers - General. Recomendación: MANTENER si ya está en cartera, esperar mejor precio si no.",
+  "razones_compra": [
+    "🏆 ROE 26.4% — uso muy eficiente del capital",
+    "💼 Margen neto 21.8% — empresa muy rentable",
+    "⚙️ Margen operativo 27.4% — operación eficiente",
+    "🌟 Outperformer en Healthcare — barato + más rentable que la mediana",
+    "💵 Dividendo 240.00% — flujo en USD predecible"
+  ],
+  "riesgos": [
+    "Ganancias -52.4% i.a. — contracción severa"
+  ],
+  "flags_alerta": [
+    "🟢 ROE 26.4% — calidad excepcional",
+    "🔴 Ganancias -52.4% i.a. — contracción severa",
+    "🟢 Outperformer sectorial — mejor que la mediana del sector"
+  ],
+  "consenso_analistas": [
+    {
+      "fuente": "MQ26 Multifactor",
+      "recomendacion": "MANTENER",
+      "target_usd": 381.1,
+      "score_total": 69.1
+    }
+  ],
+  "breakdown_dimensiones": {
+    "valor": {
+      "score": 59.3,
+      "peso": "35%",
+      "detalle": {
+        "pe_forward": {
+          "valor": 17.627506,
+          "score": 86.9
+        },
+        "pb_ratio": {
+          "valor": 6.645175,
+          "score": 22.6
+        },
+        "ps_ratio": {
+          "valor": 5.600111,
+          "score": 55.0
+        },
+        "peg_ratio": {
+          "valor": 2.93,
+          "score": 3.5
+        }
+      }
+    },
+    "calidad": {
+      "score": 92.3,
+      "peso": "30%",
+      "detalle": {
+        "roe": {
+          "valor": 0.26416,
+          "score": 100.0
+        },
+        "roa": {
+          "valor": 0.08424,
+          "score": 80.3
+        },
+        "profit_margin": {
+          "valor": 0.21834,
+          "score": 100.0
+        },
+        "operating_margin": {
+          "valor": 0.27408,
+          "score": 100.0
+        },
+        "debt_to_equity": {
+          "valor": 67.73,
+          "score": 91.1
+        },
+        "current_ratio": {
+          "valor": 1.025,
+          "score": 32.1
+        }
+      }
+    },
+    "momentum": {
+      "score": 47.0,
+      "peso": "20%",
+      "detalle": {
+        "score_tecnico": 47.0,
+        "rsi": 43.4,
+        "macd": -0.9859,
+        "bb_pos": "lower_half",
+        "max_dd_1y": 11.0,
+        "hv20d": 18.5,
+        "senal": "🟡 ACUMULAR"
+      }
+    },
+    "sectorial": {
+      "score": 75.2,
+      "peso": "15%",
+      "detalle": {
+        "sector": "Healthcare",
+        "benchmark": {
+          "pe_med": 18.0,
+          "roe_med": 0.18
+        },
+        "pe_vs_sector": {
+          "valor": 17.627506,
+          "sector_med": 18.0,
+          "score": 53.6
+        },
+        "roe_vs_sector": {
+          "valor": 0.26416,
+          "sector_med": 0.18,
+          "score": 96.8
+        }
+      }
+    }
+  },
+  "sector": "Healthcare",
+  "industry": "Drug Manufacturers - General",
+  "country": "United States",
+  "currency": "USD",
+  "business_summary": "Johnson & Johnson, together with its subsidiaries, engages in the research and development, manufacture, and sale of a range of products in the healthcare field worldwide. It operates in two segments, Innovative Medicine and MedTech. The Innovative Medicine segment offers products for various therapeutic areas, such as oncology, immunology, neuroscience, pulmonary hypertension, infectious diseases, and cardiovascular and metabolism distributed through retailers, wholesalers, distributors, hospitals, and healthcare professionals for prescription use. The MedTech segment provides a portfolio of products used in the surgery, orthopedic, cardiovascular, and vision fields distributed through wholesalers, hospitals and retailers, and used in the professional fields by physicians, nurses, hospitals, eye care professionals and clinics. This segment also offers products and enabling technologies that support joint reconstruction, trauma, spine, sports related injuries, and others, as well as open, laparoscopic, and robotic surgical procedures; instrumentation, energy devices, stapling systems, wound closure, biosurgery products, and digital and robotic technologies; breast aesthetics and reconstruction; contact lenses under the ACUVUE brand; intraocular lenses for cataract surgery, and other products used in cataract and refractive procedures under the TECNIS brand. The company was founded in 1886 and is based in New Brunswick, New Jersey.",
+  "pdf_path": null,
+  "calidad_fundamentales": "cache",
+  "errores_fundamentales": []
+}

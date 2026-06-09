@@ -170,3 +170,20 @@ def limpiar_cache_sesion(cartera_activa: str) -> None:
     """Limpia solo la caché de session_state para la cartera activa."""
     for prefix in ["_df_ag_cache_", "_df_ag_hash_", "_df_ag_fifo_"]:
         st.session_state.pop(f"{prefix}{cartera_activa}", None)
+
+
+def invalidar_cache_tras_cambio_transaccional() -> None:
+    """
+    Tras escribir Maestra_Transaccional.csv: en la siguiente corrida el transaccional
+    y df_ag deben reconstruirse desde disco.
+
+    Sin esto, `cached_transaccional(mtime)` puede seguir devolviendo el DataFrame anterior
+    (misma marca de tiempo en el archivo o caché de Streamlit) y `_df_ag_hash_` en
+    session_state hace que se reutilice la cartera agregada vieja hasta reiniciar.
+    """
+    for k in list(st.session_state.keys()):
+        if not isinstance(k, str):
+            continue
+        if k.startswith("_df_ag_cache_") or k.startswith("_df_ag_hash_") or k.startswith("_df_ag_fifo_"):
+            st.session_state.pop(k, None)
+    st.cache_data.clear()

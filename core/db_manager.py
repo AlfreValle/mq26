@@ -516,9 +516,13 @@ def _seed_activos_desde_excel():
             df = pd.read_excel(universo_path)
             df["Ticker"] = df["Ticker"].astype(str).str.strip().str.upper()
             with SessionLocal() as session:
+                from config import TICKERS_NO_CEDEAR_BYMA  # noqa: PLC0415
                 for _, row in df.iterrows():
                     ticker = str(row.get("Ticker", "")).strip()
                     if not ticker or ticker == "NAN":
+                        continue
+                    if ticker in TICKERS_NO_CEDEAR_BYMA:
+                        logger.warning("Seed: %s excluido (no es CEDEAR en BYMA)", ticker)
                         continue
                     # Ticker Yahoo Finance
                     traducciones = {"BRKB": "BRK-B", "YPFD": "YPF", "PAMP": "PAM"}

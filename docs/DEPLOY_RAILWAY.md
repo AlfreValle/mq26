@@ -20,7 +20,7 @@
 Si todavía no tenés repositorio:
 
 ```bash
-cd MQ26_V7
+cd MQ26_V10
 git init
 git add .
 git commit -m "feat: MQ26 V8 — MVP listo para deploy"
@@ -101,8 +101,15 @@ python scripts/backup_sqlite_mvp.py
 Cuando tengas 20+ clientes simultáneos o necesites acceso desde múltiples instancias:
 
 1. Crear base en Supabase (plan gratuito hasta 500MB)
-2. Agregar en Railway: `DATABASE_URL = postgresql://...`
-3. No hay cambios de código — la app detecta automáticamente
+2. Agregar en Railway: `DATABASE_URL = postgresql://...` (o `DB_URL` con el mismo valor; la app y Alembic priorizan `DATABASE_URL`)
+3. No hay cambios de código — la app detecta automáticamente la URL vía `core/db_manager.py`
+
+### Migraciones Alembic en producción
+
+- `migrations/env.py` usa la misma URL que la app cuando `DATABASE_URL` / `DB_URL` están definidas (evita aplicar migraciones contra el `sqlite://` del `alembic.ini` por error).
+- **Opción A — al arrancar el contenedor:** en Variables de Railway agregar `RUN_ALEMBIC_UPGRADE=1`. El `docker-entrypoint.sh` ejecuta `python migrations/run_migrations.py` antes de levantar Streamlit. Si las migraciones fallan, el deploy no sirve tráfico (fail-fast).
+- **Opción B — comando puntual:** `railway run python migrations/run_migrations.py` (o shell en el servicio) después de definir `DATABASE_URL`.
+- Comprobar sin aplicar: `python migrations/run_migrations.py --check`
 
 ## Costo estimado
 

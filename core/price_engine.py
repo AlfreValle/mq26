@@ -36,20 +36,22 @@ logger = logging.getLogger(__name__)
 class PriceSource(Enum):
     LIVE_YFINANCE = "live_yfinance"
     LIVE_BYMA = "live_byma"
-    FALLBACK_BD   = "fallback_bd"
-    FALLBACK_HARD = "fallback_hard"
-    FALLBACK_PPC  = "fallback_ppc"  # último PPC de Maestra_Transaccional
-    MISSING       = "missing"
+    FALLBACK_BD           = "fallback_bd"
+    FALLBACK_HARD         = "fallback_hard"
+    FALLBACK_PPC          = "fallback_ppc"           # último PPC de Maestra_Transaccional
+    FALLBACK_CATALOGO_RF  = "fallback_catalogo_rf"   # paridad catálogo × CCL live (ONs)
+    MISSING               = "missing"
 
     @property
     def label(self) -> str:
         return {
-            "live_yfinance": "LIVE",
-            "live_byma":     "LIVE-BYMA",
-            "fallback_bd":   "FALLBACK-BD",
-            "fallback_hard": "FALLBACK",
-            "fallback_ppc":  "FALLBACK-PPC",
-            "missing":       "SIN PRECIO",
+            "live_yfinance":       "LIVE",
+            "live_byma":           "LIVE-BYMA",
+            "fallback_bd":         "FALLBACK-BD",
+            "fallback_hard":       "FALLBACK",
+            "fallback_ppc":        "FALLBACK-PPC",
+            "fallback_catalogo_rf":"CATÁLOGO-RF",
+            "missing":             "SIN PRECIO",
         }[self.value]
 
     @property
@@ -256,7 +258,12 @@ class PriceEngine:
         chain: list = []
         if BYMA_FIRST:
             chain.append(self._try_byma)
-        chain.extend([self._try_live, self._try_fallback_bd, self._try_fallback_hard])
+        chain.extend([
+            self._try_live,
+            self._try_on_usd,        # ONs: paridad catálogo × CCL live
+            self._try_fallback_bd,
+            self._try_fallback_hard,
+        ])
         for source_fn in chain:
             rec = source_fn(t, ccl, ratio)
             if rec is not None:
@@ -465,6 +472,48 @@ class PriceEngine:
                     logger.debug("PriceEngine._try_live %s falló en intento %d: %s",
                                  ticker, attempt + 1, e)
         return None
+
+    def _try_on_usd(self, ticker: str, ccl: float, ratio: float) -> PriceRecord | None:
+        """
+        Precio estimado para ONs USD desde catálogo interno (core.renta_fija_ar).
+
+        Fórmula: precio_ars = paridad_ref / 100 × CCL_live  (por 1 VN USD nominal)
+        Equivalente: si compré 1.000 VN USD de TLCTO al 102.5%, vale
+            1.025 × 1.429 = 1.464,73 ARS por cada 1 VN USD.
+
+        Este método actúa DESPUÉS de yfinance (que siempre falla para ONs) y
+        ANTES de fallback_bd / fallback_hard — así las ONs nunca quedan con precio 0.
+        """
+        try:
+            from core.renta_fija_ar import INSTRUMENTOS_RF
+            meta = INSTRUMENTOS_RF.get(ticker.upper())
+            if not meta:
+                return None
+            if meta.get("tipo") != "ON_USD":
+                return None
+            if not meta.get("activo", True):
+                return None
+            paridad_pct = float(meta.get("paridad_ref") or 0)
+            if paridad_pct <= 0 or ccl <= 0:
+                return None
+            # Precio por 1 VN USD = paridad_pct / 100 × CCL
+            px_ars = round(paridad_pct / 100.0 * ccl, 2)
+            if px_ars <= 0:
+                return None
+            # En USD: el precio de mercado por cada VN USD nominal
+            px_usd = round(paridad_pct / 100.0, 6)
+            return PriceRecord(
+                ticker=ticker,
+                precio_cedear_ars=px_ars,
+                precio_subyacente_usd=px_usd,
+                ccl=ccl,
+                ratio=ratio,
+                source=PriceSource.FALLBACK_CATALOGO_RF,
+                timestamp=datetime.now(),
+            )
+        except Exception as _e:
+            logger.debug("PriceEngine._try_on_usd %s: %s", ticker, _e)
+            return None
 
     def _try_fallback_hard(self, ticker: str, ccl: float, ratio: float) -> PriceRecord | None:
         """Usa el fallback manual hardcodeado."""

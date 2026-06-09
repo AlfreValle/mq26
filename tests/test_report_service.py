@@ -144,6 +144,15 @@ class TestSeccionesHtml:
         html = _html_posiciones(df)
         assert isinstance(html, str)
 
+    def test_html_posiciones_muestra_fuente_precio_si_existe(self, df_pos):
+        from services.report_service import _html_posiciones
+
+        df = df_pos.copy()
+        df["FUENTE_PRECIO"] = ["LIVE"] * len(df)
+        html = _html_posiciones(df)
+        assert "Fuente px" in html
+        assert "LIVE" in html
+
     def test_html_resumen_retorna_string(self, metricas):
         from services.report_service import _html_resumen
         html = _html_resumen(metricas, 1465.0, 252)

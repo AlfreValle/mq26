@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MQ26 · La historia de Lucía</title>
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────────────── */
+    :root {
+      --bg:          #0e1117;
+      --surface:     #161b27;
+      --surface2:    #1e2538;
+      --border:      #2a3350;
+      --accent:      #4f8ef7;
+      --accent2:     #7c5cbf;
+      --green:       #22c55e;
+      --red:         #ef4444;
+      --yellow:      #f59e0b;
+      --text:        #e8ecf4;
+      --text-muted:  #8892aa;
+      --radius:      12px;
+      --radius-sm:   6px;
+    }
+
+    /* ── Reset ───────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+    }
+
+    /* ── Hero ────────────────────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 3rem 1.5rem;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, #1a2a5e55 0%, transparent 70%),
+                  radial-gradient(ellipse 50% 40% at 80% 80%, #4f8ef722 0%, transparent 60%);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, #4f8ef715 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #4f8ef730, #7c5cbf30);
+      border: 1px solid #4f8ef760;
+      border-radius: 100px;
+      padding: .3rem 1rem;
+      font-size: .78rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 6vw, 4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #e8ecf4 0%, #a0b4d4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      max-width: 800px;
+    }
+    .hero-sub {
+      margin-top: 1.5rem;
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 540px;
+    }
+    .scroll-hint {
+      margin-top: 3rem;
+      color: var(--text-muted);
+      font-size: .85rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .4rem;
+      animation: bounce 2s infinite;
+    }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(6px); }
+    }
+
+    /* ── Story wrapper ───────────────────────────────────────────────── */
+    .story { max-width: 900px; margin: 0 auto; padding: 0 1.5rem 6rem; }
+
+    /* ── Chapter ─────────────────────────────────────────────────────── */
+    .chapter {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 0 1.5rem;
+      margin-bottom: 4rem;
+    }
+    .chapter-spine { display: flex; flex-direction: column; align-items: center; }
+    .chapter-dot {
+      width: 48px; height: 48px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .chapter-line {
+      width: 2px;
+      flex: 1;
+      margin: 6px 0;
+      background: linear-gradient(to bottom, var(--border), transparent);
+      min-height: 40px;
+    }
+    .chapter-body { padding-top: .6rem; }
+    .chapter-label {
+      font-size: .7rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: .4rem;
+    }
+    .chapter-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: .8rem;
+      line-height: 1.2;
+    }
+    .chapter-text {
+      color: var(--text-muted);
+      font-size: 1rem;
+      line-height: 1.75;
+    }
+    .chapter-text strong { color: var(--text); }
+
+    /* ── App mockup ──────────────────────────────────────────────────── */
+    .app-mockup {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 1.5rem 0;
+      box-shadow: 0 8px 40px #0008;
+    }
+    .app-topbar {
+      background: #12161f;
+      border-bottom: 1px solid var(--border);
+      padding: .6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .dot-r { width:10px;height:10px;border-radius:50%;background:#ef4444; }
+    .dot-y { width:10px;height:10px;border-radius:50%;background:#f59e0b; }
+    .dot-g { width:10px;height:10px;border-radius:50%;background:#22c55e; }
+    .app-url {
+      margin-left: .5rem;
+      background: #1a1f2e;
+      border-radius: 100px;
+      padding: .15rem .8rem;
+      font-size: .72rem;
+      color: var(--text-muted);
+    }
+    .app-body { display: flex; min-height: 380px; }
+
+    /* sidebar */
+    .app-sidebar {
+      width: 200px;
+      flex-shrink: 0;
+      background: #12161f;
+      border-right: 1px solid var(--border);
+      padding: 1rem .75rem;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+    .app-logo {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: .5rem;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+    .avatar-block {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: .5rem;
+      font-size: .78rem;
+      color: var(--text-muted);
+    }
+    .avatar-name { color: var(--text); font-weight: 600; font-size: .82rem; }
+    .avatar-role {
+      display: inline-block;
+      background: #4f8ef720;
+      color: var(--accent);
+      border-radius: 100px;
+      padding: .05rem .5rem;
+      font-size: .68rem;
+      margin-top: .2rem;
+    }
+    .sb-section { font-size: .68rem; letter-spacing:.08em; text-transform:uppercase; color: var(--text-muted); margin: .6rem 0 .2rem; }
+    .sb-stat { display:flex; justify-content:space-between; font-size:.78rem; padding:.2rem 0; }
+    .sb-stat-val { color: var(--green); font-weight: 700; }
+    .sb-stat-val.neg { color: var(--red); }
+    .sb-divider { border: none; border-top: 1px solid var(--border); margin: .5rem 0; }
+    .sb-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .35rem .6rem;
+      font-size: .72rem;
+      color: var(--text-muted);
+      cursor: default;
+      text-align: left;
+    }
+    .sb-btn.primary {
+      background: linear-gradient(135deg, #4f8ef720, #7c5cbf20);
+      border-color: #4f8ef740;
+      color: var(--accent);
+    }
+
+    /* main content */
+    .app-main { flex: 1; padding: 1rem 1.2rem; overflow: hidden; }
+    .tab-bar { display:flex; gap:.3rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; padding-bottom: .3rem; }
+    .tab {
+      padding: .3rem .7rem;
+      font-size: .75rem;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      cursor: default;
+      color: var(--text-muted);
+    }
+    .tab.active { background: var(--surface2); color: var(--accent); border: 1px solid var(--border); border-bottom: none; }
+
+    /* Metric cards */
+    .metric-row { display:flex; gap:.6rem; margin-bottom:.8rem; flex-wrap:wrap; }
+    .metric {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .5rem .8rem;
+      flex: 1;
+      min-width: 90px;
+    }
+    .metric-label { font-size: .65rem; color: var(--text-muted); margin-bottom: .15rem; }
+    .metric-val { font-size: 1rem; font-weight: 700; }
+    .metric-val.green { color: var(--green); }
+    .metric-val.blue  { color: var(--accent); }
+    .metric-val.yellow{ color: var(--yellow); }
+
+    /* Positions table */
+    .pos-table { width:100%; border-collapse:collapse; font-size:.73rem; }
+    .pos-table th {
+      text-align:left; color: var(--text-muted);
+      padding:.3rem .4rem; border-bottom:1px solid var(--border);
+      font-weight:500;
+    }
+    .pos-table td { padding:.3rem .4rem; }
+    .pos-table tr:not(:last-child) td { border-bottom: 1px solid #1e2538; }
+    .ticker-badge {
+      background: #4f8ef715;
+      color: var(--accent);
+      border-radius: 4px;
+      padding: .05rem .35rem;
+      font-weight: 700;
+    }
+    .pill {
+      display: inline-block;
+      border-radius: 100px;
+      padding: .05rem .4rem;
+      font-size: .65rem;
+      font-weight: 600;
+    }
+    .pill.up   { background:#22c55e20; color: var(--green); }
+    .pill.down { background:#ef444420; color: var(--red); }
+
+    /* Recommendation banner */
+    .rec-banner {
+      background: linear-gradient(135deg, #4f8ef710, #7c5cbf10);
+      border: 1px solid #4f8ef740;
+      border-radius: var(--radius-sm);
+      padding: .6rem .8rem;
+      font-size: .75rem;
+      margin-top: .8rem;
+      display: flex;
+      align-items: flex-start;
+      gap: .5rem;
+    }
+    .rec-icon { font-size: 1rem; flex-shrink:0; margin-top:.05rem; }
+    .rec-text { color: var(--text-muted); line-height:1.5; }
+    .rec-text strong { color: var(--text); }
+
+    /* ── Donut ───────────────────────────────────────────────────────── */
+    .donut-wrap { display:flex; align-items:center; gap:1rem; margin-top: .8rem; }
+    .donut-svg { flex-shrink:0; }
+    .legend { display:flex; flex-direction:column; gap:.3rem; font-size:.72rem; }
+    .legend-item { display:flex; align-items:center; gap:.4rem; }
+    .legend-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+
+    /* ── Import step ─────────────────────────────────────────────────── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: .85rem;
+      transition: border-color .2s;
+    }
+    .upload-icon { font-size: 2.5rem; margin-bottom: .8rem; display:block; }
+    .upload-filename {
+      background: var(--surface2);
+      border: 1px solid var(--green);
+      border-radius: var(--radius-sm);
+      padding: .4rem .8rem;
+      font-size: .78rem;
+      color: var(--green);
+      display: inline-block;
+      margin-top: .5rem;
+    }
+    .import-progress { margin-top:1rem; }
+    .prog-row { display:flex; justify-content:space-between; font-size:.73rem; color:var(--text-muted); margin-bottom:.3rem; }
+    .prog-bar-wrap { background: var(--surface2); border-radius:100px; height:6px; overflow:hidden; }
+    .prog-bar { height:6px; border-radius:100px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+    /* ── Callout quote ───────────────────────────────────────────────── */
+    .quote {
+      border-left: 3px solid var(--accent);
+      padding: .8rem 1rem;
+      background: #4f8ef708;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-style: italic;
+      color: var(--text-muted);
+      font-size: .95rem;
+      margin: 1.2rem 0;
+    }
+    .quote cite { display:block; margin-top:.4rem; font-style:normal; font-size:.8rem; color:var(--accent); }
+
+    /* ── CTA final ───────────────────────────────────────────────────── */
+    .cta-section {
+      text-align: center;
+      padding: 4rem 1.5rem;
+      background: radial-gradient(ellipse 60% 50% at 50% 100%, #4f8ef715 0%, transparent 70%);
+    }
+    .cta-title { font-size: 2rem; font-weight: 800; margin-bottom: 1rem; }
+    .cta-sub { color: var(--text-muted); max-width: 440px; margin: 0 auto 2rem; }
+    .cta-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border-radius: 100px;
+      padding: .8rem 2.5rem;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      box-shadow: 0 4px 24px #4f8ef740;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .app-sidebar { width: 130px; }
+      .chapter { grid-template-columns: 36px 1fr; }
+      .chapter-dot { width:36px; height:36px; font-size:1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════ HERO ══════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-badge">✦ Historia real · MQ26 Inversor</div>
+  <h1>Lucía armó su primera cartera propia. Así lo hizo.</h1>
+  <p class="hero-sub">
+    32 años, contadora, dos fondos que "le recomendaron" y ningún control sobre su dinero.
+    Hasta que descubrió MQ26.
+  </p>
+  <div class="scroll-hint">
+    <span>↓ Seguir leyendo</span>
+  </div>
+</section>
+
+<!-- ══════════════════════ STORY ═════════════════════════════════════ -->
+<div class="story">
+
+  <!-- ── Cap 1: El problema ────────────────────────────────────── -->
+  <div class="chapter">
+    <div class="chapter-spine">
+      <div class="chapter-dot" style="background:#ef444420;border:1px solid #ef444450;">😤</div>
+      <div class="chapter-line"></div>
+    </div>
+    <div class="chapter-body">
+      <div class="chapter-label">Capítulo 1 · El despertar</div>
+      <h2 class="chapter-title">"Tengo plata invertida pero no sé exactamente dónde."</h2>
+      <p class="chapter-text">
+        Lucía trabaja en un estudio contable en Córdoba. Lleva 4 años poniendo dinero en fondos y
+        CEDEARs que le recomendaron en el banco. <strong>El problema: nunca puede ver todo en un solo lugar.</strong>
+        Abre el home banking, ve un número. Abre el broker, ve otro. Ninguno le dice si ganó o perdió en términos reales.
+      </p>
+      <div class="quote">
+        "Me puse a calcular cuánto perdí contra la inflación y me quería morir.
+        Sabía que podía hacer algo mejor, pero no sabía por dónde empezar."
+        <cite>— Lucía, 32 años, Córdoba</cite>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cap 2: Entra a MQ26 ───────────────────────────────────── -->
+  <div class="chapter">
+    <div class="chapter-spine">
+      <div class="chapter-dot" style="background:#4f8ef720;border:1px solid #4f8ef750;">🔐</div>
+      <div class="chapter-line"></div>
+    </div>
+    <div class="chapter-body">
+      <div class="chapter-label">Capítulo 2 · Primer acceso</div>
+      <h2 class="chapter-title">Se registra como inversora. La plataforma la reconoce.</h2>
+      <p class="chapter-text">
+        MQ26 le asigna el rol <strong>Inversor</strong> automáticamente. No ve herramientas de análisis institucional,
+        no ve tablas de optimización, no se siente perdida. Ve exactamente lo que necesita: su cartera, cómo va,
+        y qué hacer. Nada más.
+      </p>
+
+      <!-- MOCKUP: login / perfil asignado -->
+      <div class="app-mockup">
+        <div class="app-topbar">
+          <div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div>
+          <div class="app-url">mq26.app · Bienvenida, Lucía</div>
+        </div>
+        <div class="app-body">
+          <div class="app-sidebar">
+            <div class="app-logo">📊 MQ26</div>
+            <div class="avatar-block">
+              <div class="avatar-name">Lucía V.</div>
+              <div class="avatar-role">Inversor</div>
+            </div>
+            <hr class="sb-divider"/>
+            <div class="sb-section">Mi cartera</div>
+            <div class="sb-stat"><span>CCL estimado</span><span class="sb-stat-val">$1.450</span></div>
+            <div class="sb-stat"><span>Capital</span><span class="sb-stat-val">$ —</span></div>
+            <div class="sb-stat"><span>P&L hoy</span><span class="sb-stat-val">$ —</span></div>
+            <hr class="sb-divider"/>
+            <div class="sb-btn">📥 Importar activos</div>
+          </div>
+          <div class="app-main">
+            <div class="tab-bar">
+              <div class="tab active">📊 Cómo va tu inversión</div>
+              <div class="tab">📂 Cartera</div>
+              <div class="tab">🛒 Ejecución</div>
+              <div class="tab">📄 Reporte</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:260px;text-align:center;color:var(--text-muted);gap:.8rem;">
+              <div style="font-size:2.5rem;">📭</div>
+              <div style="font-size:.9rem;">Tu cartera está vacía.<br/>Importá tus operaciones del broker para empezar.</div>
+              <div style="font-size:.75rem;color:var(--accent);cursor:default;">↙ Usá el botón "Importar activos" en el panel izquierdo</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cap 3: Importar ───────────────────────────────────────── -->
+  <div class="chapter">
+    <div class="chapter-spine">
+      <div class="chapter-dot" style="background:#f59e0b20;border:1px solid #f59e0b50;">📥</div>
+      <div class="chapter-line"></div>
+    </div>
+    <div class="chapter-body">
+      <div class="chapter-label">Capítulo 3 · Importar desde el broker</div>
+      <h2 class="chapter-title">Descarga el historial de BMB. Lo arrastra. Listo.</h2>
+      <p class="chapter-text">
+        Descargó su "Cuenta Corriente" del broker. MQ26 detectó el formato automáticamente —
+        <strong>sin mapear columnas, sin fórmulas</strong>. En segundos, 64 operaciones importadas:
+        compras, ventas, CEDEARs, acciones locales.
+      </p>
+
+      <!-- MOCKUP: upload + resultado -->
+      <div class="app-mockup">
+        <div class="app-topbar">
+          <div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div>
+          <div class="app-url">mq26.app · Importar activos</div>
+        </div>
+        <div class="app-body">
+          <div class="app-sidebar">
+            <div class="app-logo">📊 MQ26</div>
+            <div class="avatar-block">
+              <div class="avatar-name">Lucía V.</div>
+              <div class="avatar-role">Inversor</div>
+            </div>
+            <hr class="sb-divider"/>
+            <div class="sb-btn primary">📥 Importar activos ←</div>
+          </div>
+          <div class="app-main">
+            <div style="padding:.5rem 0 1rem; font-weight:700; font-size:.9rem;">Importar operaciones del broker</div>
+            <div class="upload-zone">
+              <span class="upload-icon">📄</span>
+              <div>Arrastrá tu archivo del broker aquí</div>
+              <div style="font-size:.72rem;margin-top:.3rem;">Soportamos: BMB · IOL · Balanz · Bull Market</div>
+              <div class="upload-filename">✅ Cuenta Corriente PESOS 15-05-26.xlsx</div>
+            </div>
+            <div class="import-progress">
+              <div class="prog-row"><span>Detectando formato…</span><span style="color:var(--green)">✔ BMB</span></div>
+              <div class="prog-bar-wrap"><div class="prog-bar" style="width:100%"></div></div>
+              <div style="margin-top:.6rem;font-size:.73rem;color:var(--green);">
+                ✅ 64 operaciones importadas · 0 errores · Broker: BMB
+              </div>
+              <div style="font-size:.7rem;color:var(--text-muted);margin-top:.3rem;">
+                Tickers procesados: MELI, GGAL, YPF, BMA, AAPL, MSFT, AMZN, CRWD, GLOBANT…
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cap 4: La vista real ──────────────────────────────────── -->
+  <div class="chapter">
+    <div class="chapter-spine">
+      <div class="chapter-dot" style="background:#22c55e20;border:1px solid #22c55e50;">📊</div>
+      <div class="chapter-line"></div>
+    </div>
+    <div class="chapter-body">
+      <div class="chapter-label">Capítulo 4 · Por primera vez, todo visible</div>
+      <h2 class="chapter-title">"Esto es lo que siempre quise ver."</h2>
+      <p class="chapter-text">
+        Por primera vez Lucía ve su <strong>posición consolidada en un solo lugar</strong>:
+        cuánto tiene en cada activo, cuánto ganó o perdió, y en qué parte de su cartera
+        está concentrada. El gráfico de torta le dice lo que el banco nunca le dijo:
+        el 61 % de su cartera está en tecnología.
+      </p>
+
+      <!-- MOCKUP: posiciones + donut -->
+      <div class="app-mockup">
+        <div class="app-topbar">
+          <div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div>
+          <div class="app-url">mq26.app · Mi cartera · Posiciones</div>
+        </div>
+        <div class="app-body">
+          <div class="app-sidebar">
+            <div class="app-logo">📊 MQ26</div>
+            <div class="avatar-block">
+              <div class="avatar-name">Lucía V.</div>
+              <div class="avatar-role">Inversor</div>
+            </div>
+            <hr class="sb-divider"/>
+            <div class="sb-section">Resumen</div>
+            <div class="sb-stat"><span>Valuación</span><span class="sb-stat-val">$4.280.000</span></div>
+            <div class="sb-stat"><span>P&L total</span><span class="sb-stat-val">+$640.000</span></div>
+            <div class="sb-stat"><span>P&L hoy</span><span class="sb-stat-val">+$18.200</span></div>
+            <div class="sb-stat"><span>CCL</span><span class="sb-stat-val">$1.452</span></div>
+            <hr class="sb-divider"/>
+            <div class="sb-section">USD equiv.</div>
+            <div class="sb-stat"><span>Total</span><span class="sb-stat-val">$2.948 USD</span></div>
+            <div class="sb-stat"><span>P&L</span><span class="sb-stat-val">+$440 USD</span></div>
+          </div>
+          <div class="app-main">
+            <div class="tab-bar">
+              <div class="tab active">📊 Cómo va tu inversión</div>
+              <div class="tab">📂 Cartera</div>
+              <div class="tab">🛒 Ejecución</div>
+              <div class="tab">📄 Reporte</div>
+            </div>
+            <div class="metric-row">
+              <div class="metric"><div class="metric-label">Valuación ARS</div><div class="metric-val blue">$4.28 M</div></div>
+              <div class="metric"><div class="metric-label">Equiv. USD</div><div class="metric-val blue">$2.948</div></div>
+              <div class="metric"><div class="metric-label">P&L total</div><div class="metric-val green">+17.6%</div></div>
+              <div class="metric"><div class="metric-label">Activos</div><div class="metric-val yellow">9</div></div>
+            </div>
+            <table class="pos-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th><th>Tipo</th><th>Cant.</th><th>Precio</th><th>Valuación</th><th>P&L</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="ticker-badge">MELI</span></td>
+                  <td style="color:var(--text-muted)">CEDEAR</td>
+                  <td>12</td><td>$98.400</td>
+                  <td>$1.180.800</td>
+                  <td><span class="pill up">+22.1%</span></td>
+                </tr>
+                <tr>
+                  <td><span class="ticker-badge">GGAL</span></td>
+                  <td style="color:var(--text-muted)">Acción</td>
+                  <td>500</td><td>$2.840</td>
+                  <td>$1.420.000</td>
+                  <td><span class="pill up">+34.0%</span></td>
+                </tr>
+                <tr>
+                  <td><span class="ticker-badge">AMZN</span></td>
+                  <td style="color:var(--text-muted)">CEDEAR</td>
+                  <td>8</td><td>$74.200</td>
+                  <td>$593.600</td>
+                  <td><span class="pill down">−3.2%</span></td>
+                </tr>
+                <tr>
+                  <td><span class="ticker-badge">YPF</span></td>
+                  <td style="color:var(--text-muted)">Acción</td>
+                  <td>300</td><td>$3.620</td>
+                  <td>$1.086.000</td>
+                  <td><span class="pill up">+11.4%</span></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Donut de sectores -->
+            <div class="donut-wrap">
+              <svg class="donut-svg" width="90" height="90" viewBox="0 0 90 90">
+                <circle cx="45" cy="45" r="35" fill="none" stroke="#1e2538" stroke-width="14"/>
+                <!-- Tecnología 61% -->
+                <circle cx="45" cy="45" r="35" fill="none" stroke="#4f8ef7" stroke-width="14"
+                  stroke-dasharray="133 86" stroke-dashoffset="0" transform="rotate(-90 45 45)"/>
+                <!-- Financiero 22% -->
+                <circle cx="45" cy="45" r="35" fill="none" stroke="#7c5cbf" stroke-width="14"
+                  stroke-dasharray="48 171" stroke-dashoffset="-133" transform="rotate(-90 45 45)"/>
+                <!-- Energía 17% -->
+                <circle cx="45" cy="45" r="35" fill="none" stroke="#f59e0b" stroke-width="14"
+                  stroke-dasharray="37 182" stroke-dashoffset="-181" transform="rotate(-90 45 45)"/>
+                <text x="45" y="49" text-anchor="middle" fill="#e8ecf4" font-size="10" font-weight="700">9 activos</text>
+              </svg>
+              <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#4f8ef7"></div><span style="color:var(--text-muted)">Tecnología <strong style="color:var(--text)">61%</strong></span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#7c5cbf"></div><span style="color:var(--text-muted)">Financiero <strong style="color:var(--text)">22%</strong></span></div>
+                <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div><span style="color:var(--text-muted)">Energía <strong style="color:var(--text)">17%</strong></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cap 5: La recomendación ──────────────────────────────── -->
+  <div class="chapter">
+    <div class="chapter-spine">
+      <div class="chapter-dot" style="background:#7c5cbf20;border:1px solid #7c5cbf50;">🎯</div>
+      <div class="chapter-line"></div>
+    </div>
+    <div class="chapter-body">
+      <div class="chapter-label">Capítulo 5 · La recomendación</div>
+      <h2 class="chapter-title">MQ26 le dice qué hacer con los próximos $200.000.</h2>
+      <p class="chapter-text">
+        Lucía tiene capital nuevo para invertir. En lugar de adivinar, MQ26 analiza su cartera actual
+        y le propone dónde agregar para <strong>mejorar la diversificación</strong>, cubrir sectores que
+        le faltan y no duplicar exposición. Cada compra, justificada.
+      </p>
+
+      <!-- MOCKUP: recomendación -->
+      <div class="app-mockup">
+        <div class="app-topbar">
+          <div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div>
+          <div class="app-url">mq26.app · Recomendaciones de compra</div>
+        </div>
+        <div class="app-body">
+          <div class="app-sidebar">
+            <div class="app-logo">📊 MQ26</div>
+            <div class="avatar-block">
+              <div class="avatar-name">Lucía V.</div>
+              <div class="avatar-role">Inversor</div>
+            </div>
+            <hr class="sb-divider"/>
+            <div class="sb-section">Capital nuevo</div>
+            <div class="sb-stat"><span>Disponible</span><span class="sb-stat-val">$200.000</span></div>
+            <div class="sb-stat"><span>Horizonte</span><span class="sb-stat-val">12 meses</span></div>
+            <hr class="sb-divider"/>
+            <div class="sb-section">Perfil</div>
+            <div class="sb-stat"><span>Riesgo</span><span class="sb-stat-val" style="color:var(--yellow)">Moderado</span></div>
+          </div>
+          <div class="app-main">
+            <div class="tab-bar">
+              <div class="tab active">📊 Cómo va tu inversión</div>
+              <div class="tab">📂 Cartera</div>
+              <div class="tab">🛒 Ejecución</div>
+              <div class="tab">📄 Reporte</div>
+            </div>
+            <div style="font-size:.78rem;font-weight:700;margin-bottom:.5rem;">
+              ✨ Sugerencia de compras con $200.000 disponibles
+            </div>
+            <table class="pos-table">
+              <thead>
+                <tr><th>Ticker</th><th>Sector</th><th>Cantidad</th><th>Aprox. ARS</th><th>Razón</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="ticker-badge">CRWD</span></td>
+                  <td style="color:var(--text-muted)">Tecnología</td>
+                  <td>2</td><td>$68.000</td>
+                  <td style="color:var(--text-muted);font-size:.68rem;">Ciberseguridad, nuevo en cartera</td>
+                </tr>
+                <tr>
+                  <td><span class="ticker-badge">NEE</span></td>
+                  <td style="color:var(--text-muted)">Energía</td>
+                  <td>4</td><td>$52.000</td>
+                  <td style="color:var(--text-muted);font-size:.68rem;">Energías limpias, diversifica sector</td>
+                </tr>
+                <tr>
+                  <td><span class="ticker-badge">BMA</span></td>
+                  <td style="color:var(--text-muted)">Financiero</td>
+                  <td>30</td><td>$48.000</td>
+                  <td style="color:var(--text-muted);font-size:.68rem;">Refuerza banca local</td>
+                </tr>
+                <tr>
+                  <td><span class="ticker-badge">O</span></td>
+                  <td style="color:var(--text-muted)">Real Estate</td>
+                  <td>3</td><td>$32.000</td>
+                  <td style="color:var(--text-muted);font-size:.68rem;">Sector no cubierto, renta mensual</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="rec-banner">
+              <div class="rec-icon">💡</div>
+              <div class="rec-text">
+                Estas compras reducen la concentración en Tecnología de <strong>61% → 48%</strong>
+                e incorporan exposición a Real Estate e infraestructura limpia.
+                Capital utilizado: <strong>$200.000</strong> · Sin apalancar.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cap 6: El reporte ─────────────────────────────────────── -->
+  <div class="chapter">
+    <div class="chapter-spine">
+      <div class="chapter-dot" style="background:#22c55e20;border:1px solid #22c55e50;">📄</div>
+      <div class="chapter-line"></div>
+    </div>
+    <div class="chapter-body">
+      <div class="chapter-label">Capítulo 6 · El cierre</div>
+      <h2 class="chapter-title">Genera el reporte. Lo manda a su contador. Duerme tranquila.</h2>
+      <p class="chapter-text">
+        Con un clic, Lucía exporta un PDF con todo: posiciones, P&L real, distribución sectorial
+        y un resumen para declarar. Ya no le tiembla la voz cuando le preguntan "¿cómo viene
+        tu cartera?". <strong>Ahora tiene los números.</strong>
+      </p>
+
+      <div class="quote">
+        "Tardé 10 minutos desde que abrí la app hasta tener todo cargado.
+        Después de 4 años, por fin sé exactamente dónde está mi plata."
+        <cite>— Lucía, 4 semanas después de su primer uso</cite>
+      </div>
+
+      <!-- MOCKUP: reporte generado -->
+      <div class="app-mockup">
+        <div class="app-topbar">
+          <div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div>
+          <div class="app-url">mq26.app · Reporte generado</div>
+        </div>
+        <div class="app-body">
+          <div class="app-sidebar">
+            <div class="app-logo">📊 MQ26</div>
+            <div class="avatar-block">
+              <div class="avatar-name">Lucía V.</div>
+              <div class="avatar-role">Inversor</div>
+            </div>
+            <hr class="sb-divider"/>
+            <div class="sb-section">Exportar</div>
+            <div class="sb-btn primary">📄 Descargar PDF</div>
+            <div style="margin-top:.4rem;" class="sb-btn">📊 Excel completo</div>
+          </div>
+          <div class="app-main">
+            <div class="tab-bar">
+              <div class="tab">📊 Cómo va tu inversión</div>
+              <div class="tab">📂 Cartera</div>
+              <div class="tab">🛒 Ejecución</div>
+              <div class="tab active">📄 Reporte</div>
+            </div>
+
+            <!-- mini "pdf preview" -->
+            <div style="background:#12161f;border:1px solid var(--border);border-radius:6px;padding:.8rem;font-size:.72rem;">
+              <div style="text-align:center;font-weight:800;font-size:.85rem;margin-bottom:.5rem;">
+                📊 Resumen de Cartera · Lucía V. · Mayo 2026
+              </div>
+              <div class="metric-row">
+                <div class="metric"><div class="metric-label">Valuación</div><div class="metric-val green">$4.28 M</div></div>
+                <div class="metric"><div class="metric-label">P&L</div><div class="metric-val green">+$640k</div></div>
+                <div class="metric"><div class="metric-label">Retorno</div><div class="metric-val green">+17.6%</div></div>
+              </div>
+              <div style="color:var(--text-muted);margin-top:.5rem;line-height:1.6;">
+                🏦 Activos: 9 · Sectores: 4 · Brokers: BMB<br/>
+                📅 Período: ene 2022 – may 2026 · 64 operaciones registradas<br/>
+                💡 Concentración actual: Tecnología 61% · Fin. 22% · Energía 17%<br/>
+                🎯 Recomendación: diversificar hacia Real Estate y Energía limpia
+              </div>
+              <div style="text-align:center;margin-top:.8rem;">
+                <span style="background:var(--green);color:#000;border-radius:100px;padding:.2rem .8rem;font-size:.7rem;font-weight:700;">
+                  ✅ PDF listo para descargar
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /story -->
+
+<!-- ══════════════════════ CTA ════════════════════════════════════════ -->
+<div class="cta-section">
+  <div class="cta-title">Tu historia empieza igual que la de Lucía.</div>
+  <p class="cta-sub">
+    10 minutos. Tu historial del broker. Y por primera vez,
+    el control real de tu inversión.
+  </p>
+  <a href="#" class="cta-btn">Empezar gratis →</a>
+</div>
+
+</body>
+</html>

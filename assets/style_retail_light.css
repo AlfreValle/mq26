@@ -1,37 +1,33 @@
 /*
-  MQ26 — Retail light overlay (inyectado después de style.css si MQ26_RETAIL_LIGHT=1).
-  Contraste orientativo AA para texto principal sobre fondo claro.
+  MQ26 — Tema Inversor (Blue-Tech Dark, variante retail).
+  Mantiene la paleta blue-tech oscura; ajustes de énfasis para rol inversor.
+  Inyectado después de style.css cuando mq_light_mode=True.
+  v11: no sobrescribe con blanco — el inversor ve el mismo dark que el asesor.
 */
+
+/* Inversor: realzar métricas financieras con mayor brillo */
 :root {
-  --c-bg:           #f1f5f9;
-  --c-surface:      #ffffff;
-  --c-surface-2:    #e2e8f0;
-  --c-surface-3:    #cbd5e1;
-  --c-border:       rgba(15, 23, 42, 0.12);
-  --c-border-2:     rgba(15, 23, 42, 0.18);
-  --c-text:         #0f172a;
-  --c-text-2:       #334155;
-  --c-text-3:       #64748b;
-  --c-text-inv:     #f8fafc;
-  --c-accent:       #2563eb;
-  --c-accent-2:     #1d4ed8;
-  --c-accent-muted: rgba(37, 99, 235, 0.12);
-  --shadow-md:      0 4px 12px rgba(15, 23, 42, 0.08);
+  --c-green: #22c55e;
+  --c-red:   #ef4444;
+  /* Accent ligeramente más brillante en modo retail */
+  --c-accent: #5b97f8;
+  --c-accent-glow: rgba(91, 151, 248, 0.32);
 }
 
-html, body {
-  background: var(--c-bg) !important;
-  color: var(--c-text) !important;
+/* Badge de rol inversor */
+.mq-role-badge-inversor {
+  background: rgba(79, 142, 247, 0.12);
+  color: #5b97f8;
+  border: 1px solid rgba(79, 142, 247, 0.3);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-[data-testid="stAppViewContainer"],
-[data-testid="stMain"],
-[data-testid="block-container"] {
-  background: var(--c-bg) !important;
-  color: var(--c-text) !important;
-}
-
-[data-testid="stSidebar"] {
-  background: var(--c-surface) !important;
-  border-right: 1px solid var(--c-border) !important;
+/* Métrica de cartera inversor: value más grande */
+.mq-inversor .mq26-metric-card .value {
+  font-size: 1.5rem;
 }

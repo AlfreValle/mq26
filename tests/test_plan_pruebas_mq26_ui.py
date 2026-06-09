@@ -36,6 +36,16 @@ def mock_st_global():
         return tuple(MagicMock() for _ in range(n))
 
     mock_st.tabs.side_effect = _tabs
+
+    def _cache_data(*dargs, **dkwargs):
+        def _decorator(fn):
+            return fn
+
+        if dargs and callable(dargs[0]) and len(dargs) == 1 and not dkwargs:
+            return dargs[0]
+        return _decorator
+
+    mock_st.cache_data = _cache_data
     mock_st.checkbox.return_value = False
     original = sys.modules.get("streamlit")
     sys.modules["streamlit"] = mock_st
@@ -65,15 +75,19 @@ def test_render_tab_inversor_df_vacio_no_lanza(mock_st_global):
     ti_mod.render_tab_inversor(ctx)
 
 
-def test_render_tab_estudio_sin_clientes_wizard_no_lanza():
-    from ui.tab_estudio import render_tab_estudio
+def test_render_tab_estudio_sin_clientes_wizard_no_lanza(mock_st_global):
+    import importlib
+
+    import ui.tab_estudio as te_mod
+
+    importlib.reload(te_mod)
 
     class _Db:
         def obtener_clientes_df(self, tenant_id=None):
             return pd.DataFrame()
 
     ctx = {"dbm": _Db(), "tenant_id": "default"}
-    render_tab_estudio(ctx)
+    te_mod.render_tab_estudio(ctx)
 
 
 def test_render_motor_salida_sin_posiciones_no_lanza(mock_st_global):

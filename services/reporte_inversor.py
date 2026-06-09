@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from core.diagnostico_types import (
     DiagnosticoResult,
@@ -17,8 +18,142 @@ from core.diagnostico_types import (
     RecomendacionResult,
     perfil_diagnostico_valido,
 )
-from core.renta_fija_ar import top_instrumentos_rf
+from core.renta_fija_ar import es_renta_fija, top_instrumentos_rf
 from core.retirement_goal import simulate_retirement
+
+_PALETA_POS = ("#2563eb", "#059669", "#d97706", "#7c3aed", "#db2777", "#0d9488", "#ea580c", "#4f46e5")
+
+
+def _tipo_es_rf_local(tipo: str) -> bool:
+    t = (tipo or "").upper().strip()
+    return t in (
+        "ON", "ON_USD", "BONO", "BONO_USD", "LETRA", "LECAP", "LEDE",
+        "BONCER", "BOPREAL", "DUAL", "USD_LINKED",
+    )
+
+
+def _fila_es_rf(ticker: str, tipo: str) -> bool:
+    return _tipo_es_rf_local(tipo) or es_renta_fija(str(ticker or "").upper().strip())
+
+
+def _explica_activo(
+    ticker: str,
+    peso_pct: float,
+    es_rf: bool,
+    resultado_pct: float | None,
+    es_top_concentr: bool,
+) -> str:
+    """Texto corto en palabras llanas (sin jerga de trading)."""
+    t = _esc(ticker)
+    rol = (
+        "Actúa como <strong>apoyo más estable</strong> en tu cartera (ingresos / menor vaivén que muchas acciones). "
+        if es_rf
+        else "Aporta <strong>crecimiento y exposición al mercado</strong>; conviene combinarlo con renta fija según tu perfil. "
+    )
+    tam = ""
+    if peso_pct >= 22:
+        tam = f"Es una de tus <strong>posiciones centrales</strong> (~{peso_pct:.1f}% del patrimonio). "
+    elif peso_pct >= 8:
+        tam = f"Pesa <strong>~{peso_pct:.1f}%</strong> del total: suma, pero no es lo único que mueve tu resultado. "
+    else:
+        tam = f"Es una <strong>línea más chica</strong> (~{peso_pct:.1f}%): aporta diversificación sin dominar el todo. "
+    res = ""
+    if resultado_pct is not None:
+        if resultado_pct > 0.5:
+            res = f"Respecto de tu costo, viene <strong>{resultado_pct:+.1f}% arriba</strong> (referencia, no garantía futura). "
+        elif resultado_pct < -0.5:
+            res = (
+                f"Está <strong>{abs(resultado_pct):.1f}% debajo</strong> de tu costo: no significa que “esté mal”, "
+                "pero conviene mirarlo junto con el resto del plan. "
+            )
+        else:
+            res = "Va <strong>cerca de tu precio de entrada</strong>: momento de observar con calma. "
+    conc = ""
+    if es_top_concentr:
+        conc = (
+            "<strong>Concentración:</strong> acá tenés un buen pedazo del patrimonio; si el peso te incomoda, "
+            "es razonable diluir con el tiempo y con asesoramiento. "
+        )
+    return f"{rol}{tam}{res}{conc}"
+
+
+def _grafico_barras_pesos_html(pares: list[tuple[str, float]]) -> str:
+    """Barras horizontales de participación por activo."""
+    if not pares:
+        return "<p class='muted'>No hay datos de pesos para graficar.</p>"
+    mx = max(w for _, w in pares) or 1.0
+    h = "<div class='chart-bars'>"
+    for i, (tk, w) in enumerate(pares[:12]):
+        pct = max(3, int(100 * w / mx))
+        col = _PALETA_POS[i % len(_PALETA_POS)]
+        h += (
+            f"<div class='crow'><span class='ctk'>{_esc(tk)}</span>"
+            f"<div class='cbar-wrap'><div class='cbar' style='width:{pct}%;background:{col};'>"
+            f"<span class='cval'>{w:.1f}%</span></div></div></div>"
+        )
+    h += "</div>"
+    return h
+
+
+def _grafico_rf_rv_dona_html(pct_rf: float, pct_rv: float) -> str:
+    """Donut simple RF vs RV con CSS."""
+    pr = max(0.0, min(100.0, float(pct_rf)))
+    pv = max(0.0, min(100.0, float(pct_rv)))
+    s = pr + pv
+    if s < 1e-6:
+        pr, pv = 50.0, 50.0
+        s = 100.0
+    pr_n, pv_n = 100.0 * pr / s, 100.0 * pv / s
+    return f"""
+    <div class="donut-wrap">
+      <div class="donut" style="background:conic-gradient(#2563eb 0% {pr_n:.1f}%, #059669 {pr_n:.1f}% 100%);"></div>
+      <ul class="donut-legend">
+        <li><span class="lg rf"></span> Renta fija ~{pr:.0f}%</li>
+        <li><span class="lg rv"></span> Renta variable ~{pv:.0f}%</li>
+      </ul>
+    </div>
+    """
+
+
+def _tabla_posiciones_con_razon(
+    df_ag: pd.DataFrame,
+    diag: DiagnosticoResult,
+) -> str:
+    if df_ag is None or df_ag.empty:
+        return "<p class='muted'>No hay posiciones cargadas en el informe; importá tu broker en la app para personalizar esta hoja.</p>"
+    max_t = str(getattr(diag, "activo_mas_concentrado", "") or "").strip().upper()
+    rows: list[tuple[str, float, str, str, bool, float | None]] = []
+    for _, r in df_ag.iterrows():
+        tk = str(r.get("TICKER", "") or "").strip().upper()
+        if not tk:
+            continue
+        try:
+            w = float(r.get("PESO_PCT", 0) or 0) * 100.0
+        except (TypeError, ValueError):
+            w = 0.0
+        tipo = str(r.get("TIPO", "") or "")
+        es_rf = _fila_es_rf(tk, tipo)
+        res = None
+        for col in ("PNL_PCT_USD", "PNL_PCT"):
+            if col in r.index:
+                try:
+                    res = float(r.get(col, 0) or 0) * 100.0
+                    break
+                except (TypeError, ValueError):
+                    res = None
+        es_top = tk == max_t and w > 15
+        razon = _explica_activo(tk, w, es_rf, res, es_top)
+        clase = "Renta fija" if es_rf else "Renta variable"
+        rows.append((tk, w, clase, razon, es_rf, res))
+    rows.sort(key=lambda x: -x[1])
+    h = "<table class='tbl tbl-pos'><tr><th>Activo</th><th class='num'>Peso</th><th>Tipo</th><th>Por qué está en tu cartera</th></tr>"
+    for tk, w, clase, razon, _, _ in rows:
+        h += (
+            f"<tr><td class='sym'>{_esc(tk)}</td><td class='num'>{w:.1f}%</td>"
+            f"<td>{_esc(clase)}</td><td class='razon'>{razon}</td></tr>"
+        )
+    h += "</table>"
+    return h
 
 
 def _esc(val: Any) -> str:
@@ -31,12 +166,75 @@ def _esc(val: Any) -> str:
     )
 
 
-def _seccion_metricas_html(valor_usd: float, pnl_pct: float, semaforo: str) -> str:
+def _seccion_metricas_html(valor_usd: float, resultado_pct: float, semaforo: str) -> str:
+    _sem = _esc(str(getattr(semaforo, "value", semaforo)))
+    _sem_cls = str(getattr(semaforo, "value", semaforo)).lower().replace(" ", "-")
+    _sub = (
+        "variación no realizada: sube o baja con el mercado hasta que vendas."
+        if resultado_pct >= 0
+        else "menos valor que tu costo de compra, aún no realizada hasta que vendas."
+    )
     return f"""
     <div class="metrics">
-      <div class="metric"><span>Valor USD</span><strong>USD {valor_usd:,.0f}</strong></div>
-      <div class="metric"><span>Rend. acum. USD</span><strong>{pnl_pct:.1f}%</strong></div>
-      <div class="metric"><span>Semáforo</span><strong>{_esc(semaforo)}</strong></div>
+      <div class="metric metric--pri"><span>Patrimonio (referencia USD)</span><strong>USD {valor_usd:,.0f}</strong></div>
+      <div class="metric metric--{'ok' if resultado_pct >= 0 else 'warn'}"><span>Tu resultado respecto del costo</span>
+        <strong>{resultado_pct:+.1f}%</strong>
+        <span class="metric-sub">{_sub}</span></div>
+      <div class="metric"><span>Estado general</span><strong class="sem-{_esc(_sem_cls)}">{_sem}</strong></div>
+    </div>
+    """
+
+
+def _seccion_plan_simulacion_html(bloque: dict[str, Any] | None) -> str:
+    """Parámetros y salidas de «Plan y simulaciones» desde la app (si el usuario generó el bloque)."""
+    if not bloque:
+        return ""
+    hz = _esc(str(bloque.get("horizonte_label") or ""))
+    meses = int(bloque.get("meses") or 0)
+    ap_usd = float(bloque.get("aporte_mensual_usd") or 0.0)
+    ap_ars = float(bloque.get("aporte_mensual_ars") or 0.0)
+    obj = float(bloque.get("objetivo_usd") or 0.0)
+    cap0 = float(bloque.get("capital_inicial_usd") or 0.0)
+    ed = bloque.get("escenarios_det") or {}
+    rows_esc = ""
+    for k in ("Pesimista", "Base", "Optimista"):
+        if k in ed:
+            rows_esc += f"<tr><td>{_esc(k)}</td><td>USD {float(ed[k]):,.0f}</td></tr>"
+    mc = bloque.get("montecarlo")
+    mc_html = ""
+    if isinstance(mc, dict) and mc.get("p50") is not None:
+        mc_html = (
+            "<h4>Montecarlo SPY (bootstrap)</h4>"
+            "<table class='tbl'><tr><th>Percentil</th><th>Patrimonio final ref. USD</th></tr>"
+            f"<tr><td>P10</td><td>{float(mc.get('p10', 0)):,.0f}</td></tr>"
+            f"<tr><td>P50</td><td>{float(mc.get('p50', 0)):,.0f}</td></tr>"
+            f"<tr><td>P90</td><td>{float(mc.get('p90', 0)):,.0f}</td></tr></table>"
+        )
+        if "prob_supera_objetivo" in mc:
+            mc_html += (
+                f"<p class='muted'>Prob. de superar el objetivo declarado: "
+                f"<strong>{float(mc['prob_supera_objetivo']) * 100:.1f}%</strong>.</p>"
+            )
+    obj_row = ""
+    if obj > 0:
+        obj_row = f"<tr><td>Objetivo patrimonio (USD)</td><td>{obj:,.0f}</td></tr>"
+    return f"""
+    <div class="plan-sim-block">
+      <h3 class="h-sec">Plan y simulaciones (capturado desde la app)</h3>
+      <p class="muted">Parámetros y resultados ilustrativos al descargar; no incluye comisiones ni impuestos.</p>
+      <table class="tbl">
+        <tr><th>Concepto</th><th>Valor</th></tr>
+        <tr><td>Horizonte</td><td>{hz} ({meses} meses)</td></tr>
+        <tr><td>Patrimonio inicial ref. USD</td><td>{cap0:,.0f}</td></tr>
+        <tr><td>Aporte mensual</td><td>USD {ap_usd:,.0f} (~ ARS {ap_ars:,.0f})</td></tr>
+        {obj_row}
+      </table>
+      <h4>Escenarios determinísticos (fin de período)</h4>
+      <table class="tbl">
+        <tr><th>Escenario</th><th>Final ref. USD</th></tr>
+        {rows_esc}
+      </table>
+      {mc_html}
     </div>
     """
 
@@ -45,6 +243,7 @@ def _proyeccion_barras_html(
     perfil_key: str,
     aporte_mensual_usd: float,
     meses: int,
+    capital_inicial_usd: float = 0.0,
 ) -> str:
     REND = {"conservador": 0.06, "moderado": 0.09, "arriesgado": 0.12, "muy": 0.15}
     VOL = {"conservador": 0.025, "moderado": 0.04, "arriesgado": 0.06, "muy": 0.07}
@@ -68,6 +267,7 @@ def _proyeccion_barras_html(
         n_meses_desacum=0,
         retornos_diarios=r_d,
         n_sim=800,
+        capital_inicial_usd=float(capital_inicial_usd or 0.0),
     )
     p10, p50, p90 = sim["p10"], sim["p50"], sim["p90"]
     m = max(abs(p10), abs(p50), abs(p90), 1.0)
@@ -75,8 +275,8 @@ def _proyeccion_barras_html(
     w50 = max(5, int(100 * abs(p50) / m))
     w90 = max(5, int(100 * abs(p90) / m))
     return f"""
-    <h3>Tu proyección ({meses//12} años)</h3>
-    <p class="muted">Simulación Montecarlo (semilla fija). Pesimista / Base / Optimista.</p>
+    <h3>Tu proyección ilustrativa ({meses//12} años)</h3>
+    <p class="muted">Simulación Montecarlo con semilla fija: escenarios pesimista, base y optimista (no es promesa de resultado).</p>
     <div class="bars">
       <div class="barrow"><span>Pesimista (P10)</span><div class="bar" style="width:{w10}%">USD {p10:,.0f}</div></div>
       <div class="barrow"><span>Base (P50)</span><div class="bar" style="width:{w50}%">USD {p50:,.0f}</div></div>
@@ -124,13 +324,14 @@ def _comparacion_rend_html(
         spy = cmpd.get("spy")
     diff = cliente - modelo_pct
     p = f"""
-    <p>Rendimiento <strong>acumulado en USD</strong> de tu cartera: <strong>{cliente:+.1f}%</strong>.
-    Cartera modelo del perfil <em>{_esc(diag.perfil)}</em> (referencia estática): <strong>{modelo_pct:+.2f}%</strong> YTD.
-    Diferencia vs modelo: <strong>{diff:+.2f} pp</strong>.</p>
+    <p><strong>Resultado de tu cartera</strong> (referencia USD, acumulado): <strong>{cliente:+.1f}%</strong>.
+    La <strong>cartera modelo MQ26</strong> para tu perfil <em>{_esc(diag.perfil)}</em> usa una referencia estática YTD de
+    <strong>{modelo_pct:+.2f}%</strong> (no es una inversión que podás comprar tal cual; sirve para comparar el “estilo” del armado).
+    La brecha aproximada es <strong>{diff:+.2f} puntos</strong>.</p>
     """
-    p += "<table class='tbl'><tr><th>Serie</th><th>Rendimiento %</th></tr>"
+    p += "<table class='tbl'><tr><th>Serie</th><th>Resultado / ref. %</th></tr>"
     p += f"<tr><td>Tu cartera</td><td>{cliente:+.1f}%</td></tr>"
-    p += f"<tr><td>Cartera modelo perfil</td><td>{modelo_pct:+.2f}%</td></tr>"
+    p += f"<tr><td>Cartera modelo (perfil)</td><td>{modelo_pct:+.2f}%</td></tr>"
     if spy is not None:
         p += f"<tr><td>SPY (benchmark)</td><td>{float(spy):+.1f}%</td></tr>"
     else:
@@ -178,10 +379,10 @@ def _svg_three_lines(
 
     return f"""
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" class="chart3">
-      <text x="4" y="14" font-size="10">Cartera (azul) / modelo (naranja) / SPY (verde)</text>
-      <path d="{path(nc)}" fill="none" stroke="#1565c0" stroke-width="2"/>
-      <path d="{path(nm)}" fill="none" stroke="#e67e22" stroke-width="2"/>
-      <path d="{path(ns)}" fill="none" stroke="#27ae60" stroke-width="2"/>
+      <text x="4" y="14" font-size="10" fill="#475569">Evolución normalizada: tu cartera · modelo · SPY</text>
+      <path d="{path(nc)}" fill="none" stroke="#2563eb" stroke-width="2.2"/>
+      <path d="{path(nm)}" fill="none" stroke="#d97706" stroke-width="2.2"/>
+      <path d="{path(ns)}" fill="none" stroke="#059669" stroke-width="2.2"/>
     </svg>
     """
 
@@ -205,15 +406,15 @@ def _seccion_ventaja_competitiva_html(
     cmpd = bc.get("comparacion_rendimientos_pct")
     series = bc.get("series_comparacion")
 
-    body = "<h2>Tu cartera vs referencias</h2>"
+    body = "<h3 class='h-sec'>Tu resultado vs. referencias de mercado</h3>"
     body += _comparacion_rend_html(cmpd if isinstance(cmpd, dict) else None, diagnostico, modelo_frac)
-    body += "<h3>Renta fija local</h3>"
+    body += "<h4 class='h-sub'>Renta fija local</h4>"
     body += _tir_paragraph(tir_cli, top)
-    body += "<h3>Instrumentos de referencia (ON corporativas)</h3>"
+    body += "<h4 class='h-sub'>Instrumentos de referencia (ON corporativas)</h4>"
     body += _tabla_top_rf_html(top)
-    body += "<h3>Ladder de vencimientos (tu cartera)</h3>"
+    body += "<h4 class='h-sub'>Vencimientos de tus bonos / ON (ponderado)</h4>"
     body += _ladder_html([(y, w) for y, w in ladder])
-    body += "<h3>Comparación de trayectorias</h3>"
+    body += "<h4 class='h-sub'>Trayectoria normalizada (tu cartera · modelo · SPY)</h4>"
     if series and isinstance(series, dict):
         fechas = list(series.get("fechas") or [])
         yc = list(series.get("cliente_norm") or [])
@@ -236,6 +437,8 @@ def generar_reporte_inversor(
     aporte_mensual_usd: float = 100.0,
     horizon_meses: int = 36,
     bloque_competitivo: dict[str, Any] | None = None,
+    df_ag: pd.DataFrame | None = None,
+    bloque_plan_simulacion: dict[str, Any] | None = None,
 ) -> str:
     obs_show = [
         o
@@ -262,7 +465,7 @@ def generar_reporte_inversor(
 
     accion_html = "<p>Agregá capital disponible en la app para ver compras sugeridas.</p>"
     if recomendacion and recomendacion.compras_recomendadas and not recomendacion.alerta_mercado:
-        accion_html = "<h3>Acción recomendada</h3><ul>"
+        accion_html = "<h4>Sugerencias de compra recientes (desde «¿Qué compro ahora?»)</h4><ul>"
         for it in recomendacion.compras_recomendadas:
             accion_html += (
                 f"<li><strong>{_esc(it.ticker)}</strong> × {it.unidades} u. @ "
@@ -279,27 +482,79 @@ def generar_reporte_inversor(
 
     ventaja_html = _seccion_ventaja_competitiva_html(diagnostico, bloque_competitivo)
 
+    pct_rf = float(getattr(diagnostico, "pct_defensivo_actual", 0) or 0) * 100.0
+    pct_rv = float(getattr(diagnostico, "pct_rv_actual", 0) or 0) * 100.0
+    if pct_rv <= 0 and pct_rf <= 99:
+        pct_rv = max(0.0, 100.0 - pct_rf)
+
+    pares: list[tuple[str, float]] = []
+    _df = df_ag if df_ag is not None else pd.DataFrame()
+    if not _df.empty and "PESO_PCT" in _df.columns:
+        for _, r in _df.iterrows():
+            tk = str(r.get("TICKER", "") or "").strip().upper()
+            if not tk:
+                continue
+            try:
+                w = float(r.get("PESO_PCT", 0) or 0) * 100.0
+            except (TypeError, ValueError):
+                w = 0.0
+            if w > 0.05:
+                pares.append((tk, w))
+        pares.sort(key=lambda x: -x[1])
+
+    _lead = _esc(
+        (diagnostico.resumen_ejecutivo or "").strip() or (diagnostico.titulo_semaforo or "") or "—",
+    )
+    _titulo_sem = _esc(diagnostico.titulo_semaforo or "—")
+    plan_snap_html = _seccion_plan_simulacion_html(bloque_plan_simulacion)
+
     body = f"""
     <article class="rpt">
-      <header>
-        <div class="logo">MQ26</div>
-        <h1>Informe para {_esc(diagnostico.cliente_nombre) or "inversor"}</h1>
-        <p class="meta">{_esc(diagnostico.fecha_diagnostico)} · {_esc(diagnostico.perfil)} · Horizonte {_esc(diagnostico.horizonte_label)}</p>
+      <header class="rpt-hero">
+        <div class="hero-top">
+          <span class="logo-mark">MQ26</span>
+          <span class="hero-badge">Informe personal</span>
+        </div>
+        <h1>Hola, {_esc(diagnostico.cliente_nombre) or "inversor"}</h1>
+        <p class="meta">{_esc(diagnostico.fecha_diagnostico)} · Perfil <strong>{_esc(diagnostico.perfil)}</strong> · Horizonte {_esc(diagnostico.horizonte_label)}</p>
+        <p class="intro-p">Este documento tiene <strong>tres partes</strong> para leer con calma: situación actual, qué hace cada activo, y contexto de mercado con una proyección ilustrativa. Lenguaje claro; los números concentran lo técnico.</p>
       </header>
-      <h2>Tu cartera en números</h2>
-      {_seccion_metricas_html(valor_usd, pnl_pct, diagnostico.semaforo.value)}
-      {ventaja_html}
-      <h2>Diagnóstico</h2>
-      <p>{_esc(diagnostico.titulo_semaforo)}</p>
-      {obs_html}
-      {accion_html}
-      {_proyeccion_barras_html(diagnostico.perfil, aporte_mensual_usd, horizon_meses)}
+
+      <section class="sheet sheet-1">
+        <p class="sheet-kicker">Parte 1 de 3 · Situación actual</p>
+        <h2>Cómo está tu cartera hoy</h2>
+        <p class="one-liner"><strong>En breve:</strong> {_titulo_sem}</p>
+        <div class="resumen-box"><p>{_lead}</p></div>
+        {_seccion_metricas_html(valor_usd, pnl_pct, diagnostico.semaforo)}
+        <p class="fine-print">Los importes en USD son referencia (CCL y precios en MQ26). No reemplazan el estado de cuenta del broker.</p>
+        <h3>Puntos que conviene tener presentes</h3>
+        {obs_html if obs_html.strip() else "<p class='muted'>Sin alertas destacadas en esta corrida del motor.</p>"}
+      </section>
+
+      <section class="sheet sheet-2">
+        <p class="sheet-kicker">Parte 2 de 3 · Tu cartera en detalle</p>
+        <h2>Qué tenés y qué rol cumple cada activo</h2>
+        <p>Cada fila muestra el <strong>peso en tu patrimonio</strong> y una explicación sencilla del rol que suele cumplir ese instrumento dentro de un plan diversificado.</p>
+        <div class="viz-row">
+          <div class="viz-col">{_grafico_rf_rv_dona_html(pct_rf, pct_rv)}</div>
+          <div class="viz-col viz-grow">{_grafico_barras_pesos_html(pares)}</div>
+        </div>
+        {_tabla_posiciones_con_razon(_df, diagnostico)}
+      </section>
+
+      <section class="sheet sheet-3">
+        <p class="sheet-kicker">Parte 3 de 3 · Contexto y siguiente paso</p>
+        <h2>Hacia dónde apunta tu estrategia</h2>
+        {ventaja_html}
+        <h3 class="h-sec">Ideas concretas desde la app</h3>
+        {accion_html}
+        {_proyeccion_barras_html(diagnostico.perfil, aporte_mensual_usd, horizon_meses, valor_usd)}
+        {plan_snap_html}
+      </section>
+
       <footer class="disc">
-        <p>Este informe es <strong>meramente informativo</strong> y no constituye asesoramiento
-        financiero personalizado, diagnóstico fiscal ni recomendación de compra o venta
-        de instrumentos negociables.</p>
-        <p>Los rendimientos y escenarios mostrados son ilustrativos; resultados pasados
-        o simulados no garantizan desempeños futuros.</p>
+        <p><strong>Aviso importante.</strong> Este informe es <strong>meramente informativo</strong> y no constituye asesoramiento financiero personalizado, diagnóstico fiscal ni recomendación de compra o venta de instrumentos.</p>
+        <p>Resultados y simulaciones ilustrativos; el pasado y los modelos no garantizan el futuro.</p>
         <p class="foot-brand">Master Quant · {_anio}</p>
       </footer>
     </article>
@@ -395,25 +650,83 @@ def _dummy_diagnostico() -> DiagnosticoResult:
 
 def _html_doc(title: str, body: str, compact: bool) -> str:
     css = """
-    body{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#1a1a2e;background:#fafafa;}
-    .rpt,.estudio,.sa{max-width:720px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;}
-    header .logo{font-weight:800;color:#1565c0;}
-    .metrics{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0;}
-    .metric{flex:1;min-width:140px;padding:12px;background:#f0f4f8;border-radius:6px;}
-    .obs{border-left:4px solid #1565c0;padding-left:12px;margin:12px 0;}
-    .cifra{font-weight:600;}
+    @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;800&display=swap');
+    body{font-family:'Barlow',Segoe UI,sans-serif;margin:0;color:#0f172a;background:linear-gradient(180deg,#e2e8f0 0%,#f8fafc 40%,#eef2ff 100%);min-height:100vh;}
+    .rpt{max-width:840px;margin:0 auto;padding:0 16px 56px;}
+    .estudio,.sa{max-width:840px;margin:24px auto;background:#fff;padding:24px;border-radius:12px;border:1px solid #e2e8f0;}
+    .rpt-hero{background:linear-gradient(125deg,#1e3a8a 0%,#3730a3 45%,#0f766e 100%);color:#f8fafc;padding:32px 28px;border-radius:0 0 22px 22px;box-shadow:0 16px 48px rgba(15,23,42,.2);}
+    .hero-top{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+    .logo-mark{font-weight:800;letter-spacing:.08em;font-size:1.15rem;}
+    .hero-badge{font-size:.68rem;text-transform:uppercase;letter-spacing:.14em;opacity:.92;border:1px solid rgba(248,250,252,.4);padding:5px 12px;border-radius:999px;}
+    .rpt-hero h1{margin:10px 0 6px;font-weight:800;font-size:1.8rem;}
+    .rpt-hero .meta{opacity:.93;margin:0;font-size:.92rem;}
+    .intro-p{opacity:.95;margin:14px 0 0;line-height:1.6;max-width:42rem;font-size:1rem;}
+    header .logo{font-weight:800;color:#1e40af;}
+    .sheet{background:#fff;margin:28px 0;padding:26px 24px;border-radius:16px;box-shadow:0 6px 30px rgba(15,23,42,.07);border:1px solid #e2e8f0;page-break-after:always;}
+    .sheet-3{page-break-after:auto;}
+    .sheet-kicker{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:#64748b;margin:0 0 8px;}
+    .sheet>h2:first-of-type{margin-top:0;}
+    .sheet h2{margin:0 0 14px;font-size:1.32rem;font-weight:800;color:#0f172a;}
+    .sheet h3{margin:22px 0 8px;font-size:1.05rem;font-weight:600;color:#1e293b;}
+    .one-liner{margin:0 0 12px;line-height:1.5;}
+    .resumen-box{background:linear-gradient(100deg,#eff6ff 0%,#f0fdf4 100%);border-left:4px solid #2563eb;padding:14px 18px;border-radius:0 12px 12px 0;margin:14px 0;}
+    .resumen-box p{margin:0;line-height:1.55;}
+    .fine-print{font-size:.82rem;color:#64748b;margin:12px 0 0;line-height:1.45;}
+    .metrics{display:flex;gap:14px;flex-wrap:wrap;margin:18px 0;}
+    .metric{flex:1;min-width:152px;padding:14px 16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;}
+    .metric--pri{background:linear-gradient(160deg,#eff6ff,#ffffff);border-color:#93c5fd;}
+    .metric--ok{background:linear-gradient(160deg,#ecfdf5,#ffffff);border-color:#6ee7b7;}
+    .metric--warn{background:linear-gradient(160deg,#fffbeb,#ffffff);border-color:#fcd34d;}
+    .metric span:first-child{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.09em;color:#64748b;margin-bottom:5px;}
+    .metric strong{font-size:1.22rem;display:block;font-weight:800;}
+    .metric-sub{display:block;font-size:.78rem;color:#64748b;margin-top:7px;line-height:1.4;}
+    .sem-verde{color:#059669;}
+    .sem-amarillo{color:#d97706;}
+    .sem-rojo{color:#dc2626;}
+    .viz-row{display:flex;gap:22px;flex-wrap:wrap;margin:20px 0;align-items:flex-start;}
+    .viz-col{flex:1;min-width:260px;}
+    .viz-grow{flex:1.8;}
+    .donut-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+    .donut{width:150px;height:150px;border-radius:50%;margin:10px 0;}
+    .donut-legend{list-style:none;padding:0;margin:0;font-size:.9rem;}
+    .donut-legend li{margin:8px 0;display:flex;align-items:center;gap:10px;}
+    .lg{display:inline-block;width:14px;height:14px;border-radius:3px;}
+    .lg.rf{background:#2563eb;}
+    .lg.rv{background:#059669;}
+    .chart-bars{margin:6px 0;}
+    .crow{display:flex;align-items:center;gap:12px;margin:7px 0;}
+    .ctk{min-width:76px;font-size:.8rem;font-weight:600;color:#334155;}
+    .cbar-wrap{flex:1;background:#e2e8f0;height:24px;border-radius:7px;overflow:hidden;}
+    .cbar{height:100%;min-width:3px;display:flex;align-items:center;padding:0 9px;box-sizing:border-box;}
+    .cval{font-size:.72rem;font-weight:700;color:#fff;text-shadow:0 0 3px rgba(0,0,0,.4);}
+    .tbl-pos .razon{font-size:.86rem;line-height:1.45;}
+    .tbl-pos .sym{font-family:ui-monospace,Consolas,monospace;font-weight:700;}
+    .obs{border-left:4px solid #6366f1;padding:12px 16px;margin:12px 0;background:#f8fafc;border-radius:0 12px 12px 0;}
+    .obs-t{font-weight:600;color:#3730a3;}
+    .cifra{font-weight:600;color:#0f172a;}
+    .h-sec{color:#0f172a;}
+    .h-sub{color:#475569;font-size:.92rem;margin-top:1rem;}
     .bars .barrow{margin:8px 0;}
-    .bar{background:#1565c0;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.9rem;}
-    .tbl{width:100%;border-collapse:collapse;margin:12px 0;}
-    .tbl th,.tbl td{border:1px solid #ccc;padding:6px;text-align:left;}
-    .disc,.muted{font-size:0.85rem;color:#555;margin-top:24px;}
-    .disc p{margin:0 0 0.65rem 0;line-height:1.45;}
+    .bar{background:#2563eb;color:#fff;padding:6px 10px;border-radius:8px;font-size:0.88rem;}
+    .tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:.87rem;}
+    .tbl th,.tbl td{border:1px solid #e2e8f0;padding:9px 11px;text-align:left;}
+    .tbl th{background:#1e293b;color:#f8fafc;font-weight:600;}
+    .tbl .num{text-align:right;font-variant-numeric:tabular-nums;}
+    .disc,.muted{font-size:0.86rem;color:#475569;}
+    .disc{max-width:840px;margin:28px auto 0;padding:22px 24px;background:#fff;border-radius:14px;border:1px solid #e2e8f0;box-shadow:0 4px 20px rgba(15,23,42,.06);}
+    .disc p{margin:0 0 0.7rem 0;line-height:1.5;}
     .disc p:last-child{margin-bottom:0;}
-    .foot-brand{font-size:0.82rem;font-weight:600;color:#333;margin-top:10px;}
-    .alert{background:#fff3e0;padding:12px;border-radius:6px;}
-    .chart3{max-width:100%;height:auto;margin:12px 0;display:block;}
+    .foot-brand{font-size:0.88rem;font-weight:700;color:#334155;margin-top:14px;}
+    .alert{background:#fff7ed;border:1px solid #fdba74;padding:14px;border-radius:10px;}
+    .chart3{max-width:100%;height:auto;margin:14px 0;display:block;}
+    @media print{
+      body{background:#fff;}
+      .sheet{page-break-after:always;box-shadow:none;}
+      .sheet-3{page-break-after:auto;}
+      .rpt-hero{print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+    }
     """
     if compact:
-        css += "h1{font-size:1.4rem;}h2{font-size:1.1rem;}"
-    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{_esc(title)}</title>
+        css += ".rpt-hero h1{font-size:1.55rem;}"
+    return f"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{_esc(title)}</title>
     <style>{css}</style></head><body>{body}</body></html>"""

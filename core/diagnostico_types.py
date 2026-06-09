@@ -169,6 +169,10 @@ class RecomendacionResult:
 
     resumen_recomendacion: str = ""
 
+    # ── Reserva táctica de Perlas (20%) ───────────────────────────────────────
+    capital_perlas_ars:   float = 0.0   # monto reservado para perlas
+    perlas_seleccionadas: list  = field(default_factory=list)   # list[Perla] o list[dict]
+
 
 # ── Clasificación de activos por categoría ──────────────────────────────────
 
@@ -191,16 +195,16 @@ CLASIFICACION_ACTIVOS: dict[str, CategoriaActivo] = {
     "PG": CategoriaActivo.CUASI_DEFENSIVO,
     "CL": CategoriaActivo.CUASI_DEFENSIVO,
     "KMB": CategoriaActivo.CUASI_DEFENSIVO,
-    "K": CategoriaActivo.CUASI_DEFENSIVO,
-    "GIS": CategoriaActivo.CUASI_DEFENSIVO,
+    # "K" (Kellogg) eliminado: no es CEDEAR en BYMA
+    # "GIS" (General Mills) eliminado: no es CEDEAR en BYMA
     "HSY": CategoriaActivo.CUASI_DEFENSIVO,
     "MO": CategoriaActivo.CUASI_DEFENSIVO,
     "PM": CategoriaActivo.CUASI_DEFENSIVO,
     "WMT": CategoriaActivo.CUASI_DEFENSIVO,
     "COST": CategoriaActivo.CUASI_DEFENSIVO,
     "TGT": CategoriaActivo.CUASI_DEFENSIVO,
-    "DE": CategoriaActivo.CUASI_DEFENSIVO,
-    "ADM": CategoriaActivo.CUASI_DEFENSIVO,
+    "DE": CategoriaActivo.CUASI_DEFENSIVO,   # Deere & Co — CEDEAR BYMA 40:1
+    # ADM (Archer Daniels Midland) eliminado: no es CEDEAR en BYMA
     "JNJ": CategoriaActivo.CUASI_DEFENSIVO,
     "UNH": CategoriaActivo.CUASI_DEFENSIVO,
     "ABT": CategoriaActivo.CUASI_DEFENSIVO,
@@ -233,7 +237,7 @@ CLASIFICACION_ACTIVOS: dict[str, CategoriaActivo] = {
     "VZ": CategoriaActivo.CUASI_DEFENSIVO,
     "T": CategoriaActivo.CUASI_DEFENSIVO,
     "XLV": CategoriaActivo.CUASI_DEFENSIVO,
-    "XLU": CategoriaActivo.CUASI_DEFENSIVO,
+    # "XLU" eliminado: no está en el archivo oficial BYMA
     "IVE": CategoriaActivo.CUASI_DEFENSIVO,
     "HD": CategoriaActivo.CUASI_DEFENSIVO,
     # ETF mercado
@@ -266,9 +270,9 @@ CLASIFICACION_ACTIVOS: dict[str, CategoriaActivo] = {
     "ADBE": CategoriaActivo.GROWTH_QUALITY,
     "QCOM": CategoriaActivo.GROWTH_QUALITY,
     "TXN": CategoriaActivo.GROWTH_QUALITY,
-    "BLK": CategoriaActivo.GROWTH_QUALITY,
+    # "BLK" (BlackRock) eliminado: no es CEDEAR en BYMA
     "GS": CategoriaActivo.GROWTH_QUALITY,
-    "MS": CategoriaActivo.GROWTH_QUALITY,
+    # "MS" (Morgan Stanley) eliminado: no es CEDEAR en BYMA
     "JPM": CategoriaActivo.GROWTH_QUALITY,
     "BAC": CategoriaActivo.GROWTH_QUALITY,
     "WFC": CategoriaActivo.GROWTH_QUALITY,
@@ -276,18 +280,18 @@ CLASIFICACION_ACTIVOS: dict[str, CategoriaActivo] = {
     "MCD": CategoriaActivo.GROWTH_QUALITY,
     "SBUX": CategoriaActivo.GROWTH_QUALITY,
     "NKE": CategoriaActivo.GROWTH_QUALITY,
-    "LOW": CategoriaActivo.GROWTH_QUALITY,
+    # "LOW" (Lowe's) eliminado: no es CEDEAR en BYMA
     "NFLX": CategoriaActivo.GROWTH_QUALITY,
-    "CMCSA": CategoriaActivo.GROWTH_QUALITY,
+    # "CMCSA" (Comcast) eliminado: no es CEDEAR en BYMA
     "DISN": CategoriaActivo.GROWTH_QUALITY,
     "BA": CategoriaActivo.GROWTH_QUALITY,
-    "FCX": CategoriaActivo.GROWTH_QUALITY,
+    # "FCX" (Freeport-McMoRan) eliminado: no es CEDEAR en BYMA
     # Growth agresivo
     "NVDA": CategoriaActivo.GROWTH_AGRESIVO,
     "AMD": CategoriaActivo.GROWTH_AGRESIVO,
     "INTC": CategoriaActivo.GROWTH_AGRESIVO,
     "MU": CategoriaActivo.GROWTH_AGRESIVO,
-    "ASML": CategoriaActivo.GROWTH_AGRESIVO,
+    # "ASML" eliminado: no está en el archivo oficial BYMA
     "META": CategoriaActivo.GROWTH_AGRESIVO,
     "TSLA": CategoriaActivo.GROWTH_AGRESIVO,
     "ABNB": CategoriaActivo.GROWTH_AGRESIVO,
@@ -298,8 +302,8 @@ CLASIFICACION_ACTIVOS: dict[str, CategoriaActivo] = {
     "SQ": CategoriaActivo.GROWTH_AGRESIVO,
     "F": CategoriaActivo.GROWTH_AGRESIVO,
     "GM": CategoriaActivo.GROWTH_AGRESIVO,
-    "CEG": CategoriaActivo.GROWTH_AGRESIVO,
-    "OKLO": CategoriaActivo.GROWTH_AGRESIVO,
+    # "CEG" (Constellation Energy) eliminado: no está en el archivo oficial BYMA
+    # "OKLO" eliminado: no está en el archivo oficial BYMA
     "PLTR": CategoriaActivo.GROWTH_AGRESIVO,
     "CRWV": CategoriaActivo.GROWTH_AGRESIVO,
     "RGTI": CategoriaActivo.GROWTH_AGRESIVO,
@@ -357,57 +361,68 @@ BENCHMARK_RENDIMIENTO: dict[str, float] = {
 
 AJUSTE_HORIZONTE_CORTO: frozenset[str] = frozenset({"1 mes", "3 meses", "6 meses"})
 
-# Core & Satélite: RF explícita (ON + bucket soberanos/liquidez vía _RENTA_AR) + RV (GLD cuenta como activo alternativo/RV, no RF AR).
+# Core & Satélite: RF explícita + RV dinámica.
+#
+# POOLS dinámicos (se expanden en tiempo de ejecución):
+#   _ON_USD_POOL     → seleccionar_ons_para_perfil()   (core/renta_fija_ar.py)
+#   _RV_CEDEAR_POOL  → _seleccionar_rv_para_perfil()   (services/recomendacion_capital.py)
+#
+# Anclas fijas:
+#   GLD  — ETF oro físico (no es empresa; cobertura/reserva de valor)
+#   SPY  — ETF S&P 500   (no es empresa; diversificación mercado amplio)
+#
+# Todos los picks de empresa quedan eliminados del hardcode; el motor de scoring
+# 60/20/20 selecciona los mejores del universo de 300+ tickers disponibles.
 CARTERA_IDEAL: dict[str, dict[str, float]] = {
-    # Suma 1. RF ≈60% (_RENTA_AR+ONs); RV ≈40% (GLD/BRKB/SPY). Alineado a TARGET_RF_RV_BY_PERFIL.
+    # ── ARQUITECTURA 80 / 20 ──────────────────────────────────────────────────
+    #
+    #  80 % → CORE  : asignación estructural según perfil (RF + RV + ETFs ancla)
+    #  20 % → PERLAS: reserva táctica para oportunidades subvaloradas
+    #                  con estrategia de entrada / salida explícita
+    #
+    #  Capital mínimo recomendado: ARS 500.000
+    #  El pool _PERLAS_POOL se mantiene como cash hasta que el motor de perlas
+    #  identifique una entrada válida (precio < valor_intrinseco × 0.85).
+    #
+    # Conservador: CORE RF ≈ 55%, RV ≈ 25% — defensivo, flujo USD, baja volatilidad.
     "Conservador": {
-        "_RENTA_AR": 0.188,
-        "PN43O": 0.225,
-        "TLCTO": 0.187,
-        "GLD": 0.080,
-        "BRKB": 0.080,
-        "SPY": 0.240,
+        "_PERLAS_POOL":     0.20,  # 20% reserva táctica: perlas conservadoras (ONs largas, ETFs caídos)
+        "_RENTA_AR":        0.13,  # CORE: bonos/letras AR vía broker
+        "_ON_USD_POOL":     0.26,  # CORE: 2-3 ONs calidad AA, TIR 6.5-7.5%
+        "SPY":              0.14,  # CORE: ancla S&P 500
+        "_RV_CEDEAR_POOL":  0.27,  # CORE: 4-6 CEDEARs defensivos/quality
     },
+    # Moderado: CORE RF ≈ 35%, RV ≈ 45% — equilibrio, tech quality + RF
     "Moderado": {
-        "_RENTA_AR": 0.15,
-        "PN43O": 0.20,
-        "TLCTO": 0.15,
-        "GLD": 0.05,
-        "BRKB": 0.08,
-        "SPY": 0.12,
-        "MSFT": 0.10,
-        "GOOGL": 0.08,
-        "AMZN": 0.07,
+        "_PERLAS_POOL":     0.20,  # 20% reserva: perlas tech + Argentina subvalorado
+        "_RENTA_AR":        0.10,
+        "_ON_USD_POOL":     0.22,  # CORE: 2-3 ONs
+        "SPY":              0.10,  # CORE: ETF S&P
+        "QQQ":              0.03,  # CORE: ETF Nasdaq (Moderado empieza a incorporarlo)
+        "_RV_CEDEAR_POOL":  0.35,  # CORE: 5-7 CEDEARs tech/quality/consumo
     },
+    # Arriesgado: CORE RF ≈ 20%, RV ≈ 60% — crecimiento, tech, argentina.
     "Arriesgado": {
-        "_RENTA_AR": 0.10,
-        "PN43O": 0.12,
-        "TLCTO": 0.13,
-        "GLD": 0.03,
-        "BRKB": 0.04,
-        "SPY": 0.10,
-        "MSFT": 0.10,
-        "AMZN": 0.09,
-        "NVDA": 0.10,
-        "META": 0.09,
-        "MELI": 0.10,
+        "_PERLAS_POOL":     0.20,  # 20% reserva: perlas alto potencial (small-caps, AI, energía)
+        "_RENTA_AR":        0.06,
+        "_ON_USD_POOL":     0.14,  # CORE: 2 ONs lámina accesible
+        "SPY":              0.06,  # CORE: ETF core
+        "QQQ":              0.04,  # CORE: ETF Nasdaq
+        "_RV_CEDEAR_POOL":  0.50,  # CORE: 5-8 CEDEARs growth/tech/AR
     },
+    # Muy arriesgado: CORE RF ≈ 12%, RV ≈ 68% — máximo upside.
     "Muy arriesgado": {
-        "_RENTA_AR": 0.10,
-        "PN43O": 0.10,
-        "TLCTO": 0.10,
-        "GLD": 0.02,
-        "SPY": 0.09,
-        "MSFT": 0.09,
-        "NVDA": 0.13,
-        "META": 0.09,
-        "MELI": 0.08,
-        "AMZN": 0.07,
-        "VIST": 0.08,
-        "PLTR": 0.04,
-        "IVW": 0.01,
+        "_PERLAS_POOL":     0.20,  # 20% reserva: perlas especulativas, alta convicción
+        "_RENTA_AR":        0.05,
+        "_ON_USD_POOL":     0.11,  # CORE: 1-2 ONs para liquidez en USD
+        "SPY":              0.04,
+        "QQQ":              0.04,
+        "_RV_CEDEAR_POOL":  0.56,  # CORE: 6-8 CEDEARs agresivos + AR
     },
 }
+
+# Capital mínimo recomendado para primera cartera (ARS)
+CAPITAL_MINIMO_PRIMERA_CARTERA: float = 500_000.0
 
 # Referencia de rentabilidad cartera modelo (YTD aprox., fracción). Actualizar periódicamente.
 RENDIMIENTO_MODELO_YTD_REF: dict[str, float] = {

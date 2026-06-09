@@ -6,6 +6,7 @@ import pytest
 from core.retirement_goal import (
     _daily_to_monthly,
     calcular_aporte_necesario,
+    serie_patrimonio_mensual,
     simulate_retirement,
 )
 
@@ -18,6 +19,30 @@ def test_aporte_cero_si_capital_ya_alcanza():
 def test_aporte_positivo_con_objetivo_grande():
     aporte = calcular_aporte_necesario(10_000, 500_000, 20, 0.08)
     assert aporte > 0
+
+
+def test_serie_patrimonio_mensual_longitud_y_crecimiento():
+    s = serie_patrimonio_mensual(10_000.0, 100.0, 0.0, 5)
+    assert len(s) == 5
+    assert s[-1] == pytest.approx(10_000.0 + 5 * 100.0)
+    s2 = serie_patrimonio_mensual(1_000.0, 0.0, 0.12, 12)
+    assert len(s2) == 12
+    assert s2[-1] > 1_000.0
+
+
+def test_mc_respeta_capital_inicial():
+    rng = np.random.default_rng(1)
+    r = rng.normal(0.0003, 0.008, 800)
+    z = simulate_retirement(
+        aporte_mensual=0.0,
+        n_meses_acum=12,
+        retiro_mensual=0.0,
+        n_meses_desacum=0,
+        retornos_diarios=r,
+        n_sim=300,
+        capital_inicial_usd=50_000.0,
+    )
+    assert z["p50"] > 35_000.0
 
 
 def test_daily_to_monthly_agrupa_21_dias():

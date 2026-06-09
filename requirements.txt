@@ -1,3 +1,4 @@
+bcrypt
 # MQ26-DSS — Dependencias de producción (G6: eliminadas librerías no usadas)
 # Nota: fpdf2, fastapi, uvicorn, pydantic removidos (no usados activamente)
 
@@ -25,5 +26,6 @@ pyyaml>=6.0.0
 # Sprint 6: monitoreo de errores en producción (opcional — solo si SENTRY_DSN definida)
 sentry-sdk>=1.40.0
 
-# Dev: cobertura de código
+# Dev: tests + cobertura (P3-QA-01; CI usa --no-cov)
+pytest>=7.4.0
 pytest-cov>=4.0.0

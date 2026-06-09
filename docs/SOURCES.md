@@ -16,6 +16,9 @@ Si tras el inner join quedan **menos de 30 filas**, se reintenta un fallback: `f
 
 Opcional en `RiskEngine`: winsorizado por columna en cuantiles configurables (p.ej. 0.5% / 99.5%) sobre retornos diarios antes de estimar μ y Σ; el reporte de recortes puede mostrarse en UI.
 | Universo BYMA / ratios | `0_Data_Maestra/Universo_120_CEDEARs.xlsx` + CSV maestro | Manual / ETL | — | Ratios CEDEAR como fallback en `config.RATIOS_CEDEAR`. |
+| BYMA Open Data (listas tiempo real, ONs) | `https://open.bymadata.com.ar` vía `services/byma_market_data.py` | Caché 5 min (Streamlit) | AR | Mapeo de campos y escalas: [`docs/product/BYMA_CAMPOS_Y_ESCALAS_MQ26.md`](product/BYMA_CAMPOS_Y_ESCALAS_MQ26.md). No sustituye API comercial licenciada. |
+| Precios ARS lote (opcional) | `MQ26_BYMA_API_URL` → `services/byma_provider.py` | On demand | — | Contrato `POST …/cotizaciones`; ver mismo doc producto. |
+| Ingesta batch a fallback BD | `services/precios_mercado_ingest.py` → tabla `precios_fallback` | Job / manual | AR | Escala ON USD = feed BYMA; [`docs/product/BYMA_INGESTA_BD_P2_BYMA02.md`](product/BYMA_INGESTA_BD_P2_BYMA02.md). |
 | Tasas libre de riesgo | Constante `RISK_FREE_RATE` en `config.py` | Config (actualización manual) | — | Aprox. T-Bill USA; documentar fecha de última revisión al cambiar. |
 | CCL / tipo de cambio | `obtener_ccl` + `yfinance` / conectores en `data_engine` | Intradía sujeto a caché | AR | Ver `CCL_FALLBACK` si falla el proveedor. |
 | Base de datos app | SQLite local (`master_quant.db`) o `DATABASE_URL` (Postgres/Supabase) | Transaccional | UTC típico en servidor | Sin precios de mercado históricos completos; posiciones y snapshots. |

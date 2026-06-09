@@ -8,6 +8,12 @@ import pandas as pd
 import streamlit as st
 
 from core.logging_config import get_logger
+from core.unit_contracts import (
+    enriquecer_ordenes_con_unidad,
+    validar_dataframe_ordenes_ejecucion,
+    validar_fila_orden_ejecucion,
+)
+from ui.rbac import can_action as _can_action_rbac
 
 _log = get_logger(__name__)
 
@@ -39,7 +45,8 @@ def render_tab_ejecucion(ctx: dict) -> None:
     cliente_id       = ctx.get("cliente_id")
     cliente_perfil   = ctx.get("cliente_perfil", "Moderado")
     horizonte_label  = ctx.get("horizonte_label", "1 año")
-    _is_viewer       = str(ctx.get("user_role", "admin")).lower() == "viewer"
+    _can_write       = _can_action_rbac(ctx, "write")
+    _is_viewer       = not _can_write
     sub_reb, sub_rec, sub_export = st.tabs([
         "🛒 Rebalanceo / Capital",
         "🎯 Recomendador Semanal",
@@ -156,11 +163,16 @@ def render_tab_ejecucion(ctx: dict) -> None:
                 st.markdown(f"#### 🛒 ¿Qué comprar con ${capital_ars_iny:,.0f} ARS?")
                 st.caption(f"Basado en modelo: **{st.session_state.get('modelo_opt','Óptimo')}**")
                 filas_iny = []
+                filas_bloqueadas_unidad = []
                 for ticker_i, peso_i in sorted(pesos_iny.items(), key=lambda x: x[1], reverse=True):
                     if peso_i < 0.001:
                         continue
                     px_ars_i = float(precios_dict.get(ticker_i, 0.0))
                     if px_ars_i <= 0:
+                        continue
+                    _ok_u, _msg_u, _etq_u = validar_fila_orden_ejecucion(str(ticker_i), px_ars_i, df_ag)
+                    if not _ok_u:
+                        filas_bloqueadas_unidad.append(f"**{ticker_i}**: {_msg_u}")
                         continue
                     monto_i     = capital_ars_iny * peso_i
                     nominales_i = int(monto_i / px_ars_i)
@@ -169,9 +181,15 @@ def render_tab_ejecucion(ctx: dict) -> None:
                     total_i = nominales_i * px_ars_i
                     filas_iny.append({
                         "Ticker": ticker_i, "Peso %": f"{peso_i*100:.1f}%",
+                        "Unidad operativa": _etq_u,
                         "Nominales": nominales_i, "Precio ARS": px_ars_i,
                         "Total ARS": total_i, "Comisión": total_i * comision_iny,
                     })
+                if filas_bloqueadas_unidad:
+                    st.error(
+                        "Órdenes **bloqueadas** por posible inconsistencia de unidad (renta fija USD vs PPC):\n\n"
+                        + "\n\n".join(filas_bloqueadas_unidad)
+                    )
                 if filas_iny:
                     df_iny = pd.DataFrame(filas_iny)
 
@@ -193,6 +211,10 @@ def render_tab_ejecucion(ctx: dict) -> None:
                         df_iny, use_container_width=True, hide_index=True,
                         column_config={
                             "Peso %":     st.column_config.TextColumn("Peso %"),
+                            "Unidad operativa": st.column_config.TextColumn(
+                                "Unidad operativa",
+                                help="Nominales según instrumento (p. ej. USD VN en ON/bono cable).",
+                            ),
                             "Nominales":  st.column_config.NumberColumn("Nominales", format="%d"),
                             "Precio ARS": st.column_config.NumberColumn("Precio ARS", format="$%.2f"),
                             "Total ARS":  st.column_config.NumberColumn("Total ARS",  format="$%.0f"),
@@ -216,7 +238,7 @@ def render_tab_ejecucion(ctx: dict) -> None:
 
                     st.session_state["df_compras_inyeccion"] = df_iny
                     _boton_exportar(df_iny, f"compras_inyeccion_{datetime.now().strftime('%Y%m%d')}", "📥 Exportar órdenes")
-                else:
+                elif not filas_bloqueadas_unidad:
                     st.warning("No hay precios disponibles para calcular las órdenes. Verificá los precios en el panel lateral.")
 
         # ── TABLA DE OBJETIVOS ACTIVOS ────────────────────────────────────────
@@ -333,68 +355,79 @@ def render_tab_ejecucion(ctx: dict) -> None:
                         bloqueadas  = plan["bloqueadas"]
 
                         if not ejecutables.empty:
-                            total_compras = ejecutables[ejecutables["tipo_op"]=="COMPRA"]["valor_nocional"].sum()
-                            total_ventas  = ejecutables[ejecutables["tipo_op"]=="VENTA"]["valor_nocional"].sum()
-                            total_costos  = ejecutables["costo_total"].sum()
-
-                            tc1, tc2, tc3 = st.columns(3)
-                            tc1.metric("Total a comprar", f"${total_compras:,.0f} ARS")
-                            tc2.metric("Total a vender",  f"${total_ventas:,.0f} ARS")
-                            tc3.metric("Costo broker est.", f"${total_costos:,.0f} ARS")
-
-                            st.dataframe(
-                                ejecutables.style.format({
-                                    "precio_ars":     "${:,.2f}",
-                                    "valor_nocional": "${:,.0f}",
-                                    "costo_total":    "${:,.0f}",
-                                    "alpha_esperado": "${:,.0f}",
-                                    "alpha_neto":     "${:,.0f}",
-                                }).apply(
-                                    lambda r: ["background-color:#D4EDDA" if v == "COMPRA"
-                                               else "background-color:#FADBD8" if v == "VENTA"
-                                               else "" for v in r],
-                                    subset=["tipo_op"], axis=0
-                                ), use_container_width=True, hide_index=True,
+                            _unit_ok, _unit_msgs = validar_dataframe_ordenes_ejecucion(
+                                ejecutables, df_ag
                             )
-                            ejsvc.enviar_alerta_rebalanceo(ejecutables, prop_nombre)
-                            try:
-                                _usr_ej = str(st.session_state.get("mq26_login_user", "") or "")
-                                _tk_ej = (
-                                    ejecutables["ticker"].astype(str).tolist()
-                                    if "ticker" in ejecutables.columns
-                                    else []
+                            if not _unit_ok:
+                                st.error(
+                                    "Órdenes **no registradas** ni exportables: unidad de precio "
+                                    "inconsistente con el PPC de la cartera (renta fija USD):\n\n"
+                                    + "\n".join(_unit_msgs)
                                 )
-                                dbm.registrar_optimization_audit(
-                                    cliente_id=cliente_id,
-                                    usuario=_usr_ej[:100],
-                                    accion="plan_rebalanceo_generado",
-                                    modelo=str(mod_ejec),
-                                    ccl=float(ccl) if ccl else None,
-                                    tickers=_tk_ej,
-                                    pesos=None,
-                                    run_id=datetime.now().strftime("%Y%m%d%H%M%S"),
-                                    extra={
-                                        "n_filas": int(len(ejecutables)),
-                                        "total_compras_ars": float(total_compras),
-                                        "total_ventas_ars": float(total_ventas),
-                                        "total_costos_ars": float(total_costos),
-                                        "capital_nuevo_ars": float(liq_nueva),
-                                        "comision_pct": float(comision_pct),
-                                        "umbral_churning": float(umbral_churning),
-                                        "prop_nombre": str(prop_nombre or ""),
-                                    },
+                            else:
+                                ejecutables = enriquecer_ordenes_con_unidad(ejecutables, df_ag)
+                                total_compras = ejecutables[ejecutables["tipo_op"]=="COMPRA"]["valor_nocional"].sum()
+                                total_ventas  = ejecutables[ejecutables["tipo_op"]=="VENTA"]["valor_nocional"].sum()
+                                total_costos  = ejecutables["costo_total"].sum()
+
+                                tc1, tc2, tc3 = st.columns(3)
+                                tc1.metric("Total a comprar", f"${total_compras:,.0f} ARS")
+                                tc2.metric("Total a vender",  f"${total_ventas:,.0f} ARS")
+                                tc3.metric("Costo broker est.", f"${total_costos:,.0f} ARS")
+
+                                st.dataframe(
+                                    ejecutables.style.format({
+                                        "precio_ars":     "${:,.2f}",
+                                        "valor_nocional": "${:,.0f}",
+                                        "costo_total":    "${:,.0f}",
+                                        "alpha_esperado": "${:,.0f}",
+                                        "alpha_neto":     "${:,.0f}",
+                                    }).apply(
+                                        lambda r: ["background-color:#D4EDDA" if v == "COMPRA"
+                                                   else "background-color:#FADBD8" if v == "VENTA"
+                                                   else "" for v in r],
+                                        subset=["tipo_op"], axis=0
+                                    ), use_container_width=True, hide_index=True,
                                 )
-                            except Exception as _aud_e:
-                                _log.warning("OPTIMIZATION_AUDIT plan rebalanceo: %s", _aud_e)
-                            st.session_state["df_ventas_rebalanceo"] = ejecutables[
-                                ejecutables["tipo_op"] == "VENTA"]
-                            st.session_state["df_compras_rebalanceo"] = ejecutables[
-                                ejecutables["tipo_op"] == "COMPRA"]
-                            _boton_exportar(
-                                ejecutables,
-                                f"ordenes_{prop_nombre.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}",
-                                "📥 Exportar órdenes a Excel",
-                            )
+                                ejsvc.enviar_alerta_rebalanceo(ejecutables, prop_nombre)
+                                try:
+                                    _usr_ej = str(st.session_state.get("mq26_login_user", "") or "")
+                                    _tk_ej = (
+                                        ejecutables["ticker"].astype(str).tolist()
+                                        if "ticker" in ejecutables.columns
+                                        else []
+                                    )
+                                    dbm.registrar_optimization_audit(
+                                        cliente_id=cliente_id,
+                                        usuario=_usr_ej[:100],
+                                        accion="plan_rebalanceo_generado",
+                                        modelo=str(mod_ejec),
+                                        ccl=float(ccl) if ccl else None,
+                                        tickers=_tk_ej,
+                                        pesos=None,
+                                        run_id=datetime.now().strftime("%Y%m%d%H%M%S"),
+                                        extra={
+                                            "n_filas": int(len(ejecutables)),
+                                            "total_compras_ars": float(total_compras),
+                                            "total_ventas_ars": float(total_ventas),
+                                            "total_costos_ars": float(total_costos),
+                                            "capital_nuevo_ars": float(liq_nueva),
+                                            "comision_pct": float(comision_pct),
+                                            "umbral_churning": float(umbral_churning),
+                                            "prop_nombre": str(prop_nombre or ""),
+                                        },
+                                    )
+                                except Exception as _aud_e:
+                                    _log.warning("OPTIMIZATION_AUDIT plan rebalanceo: %s", _aud_e)
+                                st.session_state["df_ventas_rebalanceo"] = ejecutables[
+                                    ejecutables["tipo_op"] == "VENTA"]
+                                st.session_state["df_compras_rebalanceo"] = ejecutables[
+                                    ejecutables["tipo_op"] == "COMPRA"]
+                                _boton_exportar(
+                                    ejecutables,
+                                    f"ordenes_{prop_nombre.replace(' ','_')}_{datetime.now().strftime('%Y%m%d_%H%M')}",
+                                    "📥 Exportar órdenes a Excel",
+                                )
 
                         if not bloqueadas.empty:
                             with st.expander(f"🚫 {len(bloqueadas)} órdenes bloqueadas por alpha negativo"):
@@ -458,11 +491,17 @@ def render_tab_ejecucion(ctx: dict) -> None:
             "Genera un CSV o Excel con las órdenes calculadas, "
             "compatible con el formato de importación de brokers argentinos (IOL/Bull Market/Balanz)."
         )
+        st.caption(
+            "**Unidad:** en ON/bono cable en USD, la **cantidad** es en **nominales USD (VN)**; "
+            "verifique contra la lámina mínima del instrumento antes de cargar en el broker."
+        )
 
         # Recuperar órdenes previamente calculadas desde sub_reb
         _df_ventas   = st.session_state.get("df_ventas_rebalanceo",  pd.DataFrame())
         _df_compras  = st.session_state.get("df_compras_rebalanceo", pd.DataFrame())
         _df_exp = pd.concat([_df_ventas, _df_compras], ignore_index=True)
+        if not _df_exp.empty:
+            _df_exp = enriquecer_ordenes_con_unidad(_df_exp, df_ag)
 
         if _df_exp.empty:
             st.info("ℹ️ Primero genera las órdenes en la pestaña **Rebalanceo / Capital** para exportarlas aquí.")
@@ -471,14 +510,18 @@ def render_tab_ejecucion(ctx: dict) -> None:
             _COLS_BROKER = {
                 "ticker":          "Instrumento",
                 "tipo_op":         "Tipo Orden",
+                "nominales":       "Cantidad",
                 "cantidad":        "Cantidad",
                 "valor_nocional":  "Monto Estimado (ARS)",
                 "costo_total":     "Comision Estimada (ARS)",
                 "motivo":          "Observaciones",
+                "unidad_operativa": "Unidad operativa",
             }
             _df_broker = pd.DataFrame()
             for _src, _dst in _COLS_BROKER.items():
                 if _src in _df_exp.columns:
+                    if _dst == "Cantidad" and "Cantidad" in _df_broker.columns:
+                        continue
                     _df_broker[_dst] = _df_exp[_src]
             _df_broker["Mercado"] = "BCBA / NYSE"
             _df_broker["Moneda"]  = "ARS"

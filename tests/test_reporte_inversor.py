@@ -26,13 +26,38 @@ def test_generar_reporte_inversor_contiene_secciones():
 
     html = generar_reporte_inversor(_diag(), None, {"total_valor": 15_000_000.0, "ccl": 1500.0})
     assert "MQ26" in html
-    assert "Tu cartera vs referencias" in html
+    assert "Tu resultado vs. referencias de mercado" in html
     assert "TIR ref" in html
     assert "TLCTO" in html or "DNC7O" in html
-    assert "Ladder de vencimientos" in html
-    assert "Diagnóstico" in html
+    assert "Vencimientos de tus bonos / ON (ponderado)" in html
+    assert "diagnóstico fiscal" in html
     assert "informativo" in html
     assert "DOCTYPE html" in html
+
+
+def test_generar_reporte_inversor_incluye_bloque_plan_simulacion():
+    from services.reporte_inversor import generar_reporte_inversor
+
+    bloque = {
+        "horizonte_label": "3 años",
+        "meses": 36,
+        "aporte_mensual_usd": 100.0,
+        "aporte_mensual_ars": 150000.0,
+        "objetivo_usd": 50_000.0,
+        "capital_inicial_usd": 10_000.0,
+        "escenarios_det": {"Pesimista": 11000.0, "Base": 15000.0, "Optimista": 19000.0},
+        "montecarlo": {"p10": 9000.0, "p50": 14000.0, "p90": 20000.0, "prob_supera_objetivo": 0.35},
+    }
+    html = generar_reporte_inversor(
+        _diag(),
+        None,
+        {"total_valor": 15_000_000.0, "ccl": 1500.0},
+        bloque_plan_simulacion=bloque,
+    )
+    assert "Plan y simulaciones" in html
+    assert "Pesimista" in html
+    assert "Montecarlo SPY" in html
+    assert "35.0%" in html or "35,0%" in html
 
 
 def test_generar_reporte_inversor_svg_cuando_hay_series():
@@ -51,7 +76,7 @@ def test_generar_reporte_inversor_svg_cuando_hay_series():
         bloque_competitivo={"series_comparacion": ser},
     )
     assert "<svg" in html
-    assert "stroke=\"#1565c0\"" in html
+    assert "stroke=\"#2563eb\"" in html
 
 
 def test_generar_reporte_estudio_tabla():

@@ -52,7 +52,8 @@ def render_asesor_suite_banner() -> None:
     with st.expander("Suite asesor — presets de optimización (solo UI)", expanded=False):
         st.caption(
             "Ajusta valores por defecto de la sub-pestaña «Comparativa Actual vs Óptima». "
-            "No modifica el motor cuant; solo precarga sliders y selectores."
+            "No modifica el motor cuant; solo precarga sliders y selectores. "
+            "En **Cartera → Posición actual** tenés la misma vista resumen tipo broker que el inversor."
         )
         choice = st.radio(
             "Preset",

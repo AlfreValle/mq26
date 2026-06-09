@@ -5,6 +5,7 @@ Combina: Libro Mayor + Importador de broker + Sincronización Gmail
 """
 from datetime import datetime
 
+import pandas as pd
 import streamlit as st
 
 
@@ -187,8 +188,27 @@ def render_tab_ledger(ctx: dict) -> None:
                                 "Bull Market": {"propietario": prop_bull,   "cartera": cart_bull},
                             }
                             df_maestra = gr.construir_maestra_desde_historial(df_hist, prop_map)
-                            ruta_m = BASE_DIR / "0_Data_Maestra" / "Maestra_Inversiones.xlsx"
-                            df_maestra.to_excel(ruta_m, index=False)
+                            # Persistencia segura: merge al CSV transaccional existente.
+                            df_new = pd.DataFrame({
+                                "CARTERA": df_maestra["Propietario"].astype(str).str.strip() + " | " + df_maestra["Cartera"].astype(str).str.strip(),
+                                "FECHA_COMPRA": pd.to_datetime(df_maestra["FECHA_INICIAL"], errors="coerce").dt.date,
+                                "TICKER": df_maestra["Ticker"].astype(str).str.strip().str.upper(),
+                                "CANTIDAD": pd.to_numeric(df_maestra["Cantidad"], errors="coerce").fillna(0.0),
+                                "PPC_USD": pd.to_numeric(df_maestra["PPC_USD"], errors="coerce").fillna(0.0),
+                                "PPC_ARS": 0.0,
+                                "TIPO": df_maestra["Tipo"].astype(str).str.strip().str.upper(),
+                                "LAMINA_VN": float("nan"),
+                                "MONEDA_PRECIO": "USD_MEP",
+                            })
+                            df_new = df_new[df_new["CANTIDAD"] != 0].copy()
+                            df_new = df_new.dropna(subset=["FECHA_COMPRA"])
+                            from core.import_fingerprint import merge_idempotent
+                            df_all = engine_data.cargar_transaccional()
+                            df_merge, n_insertadas, n_duplicadas = merge_idempotent(df_all, df_new)
+                            engine_data.guardar_transaccional(df_merge)
                             st.session_state.pop("libro_mayor_data", None)
-                            st.success(f"✅ {len(df_maestra)} filas guardadas en Maestra_Inversiones.xlsx")
+                            st.success(
+                                f"✅ {n_insertadas} operaciones nuevas agregadas."
+                                + (f" ({n_duplicadas} duplicadas omitidas por idempotencia)." if n_duplicadas else "")
+                            )
                             st.rerun()

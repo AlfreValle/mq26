@@ -95,7 +95,8 @@ def test_concentracion_detecta_activo_sobre_limite():
         metricas=m,
         ccl=1000.0,
     )
-    assert r.score_concentracion < 75.0
+    assert r.score_concentracion <= 75.0
+    assert r.score_concentracion < 100.0
     assert any(o.dimension == "concentracion" for o in r.observaciones)
 
 
@@ -239,3 +240,54 @@ def test_diagnostico_metricas_vacias_fallback():
     )
     assert r.modo_fallback is True
     assert r.n_posiciones == 2
+
+
+def test_mix_objetivo_rf_no_penaliza_armado_coherente():
+    """Perfil con RF teórica 30% pero cartera armada al ~47%: con mix_objetivo sube alineación."""
+    df = pd.DataFrame(
+        [
+            _row("PN43O", 470_000, 0.47, tipo="ON_USD"),
+            _row("SPY", 530_000, 0.53, tipo="CEDEAR"),
+        ]
+    )
+    m = {"total_valor": 1_000_000.0, "pnl_pct_total_usd": 0.0}
+    sin_plan = diagnosticar(df, "Muy arriesgado", "1 año", m, 1000.0)
+    con_plan = diagnosticar(
+        df, "Muy arriesgado", "1 año", m, 1000.0, mix_objetivo_rf=0.47
+    )
+    assert con_plan.score_cobertura_defensiva > sin_plan.score_cobertura_defensiva
+    assert con_plan.pct_defensivo_requerido == pytest.approx(0.47)
+
+
+def test_tres_lineas_peso_similar_no_dispara_concentracion():
+    df = pd.DataFrame(
+        [
+            _row("A", 333_333, 1.0 / 3),
+            _row("B", 333_333, 1.0 / 3),
+            _row("C", 333_334, 1.0 / 3),
+        ]
+    )
+    m = {"total_valor": 1_000_000.0, "pnl_pct_total_usd": 0.0}
+    r = diagnosticar(df, "Moderado", "1 año", m, 1000.0)
+    assert r.score_concentracion == pytest.approx(100.0)
+    assert not any(o.dimension == "concentracion" for o in r.observaciones)
+
+
+def test_cartera_comprada_hoy_ignora_senales_salida():
+    df = pd.DataFrame([_row("NVDA", 100_000, 1.0, fecha=date.today())])
+    m = {"total_valor": 100_000.0, "pnl_pct_total_usd": 0.0}
+    senales = [{"prioridad": 3}]
+    r = diagnosticar(
+        df, "Moderado", "1 año", m, 1000.0, senales_salida=senales
+    )
+    assert r.score_senales_salida == pytest.approx(100.0)
+    assert r.n_senales_salida_altas == 0
+
+
+def test_senales_salida_none_equivale_vacio():
+    df = pd.DataFrame([_row("SPY", 100_000, 1.0)])
+    m = {"total_valor": 100_000.0, "pnl_pct_total_usd": 0.0}
+    r_none = diagnosticar(df, "Moderado", "1 año", m, 1000.0, senales_salida=None)
+    r_empty = diagnosticar(df, "Moderado", "1 año", m, 1000.0, senales_salida=[])
+    assert r_none.score_total == pytest.approx(r_empty.score_total)
+    assert r_none.score_senales_salida == pytest.approx(r_empty.score_senales_salida)

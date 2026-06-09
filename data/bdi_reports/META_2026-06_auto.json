@@ -1,0 +1,288 @@
+{
+  "ticker": "META",
+  "exchange": "AUTO",
+  "fecha_publicacion": "2026-06-04",
+  "autor": "MQ26 Motor Multifactor v2 (Capas 1+2+3)",
+  "auto_generated": true,
+  "fuentes": [
+    "yfinance fundamentales (Capa 1)",
+    "Scoring Multifactor 35/30/20/15 (Capa 2)",
+    "BDI Generator volatilidad-adaptativa (Capa 3)"
+  ],
+  "recomendacion": "COMPRAR",
+  "precio_actual_usd": 622.98,
+  "precio_objetivo_usd": 1059.07,
+  "potencial_pct": 70.0,
+  "horizonte_meses": 12,
+  "calificacion_total": 3.9,
+  "cal_fundamental": 4.2,
+  "cal_tecnico": 2.4,
+  "cal_sectorial": 4.5,
+  "scoring_multifactor": {
+    "score_total": 76.2,
+    "score_valor": 66.1,
+    "score_calidad": 100.0,
+    "score_momentum": 47.0,
+    "score_sectorial": 91.0,
+    "pesos": {
+      "valor": 0.35,
+      "calidad": 0.3,
+      "momentum": 0.2,
+      "sectorial": 0.15
+    }
+  },
+  "perfil_minimo": "Muy arriesgado",
+  "peso_cartera_pct_min": 0.02,
+  "peso_cartera_pct_max": 0.08,
+  "tipo_cartera_sugerida": "Según perfil + constraints del motor de cartera",
+  "tramos_entrada": [
+    {
+      "tramo": 1,
+      "proporcion": 0.4,
+      "precio_min_usd": 610.52,
+      "precio_max_usd": 635.44,
+      "comentario": "A mercado / zona actual"
+    },
+    {
+      "tramo": 2,
+      "proporcion": 0.35,
+      "precio_min_usd": 508.82,
+      "precio_max_usd": 519.1,
+      "comentario": "Soporte intermedio (≈-18%)"
+    },
+    {
+      "tramo": 3,
+      "proporcion": 0.25,
+      "precio_min_usd": 428.89,
+      "precio_max_usd": 446.39,
+      "comentario": "Soporte fuerte (sobrerreacción, ≈-30%)"
+    }
+  ],
+  "niveles_seguimiento": {
+    "stop_loss_usd": 494.25,
+    "stop_tipo": "Cierre semanal por debajo de USD 494.25 (-35% — ajustado a HV 3120%)",
+    "primer_objetivo_usd": 841.02,
+    "primer_objetivo_accion": "Toma de ganancia parcial (50% posición)",
+    "objetivo_final_usd": 1059.07,
+    "factor_riesgo": 0.35,
+    "hv20d_usado": 31.2
+  },
+  "datos_clave": {
+    "precio_usd": 622.97998,
+    "rango_52sem_min_usd": 520.26001,
+    "rango_52sem_max_usd": 796.25,
+    "market_cap_usd": 1581386900347.3398,
+    "pe_ttm": 22.678558,
+    "pe_forward": 17.227419,
+    "pb_ratio": 6.488496,
+    "ps_ratio": 7.356554,
+    "peg_ratio": 0.86,
+    "roe_pct": 32.93,
+    "roa_pct": 16.395,
+    "margen_neto_pct": 32.836999999999996,
+    "margen_operativo_pct": 40.617,
+    "margen_bruto_pct": 81.941,
+    "deuda_equity": 35.608,
+    "current_ratio": 2.348,
+    "crecimiento_ingresos_pct": 33.1,
+    "crecimiento_ganancias_pct": 60.9,
+    "dividendo_yield_pct": 34.0,
+    "dividendo_anual_usd": 2.1,
+    "payout_pct": 7.64,
+    "beta": 1.243,
+    "hv20d": 31.2,
+    "proximo_earnings": null,
+    "ex_dividend_date": "2026-06-14"
+  },
+  "tesis_resumen": "💎 META es una oportunidad de alta convicción. La empresa es de altísima calidad (ROE, márgenes y solvencia top), y supera ampliamente a la mediana de Internet Content & Information. Recomendación: COMPRAR escalonado (40/35/25%) con R/R 2:1.",
+  "razones_compra": [
+    "🏆 ROE 32.9% — uso muy eficiente del capital",
+    "💼 Margen neto 32.8% — empresa muy rentable",
+    "⚙️ Margen operativo 40.6% — operación eficiente",
+    "🛡️ Deuda/Equity 36% — balance sólido",
+    "🌟 Outperformer en Communication Services — barato + más rentable que la mediana",
+    "📊 Crecimiento de ingresos +33.1% i.a.",
+    "💵 Dividendo 34.00% — flujo en USD predecible"
+  ],
+  "riesgos": [
+    "Sin riesgos cuantitativos destacados — revisar contexto cualitativo del sector"
+  ],
+  "flags_alerta": [
+    "🟢 ROE 32.9% — calidad excepcional",
+    "🟢 Ganancias +61% i.a. — crecimiento fuerte",
+    "🟢 Outperformer sectorial — mejor que la mediana del sector"
+  ],
+  "consenso_analistas": [
+    {
+      "fuente": "MQ26 Multifactor",
+      "recomendacion": "COMPRAR",
+      "target_usd": 1059.07,
+      "score_total": 76.2
+    }
+  ],
+  "breakdown_dimensiones": {
+    "valor": {
+      "score": 66.1,
+      "peso": "35%",
+      "detalle": {
+        "pe_forward": {
+          "valor": 17.227419,
+          "score": 88.9
+        },
+        "pb_ratio": {
+          "valor": 6.488496,
+          "score": 25.2
+        },
+        "ps_ratio": {
+          "valor": 7.356554,
+          "score": 33.0
+        },
+        "peg_ratio": {
+          "valor": 0.86,
+          "score": 100.0
+        }
+      }
+    },
+    "calidad": {
+      "score": 100.0,
+      "peso": "30%",
+      "detalle": {
+        "roe": {
+          "valor": 0.3293,
+          "score": 100.0
+        },
+        "roa": {
+          "valor": 0.16395,
+          "score": 100.0
+        },
+        "profit_margin": {
+          "valor": 0.32837,
+          "score": 100.0
+        },
+        "operating_margin": {
+          "valor": 0.40617,
+          "score": 100.0
+        },
+        "debt_to_equity": {
+          "valor": 35.608,
+          "score": 100.0
+        },
+        "current_ratio": {
+          "valor": 2.348,
+          "score": 100.0
+        }
+      }
+    },
+    "momentum": {
+      "score": 47.0,
+      "peso": "20%",
+      "detalle": {
+        "score_tecnico": 47.0,
+        "rsi": 51.5,
+        "macd": -3.0754,
+        "bb_pos": "above_upper",
+        "max_dd_1y": 33.3,
+        "hv20d": 31.2,
+        "senal": "🟢 COMPRAR"
+      }
+    },
+    "sectorial": {
+      "score": 91.0,
+      "peso": "15%",
+      "detalle": {
+        "fuente": "industria",
+        "benchmark": {
+          "pe_med": 24.0,
+          "ps_med": 5.5,
+          "pb_med": 5.0,
+          "roe_med": 0.26,
+          "margen_neto_med": 0.22,
+          "tickers_ejemplo": [
+            "GOOGL",
+            "META"
+          ]
+        },
+        "industria": "Internet Content & Information",
+        "pe_vs": {
+          "empresa": 17.227419,
+          "industria": 24.0,
+          "score": 97.0
+        },
+        "roe_vs": {
+          "empresa": 0.3293,
+          "industria": 0.26,
+          "score": 76.7
+        },
+        "margen_neto_vs": {
+          "empresa": 0.32837,
+          "industria": 0.22,
+          "score": 99.3
+        },
+        "score_final": 91.0
+      }
+    }
+  },
+  "comparativa_industria": {
+    "fuente": "industria",
+    "industria": "Internet Content & Information",
+    "metricas": {
+      "P/E TTM": {
+        "empresa": 22.6786,
+        "industria": 24.0,
+        "ratio": 0.94,
+        "mejor_que_industria": null,
+        "interpretacion": "🟡 en línea"
+      },
+      "P/E Forward": {
+        "empresa": 17.2274,
+        "industria": 24.0,
+        "ratio": 0.72,
+        "mejor_que_industria": true,
+        "interpretacion": "🟢 mejor (más bajo)"
+      },
+      "P/B": {
+        "empresa": 6.4885,
+        "industria": 5.0,
+        "ratio": 1.3,
+        "mejor_que_industria": false,
+        "interpretacion": "🔴 peor (más alto)"
+      },
+      "P/S": {
+        "empresa": 7.3566,
+        "industria": 5.5,
+        "ratio": 1.34,
+        "mejor_que_industria": false,
+        "interpretacion": "🔴 peor (más alto)"
+      },
+      "ROE": {
+        "empresa": 0.3293,
+        "industria": 0.26,
+        "ratio": 1.27,
+        "mejor_que_industria": true,
+        "interpretacion": "🟢 supera industria"
+      },
+      "Margen Neto": {
+        "empresa": 0.3284,
+        "industria": 0.22,
+        "ratio": 1.49,
+        "mejor_que_industria": true,
+        "interpretacion": "🟢 supera industria"
+      }
+    },
+    "summary": {
+      "n_mejor": 3,
+      "n_peor": 2,
+      "n_neutral": 1,
+      "total": 6,
+      "score_pct": 50.0
+    }
+  },
+  "sector": "Communication Services",
+  "industry": "Internet Content & Information",
+  "country": "United States",
+  "currency": "USD",
+  "business_summary": "Meta Platforms, Inc. engages in the development of products that enable people to connect and share with friends and family through mobile devices, personal computers, virtual reality (VR) headsets, and AI glasses in the United States, Canada, Europe, Asia-Pacific, and internationally. It operates through two segments, Family of Apps (FoA) and Reality Labs (RL). The FoA segment offers Facebook, which enables people to build community through feed, reels, stories, groups, marketplace, and other; Instagram that brings people closer through Instagram feed, stories, reels, live, and messaging; Messenger, a messaging application for people to connect with friends, family, communities, and businesses across platforms and devices through text, audio, and video calls; Meta AI, an assistant that's available across apps, as a stand-alone app, on AI glasses, and on the web; Threads, an application for text-based updates and public conversations; and WhatsApp, a messaging application that is used by people and businesses to communicate and transact. The RL segment provides virtual and augmented reality products, including consumer hardware, software, and content that help people feel connected, as well as Meta Quest devices that enable social experiences across gaming, fitness, entertainment, and more. The segment also includes wearables such as AI glasses like Ray Ban Meta and Oakley Meta glasses; and the Meta Ray Ban Display, which combines AI glasses with an integrated lens display and the Meta Neural Band, a wrist worn device using electromyography that lets people control their AI glasses through neuromuscular signals. Meta Platforms, Inc. has a collaboration with Microsoft Corporation, NVIDIA Corporation, Advanced Micro Devices, Inc., Broadcom Inc., and OpenAI, L.L.C. The company was formerly known as Facebook, Inc. and changed its name to Meta Platforms, Inc. in October 2021. The company was incorporated in 2004 and is headquartered in Menlo Park, California.",
+  "pdf_path": null,
+  "calidad_fundamentales": "cache",
+  "errores_fundamentales": []
+}

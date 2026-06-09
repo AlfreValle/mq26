@@ -26,11 +26,12 @@ from core.pricing_utils import parsear_ppc_usd
 logger = get_logger(__name__)
 
 
-def sincronizar_excel_a_bd(ruta_excel: Path) -> dict:
+def sincronizar_excel_a_bd(ruta_excel: Path, tenant_id: str = "default") -> dict:
     """
     Lee Maestra_Inversiones.xlsx y replica el contenido en la BD.
     Devuelve un dict con métricas: {'insertadas': n, 'actualizadas': n, 'errores': n}
     """
+    tid = (tenant_id or "default").strip() or "default"
     from core import db_manager as dbm
 
     resultado = {"insertadas": 0, "actualizadas": 0, "errores": 0, "total": 0}
@@ -85,7 +86,7 @@ def sincronizar_excel_a_bd(ruta_excel: Path) -> dict:
             cartera_id = f"{prop} | {cartera}".strip(" |")
 
             # Buscar cliente por nombre/cartera o crear
-            clientes_df = dbm.obtener_clientes_df()
+            clientes_df = dbm.obtener_clientes_df(tenant_id=tid)
             cliente_match = clientes_df[clientes_df["Nombre"].str.contains(prop, case=False, na=False)] \
                 if not clientes_df.empty and prop else pd.DataFrame()
 
@@ -93,18 +94,21 @@ def sincronizar_excel_a_bd(ruta_excel: Path) -> dict:
                 cliente_id = int(cliente_match.iloc[0]["ID"])
             else:
                 if prop:
-                    cliente_id = dbm.registrar_cliente(prop, "Moderado", 0.0, "Persona")
+                    cliente_id = dbm.registrar_cliente(
+                        prop, "Moderado", 0.0, "Persona", tenant_id=tid
+                    )
                 else:
                     continue
 
             # Registrar como transacción COMPRA en la BD
             dbm.registrar_transaccion(
-                cliente_id=cliente_id,
-                ticker=ticker,
-                tipo_op="COMPRA",
-                cantidad=cantidad,
-                precio=ppc_usd,
+                cliente_id,
+                ticker,
+                "COMPRA",
+                cantidad,
+                ppc_usd,
                 fecha=str(fecha),
+                tenant_id=tid,
             )
             resultado["insertadas"] += 1
             resultado["total"] += 1

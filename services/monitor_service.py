@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 
 import pandas as pd
+from core.structured_logging import log_degradacion
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,13 @@ def revisar_cartera_completa(
                     )
                 resultado["mod23"] += 1
             except Exception as e:
-                logger.warning("alerta_senal_venta fallo: %s", e)
+                log_degradacion(
+                    __name__,
+                    "alerta_senal_venta_fallo",
+                    e,
+                    ticker=str(alerta.get("ticker", "")),
+                    cliente=str(prop_nombre),
+                )
 
         # 2. Concentracion por activo (> 30%)
         if "PESO_PCT" in df_pos.columns:
@@ -74,7 +81,14 @@ def revisar_cartera_completa(
                         )
                     resultado["concentracion"] += 1
                 except Exception as e:
-                    logger.warning("alerta_concentracion fallo: %s", e)
+                    log_degradacion(
+                        __name__,
+                        "alerta_concentracion_fallo",
+                        e,
+                        ticker=str(row.get("TICKER", "")),
+                        peso_pct=float(row.get("PESO_PCT", 0) or 0),
+                        cliente=str(prop_nombre),
+                    )
 
         # 3. Drawdown de cartera (< -15%)
         pnl_pct = float(metricas.get("pnl_pct", 0.0))
@@ -84,7 +98,13 @@ def revisar_cartera_completa(
                     ab.alerta_drawdown(pnl_pct, cliente=prop_nombre)
                 resultado["drawdown"] += 1
             except Exception as e:
-                logger.warning("alerta_drawdown fallo: %s", e)
+                log_degradacion(
+                    __name__,
+                    "alerta_drawdown_fallo",
+                    e,
+                    pnl_pct=float(pnl_pct),
+                    cliente=str(prop_nombre),
+                )
 
         # 4. Objetivos proximos a vencer (<= 7 dias)
         if cliente_id:
@@ -112,12 +132,24 @@ def revisar_cartera_completa(
                             )
                         resultado["vencimientos"] += 1
                     except Exception:
-                        pass
+                        log_degradacion(
+                            __name__,
+                            "alerta_objetivo_proximo_fallo",
+                            None,
+                            cliente=str(prop_nombre),
+                            objetivo=str(obj.get("Objetivo", "")),
+                        )
             except Exception as e:
-                logger.warning("revisar_objetivos fallo: %s", e)
+                log_degradacion(
+                    __name__,
+                    "revisar_objetivos_fallo",
+                    e,
+                    cliente_id=cliente_id,
+                    cliente=str(prop_nombre),
+                )
 
     except Exception as e:
-        logger.error("revisar_cartera_completa fallo: %s", e)
+        log_degradacion(__name__, "revisar_cartera_completa_fallo", e, cliente_id=cliente_id, cliente=str(prop_nombre))
 
     resultado["total"] = sum(v for k, v in resultado.items() if k != "total")
     return resultado
@@ -145,6 +177,7 @@ def contar_vencimientos_proximos(cliente_id: int | None, dias: int = 7) -> int:
             df[(df[col] <= dias) & (df["Estado"] == "ACTIVO")].shape[0]
         )
     except Exception:
+        log_degradacion(__name__, "contar_vencimientos_proximos_fallo", None, cliente_id=cliente_id, dias=dias)
         return 0
 
 
@@ -196,5 +229,12 @@ def enviar_reporte_mensual_email(
             cuerpo_html=html,
         )
     except Exception as e:
-        logger.error("enviar_reporte_mensual_email fallo: %s", e)
+        log_degradacion(
+            __name__,
+            "enviar_reporte_mensual_email_fallo",
+            e,
+            cliente=str(nombre_cliente),
+            destinatario=str(destinatario),
+            cartera=str(cartera),
+        )
         return False

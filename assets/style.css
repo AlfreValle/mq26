@@ -1,55 +1,54 @@
 /*
-  MQ26 — Design System v10
-  Paleta orgánica combinada (referencia visual): carbón/créeme/ócreo (contraste cálido)
-  + mesa oscura teal, vino/burgundy, salvia y aceituna (acentos naturales).
-  Tipografía canónica: texto Barlow Regular, subtítulos Barlow Semibold,
-  títulos Barlow Semi Condensed Extrabold y numérico DM Mono.
+  MQ26 — Design System v11 (Blue-Tech Dark)
+  Paleta: azul acero / púrpura profundo / fondo obsidiana.
+  Inspirado en el storytelling inversor. Contraste WCAG AA.
+  Tipografía: Inter (UI) + JetBrains Mono (numérico).
 */
 
 /* ── FUENTES ──────────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;1,400&family=Barlow+Semi+Condensed:wght@800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── MEJORA 1: Sistema de tokens completo ──────────────────────────────────── */
+/* ── MEJORA 1: Sistema de tokens completo (Blue-Tech Dark v11) ─────────────── */
 :root {
-  /* Paleta base (carbón + teal profundo) */
-  --c-bg:           #131816;
-  --c-surface:      #1a211e;
-  --c-surface-2:    #222b27;
-  --c-surface-3:    #2d3834;
-  --c-border:       rgba(232, 228, 217, 0.08);
-  --c-border-2:     rgba(232, 228, 217, 0.14);
-  --c-border-focus: rgba(184, 74, 95, 0.5);
+  /* ── Paleta base: obsidiana azulada ─────────────────────────────────────── */
+  --c-bg:           #0e1117;
+  --c-surface:      #161b27;
+  --c-surface-2:    #1e2538;
+  --c-surface-3:    #252d42;
+  --c-border:       rgba(42, 51, 80, 0.9);
+  --c-border-2:     rgba(79, 142, 247, 0.2);
+  --c-border-focus: rgba(79, 142, 247, 0.55);
 
-  /* Texto crema / gris cálido (legible sobre oscuro) */
-  --c-text:         #f0ebe3;
-  --c-text-2:       #a8a39a;
-  --c-text-3:       #6b6560;
-  --c-text-inv:     #131816;
+  /* ── Texto: slate claro ──────────────────────────────────────────────────── */
+  --c-text:         #e8ecf4;
+  --c-text-2:       #8892aa;
+  --c-text-3:       #505a72;
+  --c-text-inv:     #0e1117;
 
-  /* Acento principal: vino / burgundy (uvas) */
-  --c-accent:       #b84a5f;
-  --c-accent-2:     #9a3d4f;
-  --c-accent-3:     #7d3242;
-  --c-accent-rgb:   184, 74, 95;
-  --c-accent-muted: rgba(184, 74, 95, 0.18);
-  --c-accent-glow:  rgba(184, 74, 95, 0.28);
+  /* ── Acento principal: azul acero ────────────────────────────────────────── */
+  --c-accent:       #4f8ef7;
+  --c-accent-2:     #3a7ae8;
+  --c-accent-3:     #2563eb;
+  --c-accent-rgb:   79, 142, 247;
+  --c-accent-muted: rgba(79, 142, 247, 0.15);
+  --c-accent-glow:  rgba(79, 142, 247, 0.28);
 
-  /* Semáforo: salvia (éxito), ocre (alerta), terracota (pérdida) */
-  --c-green:        #6b8f6f;
-  --c-green-muted:  rgba(107, 143, 111, 0.15);
-  --c-green-glow:   rgba(107, 143, 111, 0.22);
-  --c-yellow:       #c4a35a;
-  --c-yellow-muted: rgba(196, 163, 90, 0.14);
-  --c-red:          #c45c4e;
-  --c-red-muted:    rgba(196, 92, 78, 0.14);
+  /* ── Semáforo financiero ─────────────────────────────────────────────────── */
+  --c-green:        #22c55e;
+  --c-green-muted:  rgba(34, 197, 94, 0.14);
+  --c-green-glow:   rgba(34, 197, 94, 0.22);
+  --c-yellow:       #f59e0b;
+  --c-yellow-muted: rgba(245, 158, 11, 0.14);
+  --c-red:          #ef4444;
+  --c-red-muted:    rgba(239, 68, 68, 0.14);
 
-  /* Tipografía */
-  --font-ui:        'Barlow', system-ui, sans-serif;
-  --font-body:      'Barlow', system-ui, sans-serif;
-  --font-title:     'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
-  --font-heading:   'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
-  --font-subtitle:  'Barlow', system-ui, sans-serif;
-  --font-mono:      'DM Mono', 'Fira Code', monospace;
+  /* ── Tipografía ──────────────────────────────────────────────────────────── */
+  --font-ui:        'Inter', system-ui, -apple-system, sans-serif;
+  --font-body:      'Inter', system-ui, -apple-system, sans-serif;
+  --font-title:     'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading:   'Inter', system-ui, -apple-system, sans-serif;
+  --font-subtitle:  'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono:      'JetBrains Mono', 'Fira Code', monospace;
   --fw-regular: 400;
   --fw-semibold: 600;
   --fw-extrabold: 800;
@@ -70,16 +69,16 @@
   --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.45);
   --shadow-lg:  0 8px 32px rgba(0, 0, 0, 0.55);
-  --shadow-accent: 0 0 22px rgba(184, 74, 95, 0.14);
+  --shadow-accent: 0 0 22px rgba(79, 142, 247, 0.2);
 
-  /* Compatibilidad claro/oscuro (antes hardcodeados en reglas sueltas) */
-  --c-tab-hover-bg: rgba(232, 228, 217, 0.06);
-  --c-btn-primary-fg: #f0ebe3;
+  /* Compatibilidad claro/oscuro */
+  --c-tab-hover-bg: rgba(79, 142, 247, 0.08);
+  --c-btn-primary-fg: #ffffff;
   --c-btn-primary-shadow: 0 1px 2px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   --c-btn-primary-shadow-hover: var(--shadow-accent), 0 2px 8px rgba(0, 0, 0, 0.4);
   --c-progress-shine-mid: rgba(255, 255, 255, 0.1);
-  --c-accent-border-strong: rgba(184, 74, 95, 0.38);
+  --c-accent-border-strong: rgba(79, 142, 247, 0.38);
 
   /* Animaciones */
   --ease: cubic-bezier(0.16,1,0.3,1);

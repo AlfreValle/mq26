@@ -1,0 +1,106 @@
+{
+  "ticker": "RTX",
+  "exchange": "NYSE",
+  "fecha_publicacion": "2026-06-02",
+  "autor": "BDI Consultora de Inversiones",
+  "fuentes": ["CFRA (30-may-2026)", "Argus (27-may-2026)", "Morningstar (27-abr-2026)", "Schwab/LSEG (2-jun-2026)"],
+
+  "recomendacion": "COMPRAR",
+  "precio_actual_usd": 174.4,
+  "precio_objetivo_usd": 204.0,
+  "potencial_pct": 17.0,
+  "horizonte_meses": 18,
+
+  "calificacion_total": 3.80,
+  "cal_fundamental": 4.0,
+  "cal_tecnico": 3.0,
+  "cal_sectorial": 4.0,
+  "pesos_calificacion": {"fundamental": 0.60, "tecnico": 0.20, "sectorial": 0.20},
+
+  "perfil_minimo": "Moderado",
+  "peso_cartera_pct_min": 0.03,
+  "peso_cartera_pct_max": 0.06,
+  "tipo_cartera_sugerida": "Balanceada o crecimiento con componente defensivo",
+
+  "tramos_entrada": [
+    {"tramo": 1, "proporcion": 0.40, "precio_min_usd": 172, "precio_max_usd": 176, "comentario": "A mercado / zona actual"},
+    {"tramo": 2, "proporcion": 0.35, "precio_min_usd": 168, "precio_max_usd": 170, "comentario": "En soporte inmediato"},
+    {"tramo": 3, "proporcion": 0.25, "precio_min_usd": 160, "precio_max_usd": 165, "comentario": "En soporte fuerte (sobrerreacción)"}
+  ],
+
+  "niveles_seguimiento": {
+    "stop_loss_usd": 150.0,
+    "stop_tipo": "cierre semanal por debajo de USD 150 (invalida tesis técnica)",
+    "primer_objetivo_usd": 190.0,
+    "primer_objetivo_accion": "recuperación de zona de oferta — tomar ganancia parcial",
+    "objetivo_final_usd": 204.0
+  },
+
+  "datos_clave": {
+    "capitalizacion_usd_m": 241000,
+    "rango_52sem_min_usd": 130.9,
+    "rango_52sem_max_usd": 214.5,
+    "ventas_2025_usd_m": 88600,
+    "crecimiento_ventas_2025_pct": 10.0,
+    "margen_operativo_2025_pct": 10.5,
+    "margen_operativo_ajustado_pct": 12.6,
+    "deuda_total_usd_m": 39500,
+    "caja_usd_m": 7400,
+    "dividendo_anual_usd": 2.92,
+    "dividendo_rinde_pct": 1.6,
+    "fcff_usd_m": 13500,
+    "roe_pct": 11.4,
+    "pe_forward": 25.3,
+    "ps_ratio": 2.62,
+    "beta_cfra": 0.30,
+    "beta_argus": 0.81
+  },
+
+  "tesis_resumen": "RTX combina un negocio de calidad (wide moat en los 3 segmentos, asignación de capital ejemplar) con dos vientos de cola simultáneos: aviación comercial recuperada y ciclo de gasto en defensa al alza (OTAN 3.5% PBI hacia 2035). Backlog récord USD 271.000 M (+25% i.a.) da visibilidad por años. Cotiza por debajo del valor justo de Morningstar (USD 200), CFRA (USD 216) y Argus (USD 197). La corrección reciente del 18% en 3 meses mejora el punto de entrada.",
+
+  "razones_compra": [
+    "Cartera de pedidos récord: USD 271.000 M (+25% i.a.) — visibilidad de ingresos por varios años",
+    "Doble motor: aviación comercial recuperada + ciclo de defensa al alza (OTAN 3.5% PBI 2035, EE.UU. +USD 156.200 M al Pentágono hasta 2029)",
+    "Wide moat en los 3 segmentos: Collins Aerospace, Pratt & Whitney y Raytheon (Morningstar)",
+    "Asignación de capital 'Exemplary' según Morningstar",
+    "Márgenes en expansión: 8 trimestres consecutivos de mejora; +70 pb consolidado en 1T 2026",
+    "Valuación razonable: P/E 25x vs pares 17-42x; precio/valor justo 0.87",
+    "Consenso favorable: CFRA Comprar (target 216), Argus Comprar (197), Morningstar valor justo 200"
+  ],
+
+  "riesgos": [
+    "Lastre motor GTF de Pratt & Whitney (defecto powder metal): provisiones USD 700 M a fin de 2025 (bajaron desde 1.700 M en 2024)",
+    "Riesgo regulatorio: comentarios sobre restringir recompras y dividendos de contratistas de defensa",
+    "Concentración en gasto público: ~53% ventas dependen de presupuestos defensa",
+    "Valuación exigente: P/E 25x deja poco margen para decepciones",
+    "Ciclicidad del negocio comercial: recesión afectaría aftermarket"
+  ],
+
+  "consenso_analistas": [
+    {"fuente": "CFRA (Matthew Miller, CFA)", "recomendacion": "Comprar 4 estrellas", "target_usd": 216.0},
+    {"fuente": "Argus", "recomendacion": "Comprar", "target_usd": 197.0},
+    {"fuente": "Morningstar (Nicolas Owens)", "recomendacion": "4 estrellas / Wide moat", "target_usd": 200.0},
+    {"fuente": "Schwab/LSEG", "recomendacion": "Score 7/10 neutral", "consenso_ibes": "Compra (26 analistas)"}
+  ],
+
+  "niveles_tecnicos": {
+    "resistencia_mayor_usd": 213.5,
+    "resistencia_intermedia_usd": 187.5,
+    "precio_actual_usd": 174.0,
+    "soporte_inmediato_usd": 170.0,
+    "soporte_fuerte_usd": 164.0,
+    "soporte_largo_plazo_usd": 150.0,
+    "tendencia_lp": "alcista (intacta desde mínimos oct-2025 en USD 155)",
+    "tendencia_cp": "correctiva (-18% en 3 meses, busca piso en 170)"
+  },
+
+  "segmentos_negocio": [
+    {"nombre": "Pratt & Whitney", "pct_ventas": 37, "descripcion": "Motores de avión (GTF, F135)"},
+    {"nombre": "Collins Aerospace", "pct_ventas": 34, "descripcion": "Aviónica, estructuras e interiores"},
+    {"nombre": "Raytheon", "pct_ventas": 32, "descripcion": "Defensa antimisil, misiles, radares (Patriot, AMRAAM, Tomahawk, SM-3/6, SPY-6)"}
+  ],
+
+  "split_negocio": {"defensa_pct": 53, "comercial_pct": 47},
+
+  "pdf_path": "//10.100.200.82/Informatica-Administrativos-Scanner/REMITOS AUDITORIA/Alfredo/BDI/Informe_BDI_RTX_Junio_2026.pdf"
+}

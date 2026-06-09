@@ -69,7 +69,7 @@ Abrir `http://localhost:8502`
 | **Admin** | `admin` | `MQ26_PASSWORD` | Todo + panel Admin |
 | **Asesor** | `asesor` | `MQ26_ADVISOR_PASSWORD` | Cartera, Optimización, Reporte |
 | **Estudio** | `estudio` | `MQ26_VIEWER_PASSWORD` | Clientes, Cartera, Reportes |
-| **Inversor** | `inversor` | `MQ26_INVESTOR_PASSWORD` | Solo Mi Cartera |
+| **Inversor** | `inversor` | `MQ26_INVESTOR_PASSWORD` | Mi Cartera (varios clientes vinculados posibles) |
 
 Para crear usuarios con login propio por asesor/inversor: **Admin → Usuarios BD → Alta de usuario**.
 

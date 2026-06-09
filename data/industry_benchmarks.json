@@ -1,0 +1,132 @@
+{
+  "_meta": {
+    "description": "Benchmarks por industria específica (más granular que sector amplio). Usado por scoring_multifactor para comparativa empresa-vs-industria. Editable manualmente.",
+    "fecha_actualizacion": "2026-06-03",
+    "fuentes": ["Datos profesionales (Investing.com, Bloomberg, Reuters)"]
+  },
+
+  "Drug Manufacturers - General": {
+    "pe_med": 23.75,
+    "ps_med": 5.68,
+    "pb_med": 5.50,
+    "roe_med": 0.3068,
+    "roa_med": 0.0873,
+    "roi_med": 0.1731,
+    "margen_bruto_med": 0.7193,
+    "margen_operativo_med": 0.2590,
+    "margen_neto_med": 0.2690,
+    "crecimiento_bpa_5y_med": 0.1116,
+    "crecimiento_ventas_5y_med": 0.0975,
+    "deuda_equity_med": 0.8761,
+    "dividend_yield_med": 0.0239,
+    "payout_med": 0.5096,
+    "test_acido_med": 0.97,
+    "ratio_solvencia_med": 1.44,
+    "rotacion_activos_med": 0.54,
+    "tickers_ejemplo": ["JNJ", "PFE", "MRK", "LLY", "ABBV", "BMY"]
+  },
+
+  "Software - Infrastructure": {
+    "pe_med": 35.0,
+    "ps_med": 9.5,
+    "pb_med": 8.0,
+    "roe_med": 0.30,
+    "roa_med": 0.12,
+    "margen_bruto_med": 0.75,
+    "margen_operativo_med": 0.30,
+    "margen_neto_med": 0.25,
+    "crecimiento_bpa_5y_med": 0.18,
+    "crecimiento_ventas_5y_med": 0.15,
+    "deuda_equity_med": 0.40,
+    "dividend_yield_med": 0.012,
+    "tickers_ejemplo": ["MSFT", "ORCL", "VMW"]
+  },
+
+  "Semiconductors": {
+    "pe_med": 28.0,
+    "ps_med": 8.0,
+    "pb_med": 6.5,
+    "roe_med": 0.28,
+    "roa_med": 0.15,
+    "margen_bruto_med": 0.55,
+    "margen_operativo_med": 0.28,
+    "margen_neto_med": 0.22,
+    "crecimiento_bpa_5y_med": 0.20,
+    "crecimiento_ventas_5y_med": 0.16,
+    "deuda_equity_med": 0.35,
+    "dividend_yield_med": 0.010,
+    "tickers_ejemplo": ["NVDA", "AMD", "TSM", "INTC", "AVGO"]
+  },
+
+  "Software - Application": {
+    "pe_med": 32.0,
+    "ps_med": 9.0,
+    "pb_med": 7.5,
+    "roe_med": 0.25,
+    "margen_neto_med": 0.20,
+    "tickers_ejemplo": ["CRM", "ADBE", "INTU"]
+  },
+
+  "Internet Content & Information": {
+    "pe_med": 24.0,
+    "ps_med": 5.5,
+    "pb_med": 5.0,
+    "roe_med": 0.26,
+    "margen_neto_med": 0.22,
+    "tickers_ejemplo": ["GOOGL", "META"]
+  },
+
+  "Internet Retail": {
+    "pe_med": 30.0,
+    "ps_med": 3.0,
+    "pb_med": 6.0,
+    "roe_med": 0.18,
+    "margen_neto_med": 0.07,
+    "tickers_ejemplo": ["AMZN", "MELI"]
+  },
+
+  "Consumer Electronics": {
+    "pe_med": 26.0,
+    "ps_med": 6.5,
+    "pb_med": 35.0,
+    "roe_med": 1.20,
+    "margen_neto_med": 0.25,
+    "tickers_ejemplo": ["AAPL"]
+  },
+
+  "Beverages - Non-Alcoholic": {
+    "pe_med": 24.0,
+    "ps_med": 6.0,
+    "pb_med": 12.0,
+    "roe_med": 0.42,
+    "margen_bruto_med": 0.60,
+    "margen_neto_med": 0.24,
+    "dividend_yield_med": 0.028,
+    "tickers_ejemplo": ["KO", "PEP"]
+  },
+
+  "Aerospace & Defense": {
+    "pe_med": 25.0,
+    "ps_med": 2.5,
+    "pb_med": 5.0,
+    "roe_med": 0.20,
+    "margen_operativo_med": 0.12,
+    "margen_neto_med": 0.10,
+    "dividend_yield_med": 0.018,
+    "tickers_ejemplo": ["RTX", "LMT", "BA", "GE"]
+  },
+
+  "_default_sector": {
+    "Technology":              {"pe_med": 28.0, "roe_med": 0.22},
+    "Financial Services":      {"pe_med": 12.0, "roe_med": 0.12},
+    "Healthcare":              {"pe_med": 18.0, "roe_med": 0.18},
+    "Consumer Cyclical":       {"pe_med": 18.0, "roe_med": 0.15},
+    "Consumer Defensive":      {"pe_med": 20.0, "roe_med": 0.20},
+    "Communication Services":  {"pe_med": 20.0, "roe_med": 0.18},
+    "Industrials":             {"pe_med": 18.0, "roe_med": 0.15},
+    "Energy":                  {"pe_med": 12.0, "roe_med": 0.14},
+    "Basic Materials":         {"pe_med": 14.0, "roe_med": 0.12},
+    "Utilities":               {"pe_med": 16.0, "roe_med": 0.10},
+    "Real Estate":             {"pe_med": 30.0, "roe_med": 0.08}
+  }
+}

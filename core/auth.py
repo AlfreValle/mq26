@@ -6,16 +6,20 @@ Soporta rate limiting (MQ-S4) y log de accesos (DS-S3).
 from __future__ import annotations
 
 import hashlib
+import html as html_module
 import hmac
+import os
 import secrets
 import time
 
 import streamlit as st
 
+from core.logging_config import get_logger
 from core.mq26_disclaimers import LOGIN_LEGAL_DISCLAIMER_ES
 
 # Importación lazy para evitar circular (se usa solo al registrar acceso)
 _dbm_imported: bool = False
+_log = get_logger(__name__)
 
 
 # ─── CONSTANTES ───────────────────────────────────────────────────────────────
@@ -46,8 +50,8 @@ def _registrar_acceso(app_id: str, exito: bool) -> None:
             mensaje=f"Login {'exitoso' if exito else 'fallido'} en {app_id} — {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             enviada=False,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.warning("degradacion_auth_registro_acceso app=%s exito=%s err=%s", app_id, exito, exc, exc_info=True)
 
 
 def _esta_bloqueado(auth_key: str) -> tuple[bool, int]:
@@ -144,6 +148,7 @@ def check_password(
                 auth_key, ts_key, token_key, error_key, role_key, user_key,
                 f"{app_id}_auth_source",
                 f"{app_id}_allowed_cliente_ids",
+                f"{app_id}_cliente_default_id",
                 f"{app_id}_rama",
                 f"{app_id}_db_user_id",
             ]:
@@ -154,6 +159,7 @@ def check_password(
             st.session_state.setdefault(role_key, "admin")
             st.session_state.setdefault(f"{app_id}_auth_source", "env")
             st.session_state.setdefault(f"{app_id}_allowed_cliente_ids", None)
+            st.session_state.setdefault(f"{app_id}_cliente_default_id", None)
             _rk = str(st.session_state.get(role_key, "admin")).lower()
             st.session_state.setdefault(
                 f"{app_id}_rama",
@@ -161,14 +167,17 @@ def check_password(
             )
             return True
 
-    # Pantalla de login
+    # Pantalla de login (clases mq-auth-* + tokens CSS; sin #888 fijo sobre fondo oscuro)
     col = st.columns([1, 2, 1])[1]
     with col:
+        _ic = html_module.escape(str(icon))
+        _an = html_module.escape(str(app_name))
+        _sub = html_module.escape(str(subtitle))
         st.markdown(
-            f"<div style='text-align:center;padding:2rem 0 1rem'>"
-            f"<div style='font-size:3.5rem'>{icon}</div>"
-            f"<h2 style='margin:0.4rem 0'>{app_name}</h2>"
-            f"<p style='color:#888'>{subtitle}</p></div>",
+            f"<div class='mq-auth-login-hero'>"
+            f"<div class='mq-auth-login-icon' aria-hidden='true'>{_ic}</div>"
+            f"<h2 class='mq-auth-login-title'>{_an}</h2>"
+            f"<p class='mq-auth-login-subtitle'>{_sub}</p></div>",
             unsafe_allow_html=True,
         )
         if st.session_state.get(timeout_key):
@@ -229,6 +238,8 @@ def check_password(
                     f"**estudio** · **inversor** — usuarios configurables: {hint_users}"
                 )
             st.caption(LOGIN_LEGAL_DISCLAIMER_ES)
+            if st.session_state.get(f"{app_id}_degraded_auth"):
+                st.caption("⚠️ Login BD degradado temporalmente; operando con fallback local.")
             if submitted is True:
                 bloqueado, _ = _esta_bloqueado(auth_key)
                 if not bloqueado:
@@ -239,16 +250,28 @@ def check_password(
                     if username_login:
                         u_raw = user_field if isinstance(user_field, str) else ""
                         u = (u_raw or "").strip().lower()
+                        db_required = bool(try_database_users and (db_tenant_id or "").strip())
+                        breakglass_user = (os.getenv("MQ26_BREAKGLASS_USER") or "").strip().lower()
+                        breakglass_pass = os.getenv("MQ26_BREAKGLASS_PASSWORD") or ""
                         if try_database_users and (db_tenant_id or "").strip():
                             try:
                                 from services.app_user_service import authenticate_app_user
                                 db_hit = authenticate_app_user(db_tenant_id, u, pwd)
-                            except Exception:
+                            except Exception as exc:
+                                _log.warning("degradacion_auth_db_lookup app=%s err=%s", app_id, exc, exc_info=True)
+                                st.session_state[f"{app_id}_degraded_auth"] = True
                                 db_hit = None
                         if db_hit:
                             ok_login = True
                             assigned_role = db_hit["session_role"]
-                        if not ok_login:
+                        # Fail-closed: si el login por BD es requerido, NO hacer fallback ENV,
+                        # salvo cuenta breakglass explícita para contingencias.
+                        if not ok_login and db_required:
+                            if breakglass_user and u == breakglass_user and breakglass_pass:
+                                if verificar_password(pwd, breakglass_pass):
+                                    ok_login = True
+                                    assigned_role = "admin"
+                        if not ok_login and not db_required:
                             table = _login_user_table(
                                 password_env=password_env,
                                 viewer_password_env=viewer_password_env,
@@ -299,11 +322,13 @@ def check_password(
                         if db_hit:
                             st.session_state[f"{app_id}_auth_source"] = "db"
                             st.session_state[f"{app_id}_allowed_cliente_ids"] = db_hit["allowed_cliente_ids"]
+                            st.session_state[f"{app_id}_cliente_default_id"] = db_hit.get("cliente_default_id")
                             st.session_state[f"{app_id}_rama"] = db_hit["rama"]
                             st.session_state[f"{app_id}_db_user_id"] = db_hit["user_id"]
                         else:
                             st.session_state[f"{app_id}_auth_source"] = "env"
                             st.session_state[f"{app_id}_allowed_cliente_ids"] = None
+                            st.session_state[f"{app_id}_cliente_default_id"] = None
                             st.session_state[f"{app_id}_rama"] = (
                                 "retail" if assigned_role == "inversor" else "profesional"
                             )
@@ -345,6 +370,7 @@ def cerrar_sesion(app_id: str) -> None:
         f"{app_id}_login_user",
         f"{app_id}_auth_source",
         f"{app_id}_allowed_cliente_ids",
+        f"{app_id}_cliente_default_id",
         f"{app_id}_rama",
         f"{app_id}_db_user_id",
     ]:

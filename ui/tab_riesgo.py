@@ -8,6 +8,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.structured_logging import log_degradacion
+from services.risk_var import calcular_var_cvar
+from ui.mq26_ux import dataframe_auto_height
+
 
 # ── Glosario de métricas de riesgo en lenguaje humano (U39 Must) ─────────
 _GLOSARIO_RIESGO = {
@@ -47,6 +51,31 @@ GLOSARIO_RIESGO["CVaR"] = _GLOSARIO_RIESGO["CVaR / Expected Shortfall"]
 
 def _tooltip_riesgo(metrica: str) -> str:
     return _GLOSARIO_RIESGO.get(metrica, GLOSARIO_RIESGO.get(metrica, ""))
+
+
+def _build_ccl_series(cached_historico_fn, period: str) -> pd.Series | None:
+    """Construye serie diaria de CCL usando proxy GGAL.BA/GGAL*10."""
+    if not cached_historico_fn:
+        return None
+    try:
+        df_ccl = cached_historico_fn(("GGAL.BA", "GGAL"), period)
+        if df_ccl is None or df_ccl.empty:
+            return None
+        if "GGAL.BA" not in df_ccl.columns or "GGAL" not in df_ccl.columns:
+            return None
+        num = pd.to_numeric(df_ccl["GGAL.BA"], errors="coerce")
+        den = pd.to_numeric(df_ccl["GGAL"], errors="coerce")
+        ser = (num / den) * 10.0
+        ser = ser.replace([np.inf, -np.inf], np.nan).dropna()
+        return ser if not ser.empty else None
+    except Exception as _e_ccl:
+        log_degradacion(
+            "ui.tab_riesgo",
+            "ccl_proxy_series_fallo",
+            _e_ccl,
+            period=str(period)[:16],
+        )
+        return None
 
 
 def _run_montecarlo(w, ret_d, tickers_ok, n_sim, horiz, shock_ret, shock_vol, rf,
@@ -267,7 +296,12 @@ def render_tab_riesgo(ctx: dict) -> None:
                             ]
                             df_met_bt = pd.DataFrame(metricas_rows,
                                                       columns=["Métrica", f"Óptima ({modelo_opt})", "Actual", benchmark_bt])
-                            st.dataframe(df_met_bt, use_container_width=True, hide_index=True)
+                            st.dataframe(
+                                df_met_bt,
+                                use_container_width=True,
+                                hide_index=True,
+                                height=dataframe_auto_height(df_met_bt),
+                            )
 
                             # Equity curve unificada
                             fechas_str = [str(f)[:10] for f in result_opt.fechas]
@@ -382,7 +416,12 @@ def render_tab_riesgo(ctx: dict) -> None:
                                     f"{met_act_mc['sharpe']:.2f}" if met_act_mc else "—",
                                 ],
                             })
-                            st.dataframe(df_met_mc, use_container_width=True, hide_index=True)
+                            st.dataframe(
+                                df_met_mc,
+                                use_container_width=True,
+                                hide_index=True,
+                                height=dataframe_auto_height(df_met_mc),
+                            )
 
                             if met_opt["var95"] * 100 < umbral_var:
                                 st.error(f"🚨 VaR Óptima {met_opt['var95']*100:.1f}% supera umbral {umbral_var}%")
@@ -476,7 +515,13 @@ def render_tab_riesgo(ctx: dict) -> None:
                                         })
                             if pares_alerta:
                                 st.warning(f"⚠️ {len(pares_alerta)} pares con correlación > {umbral_corr:.0%} — Riesgo de concentración")
-                                st.dataframe(pd.DataFrame(pares_alerta), use_container_width=True, hide_index=True)
+                                _df_pa = pd.DataFrame(pares_alerta)
+                                st.dataframe(
+                                    _df_pa,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    height=dataframe_auto_height(_df_pa),
+                                )
                             else:
                                 st.success(f"✅ Ningún par supera el umbral de correlación de {umbral_corr:.0%}")
 
@@ -529,13 +574,17 @@ def render_tab_riesgo(ctx: dict) -> None:
                     return ["background-color: rgba(46,134,171,0.2)"] * len(row)
                 return [""] * len(row)
 
+            _sty_ccl = df_ccl.style.format({
+                "CCL Simulado": "{:,.0f}",
+                "Valor Cartera ARS": "${:,.0f}",
+                "P&L ARS (aprox)": "${:,.0f}",
+                "Valor Cartera USD": "${:,.2f}",
+            }).apply(_ccl_color, axis=1)
             st.dataframe(
-                df_ccl.style.format({
-                    "CCL Simulado": "{:,.0f}",
-                    "Valor Cartera ARS": "${:,.0f}",
-                    "P&L ARS (aprox)": "${:,.0f}",
-                    "Valor Cartera USD": "${:,.2f}",
-                }).apply(_ccl_color, axis=1), use_container_width=True, hide_index=True,
+                _sty_ccl,
+                use_container_width=True,
+                hide_index=True,
+                height=dataframe_auto_height(df_ccl),
             )
 
             # Gráfico
@@ -667,13 +716,36 @@ def render_tab_riesgo(ctx: dict) -> None:
                             _w_h9 = _w_h9 / _w_h9.sum() if _w_h9.sum() > 0 else _w_h9
                             _ret_h9 = _hist_h9[_tickers_ok_h9].pct_change().dropna().values @ _w_h9
                             st.session_state["ret_hist_h9"] = _ret_h9
+                            # P0-02: activar ajuste FX real en caller de VaR/CVaR
+                            _cant_h9 = {}
+                            _px_h9 = {}
+                            for _t in _tickers_ok_h9:
+                                _df_t = df_ag[df_ag["TICKER"].astype(str).str.upper() == str(_t).upper()]
+                                if _df_t.empty:
+                                    continue
+                                _cant_h9[_t] = float(pd.to_numeric(_df_t.get("CANTIDAD_TOTAL", 0), errors="coerce").fillna(0).sum())
+                                _px_h9[_t] = float(pd.to_numeric(_df_t.get("PRECIO_ARS", 0), errors="coerce").fillna(0).mean())
+                            _ccl_series_h9 = _build_ccl_series(cached_historico, _period_h9)
+                            _rv_res = calcular_var_cvar(
+                                tickers=_tickers_ok_h9,
+                                cantidades=_cant_h9,
+                                precios_ars=_px_h9,
+                                ccl=float(ctx.get("ccl", 0) or 0),
+                                horizonte_dias=1,
+                                nivel_confianza=0.95,
+                                periodo_hist=_period_h9,
+                                ccl_series=_ccl_series_h9,
+                            )
+                            if _rv_res:
+                                st.session_state["risk_var_h9"] = _rv_res
                     except Exception as _eh9:
                         st.error(f"Error: {_eh9}")
 
             if "ret_hist_h9" in st.session_state:
                 _ret_h9 = st.session_state["ret_hist_h9"]
-                _var95    = float(np.percentile(_ret_h9, 5))
-                _cvar95   = float(_ret_h9[_ret_h9 <= _var95].mean()) if (_ret_h9 <= _var95).any() else _var95
+                _rv_h9 = st.session_state.get("risk_var_h9", {}) or {}
+                _var95 = float(_rv_h9.get("var_pct", np.percentile(_ret_h9, 5) * 100.0)) / 100.0
+                _cvar95 = float(_rv_h9.get("cvar_pct", (_ret_h9[_ret_h9 <= np.percentile(_ret_h9, 5)].mean() * 100.0))) / 100.0
                 _var99    = float(np.percentile(_ret_h9, 1))
                 _media    = float(_ret_h9.mean())
                 _vol      = float(_ret_h9.std())
@@ -687,6 +759,11 @@ def render_tab_riesgo(ctx: dict) -> None:
                 col_h3.metric("VaR 99% (diario)",  f"{_var99:.2%}", help="Pérdida máxima esperada el 1% más extremo")
                 col_h4.metric("Sesgo / Curtosis",  f"{_skew:.2f} / {_kurt:.2f}",
                                help="Sesgo < 0 = más pérdidas extremas. Curtosis > 3 = fat tails.")
+                if _rv_h9:
+                    st.caption(
+                        "VaR/CVaR 95% calculado con `services.risk_var.calcular_var_cvar` "
+                        f"(FX ajustado: {'sí' if bool(_rv_h9.get('fx_adjusted')) else 'no'})."
+                    )
 
                 # Histograma
                 _fig_hist = go.Figure()
@@ -848,8 +925,13 @@ def render_tab_riesgo(ctx: dict) -> None:
                                             st.metric("β QQQ", f"{_fac.get('beta_qqq', 0):.2f}")
                                         with fx3:
                                             st.metric("β EEM", f"{_fac.get('beta_eem', 0):.2f}")
-                                except Exception:
-                                    pass
+                                except Exception as _e_fx:
+                                    log_degradacion(
+                                        "ui.tab_riesgo",
+                                        "exposicion_factorial_beta_fallo",
+                                        _e_fx,
+                                        n_activos=len(tickers_ok) if tickers_ok else 0,
+                                    )
 
                             st.divider()
 
@@ -918,7 +1000,9 @@ def render_tab_riesgo(ctx: dict) -> None:
 
                                 st.dataframe(
                                     df_betas,
-                                    hide_index=True, use_container_width=True,
+                                    hide_index=True,
+                                    use_container_width=True,
+                                    height=dataframe_auto_height(df_betas),
                                     column_config={
                                         "Ticker":        st.column_config.TextColumn("Ticker"),
                                         "beta":          st.column_config.NumberColumn("Beta", format="%.2f"),
@@ -1106,11 +1190,16 @@ def render_tab_riesgo(ctx: dict) -> None:
                         "Contrib. Riesgo %": _risk_contrib_pct.round(2),
                         "Covarianza Marginal": (_cov_mrc @ _w_mrc).round(6),
                     }).sort_values("Contrib. Riesgo %", ascending=False)
-                    st.dataframe(_df_mrc, hide_index=True, use_container_width=True,
-                                 column_config={
-                                     "Peso %": st.column_config.ProgressColumn("Peso %", min_value=0, max_value=100, format="%.1f%%"),
-                                     "Contrib. Riesgo %": st.column_config.ProgressColumn("Contrib. Riesgo %", min_value=0, max_value=100, format="%.1f%%"),
-                                 })
+                    st.dataframe(
+                        _df_mrc,
+                        hide_index=True,
+                        use_container_width=True,
+                        height=dataframe_auto_height(_df_mrc),
+                        column_config={
+                            "Peso %": st.column_config.ProgressColumn("Peso %", min_value=0, max_value=100, format="%.1f%%"),
+                            "Contrib. Riesgo %": st.column_config.ProgressColumn("Contrib. Riesgo %", min_value=0, max_value=100, format="%.1f%%"),
+                        },
+                    )
                     fig_mrc = go.Figure(go.Bar(
                         x=_df_mrc["Ticker"], y=_df_mrc["Contrib. Riesgo %"],
                         marker_color=["#E74C3C" if v > 20 else "#F39C12" if v > 10 else "#4CAF50"
@@ -1146,6 +1235,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                         df_str,
                         use_container_width=True,
                         hide_index=True,
+                        height=dataframe_auto_height(df_str),
                         column_config={
                             "escenario": st.column_config.TextColumn("Escenario", width="medium"),
                             "valor_original": st.column_config.NumberColumn("Valor original (ARS)", format="$%.0f"),

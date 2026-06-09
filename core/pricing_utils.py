@@ -150,6 +150,51 @@ def es_instrumento_local_ars(ticker: str, tipo: str = "") -> bool:
     return False
 
 
+def es_ticker_admitido_byma(ticker: str, tipo_activo: str = "") -> bool:
+    """
+    Retorna True si el ticker es un instrumento válido para importar en MQ26.
+
+    Instrumentos admitidos:
+    - CEDEAR listado en RATIOS_CEDEAR (universo BYMA)
+    - Acción argentina en ACCIONES_LOCALES
+    - Bono soberano/provincial (prefijos AL, GD, TX, AE, etc.)
+    - Letra del tesoro (patrón S/X + código BYMA: S31E5, X18F5…)
+    - Obligación Negociable (tipo declarado ON/OBLIGACION)
+    - Cualquier instrumento reconocido por es_instrumento_local_ars()
+
+    Instrumentos NO admitidos:
+    - Acciones extranjeras directas (ADM, IBM, DE, etc.) que no son CEDEAR
+    - Cualquier ticker no reconocido sin tipo explícito
+    """
+    t = str(ticker).upper().strip()
+    tp = str(tipo_activo).upper().strip().replace(" ", "_")
+
+    # 1. Tipo explícito admitido (ON, bono, letra, FCI, caucion)
+    _TIPOS_OK = {
+        "ON", "ON_USD", "ON_ARS", "OBLIGACION", "OBLIGACION_NEGOCIABLE",
+        "BONO", "BONO_USD", "BONO_ARS", "BONO_CORP",
+        "LETRA", "LETE", "LECAP", "LECER", "LEDE", "LEDES",
+        "FCI", "CUOTA_PARTE", "CAUCIONES", "CAUCION",
+        "CEDEAR", "ACCION", "ACCION_LOCAL",
+    }
+    if tp in _TIPOS_OK:
+        return True
+
+    # 2. CEDEAR reconocido en BYMA (fuente de verdad: RATIOS_CEDEAR)
+    if t in RATIOS_CEDEAR:
+        return True
+
+    # 3. Acción argentina conocida
+    if t in ACCIONES_LOCALES:
+        return True
+
+    # 4. Bono/letra por patrón BYMA (AL30, GD35, S31E5…)
+    if es_instrumento_local_ars(t, tp):
+        return True
+
+    return False
+
+
 # ─── PARSEO DE PRECIOS ────────────────────────────────────────────────────────
 
 def parsear_ppc_usd(valor) -> float:

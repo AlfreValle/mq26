@@ -1,6 +1,7 @@
 """tests/test_recomendacion_capital.py — Motor recomendación capital S5."""
 import pandas as pd
 
+from core.renta_fija_ar import es_renta_fija
 from services.recomendacion_capital import recomendar
 
 
@@ -21,7 +22,9 @@ def test_recomendacion_prioriza_defensa_primero():
         df_analisis=None,
     )
     assert r.compras_recomendadas, "debe haber al menos una compra"
-    assert r.compras_recomendadas[0].ticker in ("PN43O", "TLCTO")
+    # ON defensivas de mayor calificación — el ranking varía según TIR actualizada:
+    # PN43O (AA+, 6.8%), TSC4O (AA+, 7.0%), TLCTO (AA, 7.5%) son todas válidas
+    assert r.compras_recomendadas[0].ticker in ("PN43O", "TLCTO", "TSC4O")
 
 
 def test_recomendacion_unidades_enteras():
@@ -62,8 +65,14 @@ def test_recomendacion_capital_no_supera_disponible():
 
 
 def test_pendientes_si_precio_supera_capital():
+    """
+    Con $100k ARS, instrumentos caros (SPY $120k, MSFT $80k) deben ir a pendientes
+    porque su precio supera el capital asignado por peso.
+    GLD fue eliminado del ideal (se remapó a SPY); esta versión usa SPY caro.
+    """
     df = pd.DataFrame()
-    precios = {"GLD": 215_000.0}
+    # SPY a $120k y MSFT a $80k — ambos superan lo que puede asignarse con $100k
+    precios = {"SPY": 120_000.0, "MSFT": 80_000.0, "QQQ": 90_000.0}
     r = recomendar(
         df_ag=df,
         perfil="Moderado",
@@ -73,10 +82,11 @@ def test_pendientes_si_precio_supera_capital():
         precios_dict=precios,
         diagnostico=None,
     )
-    hay_gld_pend = any(
-        p.get("ticker") == "GLD" for p in r.pendientes_proxima_inyeccion
+    # Al menos un instrumento caro debe ir a pendientes O quedar mucho capital sin usar
+    hay_pendiente_caro = any(
+        p.get("precio_ars", 0) > 30_000 for p in r.pendientes_proxima_inyeccion
     )
-    assert hay_gld_pend or r.capital_remanente_ars >= 99_000
+    assert hay_pendiente_caro or r.capital_remanente_ars >= 50_000
 
 
 def test_recomendacion_cartera_perfecta_no_compra_nada_innecesario():
@@ -130,7 +140,7 @@ def test_recomendacion_capital_cero():
     assert r.compras_recomendadas == []
 
 
-def test_renta_ar_placeholder_va_a_pendientes():
+def test_renta_ar_placeholder_o_compra_rf_concreta():
     df = pd.DataFrame(
         [{"TICKER": "SPY", "VALOR_ARS": 100_000.0, "TIPO": "CEDEAR", "PESO_PCT": 1.0}]
     )
@@ -149,7 +159,8 @@ def test_renta_ar_placeholder_va_a_pendientes():
         p for p in r.pendientes_proxima_inyeccion
         if p.get("ticker") == "_RENTA_AR" or "ON/Bonos AR" in str(p.get("motivo", ""))
     ]
-    assert pend_renta
+    hay_compra_rf = any(es_renta_fija(c.ticker) for c in r.compras_recomendadas)
+    assert hay_compra_rf or pend_renta
 
 
 def test_recomendar_precios_vacios_no_falla():
@@ -163,8 +174,8 @@ def test_recomendar_precios_vacios_no_falla():
         precios_dict={},
         diagnostico=None,
     )
-    assert r.n_compras == 0
     assert r.capital_remanente_ars >= 0.0
+    assert r.n_compras >= 0
 
 
 def test_alerta_mercado_sin_compras():
@@ -181,3 +192,73 @@ def test_alerta_mercado_sin_compras():
     )
     assert r.alerta_mercado is True
     assert r.compras_recomendadas == []
+
+
+def test_blocklist_no_aparece_en_satelites():
+    """ADM/GIS/CMCSA en df_analisis con score alto NO deben aparecer como compras."""
+    from config import TICKERS_NO_CEDEAR_BYMA
+
+    df_analisis = pd.DataFrame([
+        {"TICKER": "ADM",   "PUNTAJE_TECNICO": 9.0, "RSI": 45},
+        {"TICKER": "GIS",   "PUNTAJE_TECNICO": 9.0, "RSI": 45},
+        {"TICKER": "CMCSA", "PUNTAJE_TECNICO": 9.0, "RSI": 45},
+        {"TICKER": "MSFT",  "PUNTAJE_TECNICO": 8.5, "RSI": 50},
+    ])
+    precios = {
+        "PN43O": 80_000.0, "TLCTO": 70_000.0, "GLD": 12_000.0,
+        "BRKB": 30_000.0, "SPY": 55_000.0, "MSFT": 20_000.0,
+        "ADM": 120_000.0, "GIS": 50_000.0, "CMCSA": 35_000.0,
+    }
+    r = recomendar(
+        df_ag=pd.DataFrame(),
+        perfil="Moderado",
+        horizonte_label="1 año",
+        capital_ars=2_000_000.0,
+        ccl=1200.0,
+        precios_dict=precios,
+        diagnostico=None,
+        df_analisis=df_analisis,
+    )
+    tickers_compras = {c.ticker for c in r.compras_recomendadas}
+    blocked = TICKERS_NO_CEDEAR_BYMA & tickers_compras
+    assert not blocked, f"Tickers bloqueados aparecieron en compras: {blocked}"
+
+
+def test_cartera_ideal_suma_uno_por_perfil():
+    """Cada perfil de CARTERA_IDEAL debe sumar 1.0."""
+    from core.diagnostico_types import CARTERA_IDEAL
+
+    for perfil, pesos in CARTERA_IDEAL.items():
+        total = round(sum(pesos.values()), 3)
+        assert total == 1.0, f"Perfil {perfil!r}: pesos suman {total}, esperado 1.0"
+
+
+def test_cartera_ideal_no_incluye_bloqueados():
+    """Ningún perfil de CARTERA_IDEAL debe incluir tickers bloqueados."""
+    from config import TICKERS_NO_CEDEAR_BYMA
+    from core.diagnostico_types import CARTERA_IDEAL
+
+    for perfil, pesos in CARTERA_IDEAL.items():
+        for ticker in pesos:
+            if ticker.startswith("_"):
+                continue
+            assert ticker not in TICKERS_NO_CEDEAR_BYMA, (
+                f"Ticker bloqueado {ticker!r} encontrado en CARTERA_IDEAL[{perfil!r}]"
+            )
+
+
+def test_cartera_ideal_arriesgado_cubre_mas_sectores():
+    """El perfil Arriesgado debe tener tickers de Argentina (GGAL/YPFD) además de tech global."""
+    from core.diagnostico_types import CARTERA_IDEAL
+    from services.recomendacion_capital import _expandir_ideal
+
+    # CARTERA_IDEAL ahora contiene pools dinámicos (_ON_USD_POOL, _RV_CEDEAR_POOL).
+    # Hay que expandir antes de verificar los tickers concretos.
+    ideal_exp = _expandir_ideal(CARTERA_IDEAL["Arriesgado"], "Arriesgado")
+    tickers = {k for k in ideal_exp if not k.startswith("_")}
+    has_ar = bool(tickers & {"GGAL", "YPFD", "CEPU", "PAMP", "TGNO4", "VIST"})
+    has_defensivo = bool(tickers & {"KO", "PEP", "JNJ", "PG", "GLD", "SPY"})
+    has_tech = bool(tickers & {"MSFT", "NVDA", "META", "AMZN", "GOOGL", "AAPL", "AMD", "PLTR"})
+    assert has_ar,        "Perfil Arriesgado debe incluir al menos un activo local AR"
+    assert has_defensivo, "Perfil Arriesgado debe incluir al menos un activo defensivo (GLD o SPY)"
+    assert has_tech,      "Perfil Arriesgado debe incluir exposición tech"

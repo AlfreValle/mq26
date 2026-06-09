@@ -1,0 +1,146 @@
+# Universo generado automaticamente (DB_FALLBACK)
+# CEDEARs
+# Fallback desde DB local (sin ranking por volumen).
+
+AAPL
+ABBV
+ABNB
+ABT
+ADBE
+# ADM eliminado: no es CEDEAR en BYMA
+AMD
+AMGN
+AMZN
+# ASML eliminado: no está en el archivo oficial BYMA
+AVGO
+AXP
+BA
+BABA
+BAC
+BIIB
+BKR
+# BLK eliminado: no es CEDEAR en BYMA
+BP
+BRKB
+C
+CAT
+# CEG eliminado: no es CEDEAR en BYMA
+CL
+# CMCSA eliminado: no es CEDEAR en BYMA
+COST
+CRM
+CSCO
+CVS
+CVX
+DD
+DE
+DESP
+DHR
+DIA
+DISN
+DOW
+F
+GE
+GGAL
+GILD
+# GIS eliminado: no es CEDEAR en BYMA
+GLD
+GLOB
+GM
+GOOGL
+GS
+HAL
+HD
+HMC
+HON
+HSY
+IBM
+INTC
+ISRG
+IWM
+JD
+JNJ
+JPM
+# K (Kellogg) eliminado: no es CEDEAR en BYMA
+KMB
+KO
+LLY
+LMT
+# LOW (Lowe's) eliminado: no es CEDEAR en BYMA
+MA
+MCD
+MELI
+META
+MMM
+MO
+MRK
+# MS (Morgan Stanley) eliminado: no es CEDEAR en BYMA
+MSFT
+MU
+NFLX
+NKE
+NVDA
+# NVO (Novo Nordisk) eliminado: no está en el archivo oficial BYMA
+# OKLO eliminado: no está en el archivo oficial BYMA
+ORCL
+PBR
+# PDD (Pinduoduo) eliminado: no es CEDEAR en BYMA
+PEP
+PFE
+PG
+PM
+PYPL
+QCOM
+QQQ
+RIO
+RTX
+SBUX
+SHEL
+SHOP
+SLB
+SNOW
+SPOT
+SPY
+SQ
+T
+TGT
+TM
+TMO
+TSLA
+TSM
+TTE
+TXN
+UBER
+UNH
+V
+VALE
+VIST
+VZ
+WFC
+WMT
+X
+XOM
+
+# Acciones locales (todas)
+
+AGRO
+ALUA
+BBAR
+BMA
+BYMA
+CEPU
+CRES
+GGAL
+IRSA
+LOMA
+MIRG
+MOLI
+PAMP
+SUPV
+TGNO4
+TGSU2
+TXAR
+VALO
+YPFD
+
+# Nota: Acciones locales completadas con UNIVERSO_MERVAL del motor.

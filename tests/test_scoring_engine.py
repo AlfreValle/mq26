@@ -57,7 +57,9 @@ class TestCalcularScoreTotal:
     def test_pesos_60_20_20(self, monkeypatch):
         self._mock_scores(monkeypatch, sf=80.0, st=60.0, ss=40.0)
         from services.scoring_engine import calcular_score_total
-        r = calcular_score_total("AAPL", "CEDEAR")
+        # Usamos un ticker sin moat conocido para que moat_bonus=0
+        # y el score sea puramente el resultado de la fórmula 60/20/20
+        r = calcular_score_total("TICKER_TST_XYZ", "CEDEAR")
         esperado = 0.60 * 80 + 0.20 * 60 + 0.20 * 40
         assert abs(r["Score_Total"] - esperado) < 1.0
 
@@ -108,6 +110,13 @@ class TestCalcularScoreTotal:
         from services.scoring_engine import calcular_score_total
         r = calcular_score_total("AAPL", "CEDEAR")
         assert "Score_Total" in r
+
+    def test_bono_rf_devuelve_estructura_completa(self, monkeypatch):
+        self._mock_scores(monkeypatch, sf=52.0, st=48.0, ss=50.0)
+        from services.scoring_engine import calcular_score_total
+        r = calcular_score_total("AL30", "BONO_USD")
+        assert r["Ticker"] == "AL30"
+        assert "Score_Total" in r and 0.0 <= r["Score_Total"] <= 100.0
 
 
 class TestScoreTecnico:
@@ -231,6 +240,11 @@ class TestScoreSectorContexto:
         # El ajuste_arg debe estar presente
         assert "ajuste_arg" in detalle
 
+    def test_on_corporativa_sector_en_detalle(self):
+        from services.scoring_engine import score_sector_contexto
+        _, detalle = score_sector_contexto("PN43O", "ON Corporativa")
+        assert detalle.get("sector") == "ON Corporativa"
+
 
 # ─── _ticker_yahoo (pura — mapeo de tickers) ──────────────────────
 
@@ -259,6 +273,15 @@ class TestTickerYahoo:
     def test_case_insensitive(self):
         from services.scoring_engine import _ticker_yahoo
         assert _ticker_yahoo("brkb") == _ticker_yahoo("BRKB")
+
+    def test_bono_usd_usa_simbolo_rx(self):
+        from services.scoring_engine import _ticker_yahoo
+        assert _ticker_yahoo("GD30", "Bono USD") == "GD30=RX"
+        assert _ticker_yahoo("AL35", "Bono USD") == "AL35=RX"
+
+    def test_on_corporativa_prefiere_ba_si_no_soberano(self):
+        from services.scoring_engine import _ticker_yahoo
+        assert _ticker_yahoo("PN43O", "ON Corporativa") == "PN43O.BA"
 
 
 # ─── obtener_contexto_macro / actualizar_contexto_macro ───────────

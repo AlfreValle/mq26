@@ -25,18 +25,28 @@ def test_generate_demo_crea_db(tmp_path):
     assert "demo_prices" in tablas, "Debe tener tabla demo_prices"
 
 
-def test_generate_demo_tiene_3_clientes(tmp_path):
-    """La BD demo debe tener exactamente 3 clientes."""
+def test_generate_demo_tiene_10_clientes(tmp_path):
+    """La BD demo debe tener 10 clientes representativos."""
     demo_path = str(tmp_path / "demo_clientes.db")
     from scripts.generate_demo_data import run
     run(demo_path)
     with sqlite3.connect(demo_path) as cn:
         n = cn.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
-    assert n == 3, f"Debe haber 3 clientes demo, hay {n}"
+    assert n == 10, f"Debe haber 10 clientes demo, hay {n}"
 
 
-def test_generate_demo_precios_13_tickers(tmp_path):
-    """La BD demo debe tener precios para al menos 11 de los 13 tickers definidos."""
+def test_generate_demo_trans_distintas_carteras(tmp_path):
+    """CSV/transacciones deben cubrir varias carteras (smoke integración)."""
+    demo_path = str(tmp_path / "demo_trans.db")
+    from scripts.generate_demo_data import run
+    run(demo_path)
+    with sqlite3.connect(demo_path) as cn:
+        n = cn.execute("SELECT COUNT(DISTINCT cliente_id) FROM transacciones").fetchone()[0]
+    assert n >= 5, f"Esperaba varios clientes con transacciones, distintos={n}"
+
+
+def test_generate_demo_precios_multiples_tickers(tmp_path):
+    """La BD demo debe tener precios sintéticos para una paleta amplia de tickers."""
     demo_path = str(tmp_path / "demo_precios.db")
     from scripts.generate_demo_data import run
     run(demo_path)
@@ -45,8 +55,7 @@ def test_generate_demo_precios_13_tickers(tmp_path):
             r[1]
             for r in cn.execute("PRAGMA table_info(demo_prices)").fetchall()
         ]
-    # Columna de índice + al menos 10 tickers
-    assert len(cols) >= 11, f"Debe haber columnas de tickers, hay {len(cols)}: {cols}"
+    assert len(cols) >= 12, f"Debe haber columnas de tickers, hay {len(cols)}: {cols}"
 
 
 def test_config_demo_mode_false_por_defecto():

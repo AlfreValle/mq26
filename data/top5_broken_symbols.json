@@ -1,0 +1,1062 @@
+{
+  "DESP": {
+    "count": 1,
+    "last_failure": "2026-04-22T11:12:23",
+    "last_error": "hist:  Sin datos yfinance para 'DESP.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "K": {
+    "count": 1,
+    "last_failure": "2026-04-22T11:12:23",
+    "last_error": "hist:  Sin datos yfinance para 'K.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SQ": {
+    "count": 1,
+    "last_failure": "2026-04-22T11:12:23",
+    "last_error": "hist:  Sin datos yfinance para 'SQ.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "X": {
+    "count": 1,
+    "last_failure": "2026-04-22T11:12:23",
+    "last_error": "hist:  Sin datos yfinance para 'X.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AAPDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AAPDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AAPLB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AAPLB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ABTB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ABTB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ACWIC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ACWIC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ADGDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ADGDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ADGOB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ADGOB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ADPC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ADPC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ADS": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ADS.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ADSD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ADSD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AIC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AIC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AIGC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AIGC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AMATC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AMATC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AMDDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AMDDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AMGNB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AMGNB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AMGNC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AMGNC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AMXC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AMXC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AMZNB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AMZNB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ANFB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ANFB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ARKKB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ARKKB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AVYC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AVYC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "AVYDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'AVYDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BABAB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BABAB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BAS": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BAS.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BASC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BASC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BBDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BBDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BBDCC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BBDCC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BCSC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BCSC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BHPC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BHPC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BHPDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BHPDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BIDUB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BIDUB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BIOXB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BIOXB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BKC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BKC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BKNGC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BKNGC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BMYB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BMYB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BMYC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BMYC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BNGB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BNGB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BNGC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BNGC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BRKBB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BRKBB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BSN": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BSN.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "BSNC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'BSNC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "CAHC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'CAHC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "CDEB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'CDEB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "CEGC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'CEGC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "CLC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'CLC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "COINB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'COINB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "COSTB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'COSTB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "CRMB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'CRMB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "CSCOB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'CSCOB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "CXC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'CXC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DEB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DEB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DEOC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DEOC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DHRC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DHRC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DIAB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DIAB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DISNB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DISNB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DJN3B": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DJN3B.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DJN3C": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DJN3C.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DJN3D": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DJN3D.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DOWB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DOWB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DTEA": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DTEA.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DTEAC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DTEAC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "DTEAD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'DTEAD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "EEMB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'EEMB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "EOAN": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'EOAN.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "EOANB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'EOANB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ERICC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ERICC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ERICD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ERICD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ETHCB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ETHCB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ETSYC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ETSYC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "EWZB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'EWZB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "EWZCB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'EWZCB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "EWZDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'EWZDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "FCXB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'FCXB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "FDXB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'FDXB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "FMXC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'FMXC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "FSLRB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'FSLRB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "FSLRC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'FSLRC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GDXC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GDXC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GGBC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GGBC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GILDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GILDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GLDCB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GLDCB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GLDDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GLDDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GLOBB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GLOBB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GLWC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GLWC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GPRKB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GPRKB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "GSB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'GSB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HALC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HALC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HAP3C": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HAP3C.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HDBC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HDBC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HHPD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HHPD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HONC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HONC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HPQB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HPQB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HPQC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HPQC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HSBCC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HSBCC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HSYB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HSYB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HUTB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HUTB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "HWMC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'HWMC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IBICB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IBICB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IBITB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IBITB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IBNC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IBNC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IEMGC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IEMGC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IFFC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IFFC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IFFD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IFFD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IJHC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IJHC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "INFYC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'INFYC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "INTCB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'INTCB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IPC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IPC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IRENC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IRENC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ITUBB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ITUBB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "IWMB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'IWMB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "JCIC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'JCIC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "JMIAB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'JMIAB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "JOYYD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'JOYYD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "KBD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'KBD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "KGCD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'KGCD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "LARC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'LARC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "LLYB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'LLYB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MAB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MAB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MBGB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MBGB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MBGC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MBGC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MDTB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MDTB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MELCB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MELCB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MELDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MELDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MMMB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MMMB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MMMC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MMMC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MRKC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MRKC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MSFDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MSFDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MSIC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MSIC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MSTRB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MSTRB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "MUXC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'MUXC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NEC1": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NEC1.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NEMC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NEMC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NFLXB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NFLXB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NKEB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NKEB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NMRC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NMRC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NOKAC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NOKAC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NSAN": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NSAN.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NSANC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NSANC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NUB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NUB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NVADB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NVADB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NVDAB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NVDAB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NVSB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NVSB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "NVSC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'NVSC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ORCLB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ORCLB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "OXYDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'OXYDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PAASB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PAASB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PATHC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PATHC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PBRB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PBRB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PBRDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PBRDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PCARC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PCARC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PETRC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PETRC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PMC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PMC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PSQC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PSQC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PSXB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PSXB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "PYPLB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'PYPLB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "QCOMB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'QCOMB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "QQQCB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'QQQCB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "QQQDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'QQQDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "RIOB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'RIOB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "RIOC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'RIOC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "RTXC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'RTXC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SANC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SANC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SBUXB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SBUXB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SCCOB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SCCOB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SCHWD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SCHWD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SHELB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SHELB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SIEGC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SIEGC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SLVB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SLVB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SMSN": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SMSN.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SNOWC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SNOWC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SONYC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SONYC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SPOTB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SPOTB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SPYDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SPYDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "STLAB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'STLAB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "SYYC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'SYYC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TCOMD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TCOMD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TGTB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TGTB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TIIAC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TIIAC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TJXD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TJXD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TMDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TMDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TMOB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TMOB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TRVVB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TRVVB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TRVVC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TRVVC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TSLAB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TSLAB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TSMB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TSMB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TSMDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TSMDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "TXNC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'TXNC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "UALB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'UALB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "UALC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'UALC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ULC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ULC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "UNHB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'UNHB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "USOC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'USOC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "VALEB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'VALEB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "VITCB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'VITCB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "VITDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'VITDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "VODC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'VODC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "VRSNB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'VRSNB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "VZB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'VZB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "XLEDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'XLEDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "XLFB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'XLFB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "XLIC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'XLIC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "XMEC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'XMEC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "XOMDB": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'XOMDB.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "XPC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'XPC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "YELPD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'YELPD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "YZCAC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'YZCAC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "YZCAD": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'YZCAD.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  },
+  "ZMC": {
+    "count": 1,
+    "last_failure": "2026-04-22T12:37:46",
+    "last_error": "hist:  Sin datos yfinance para 'ZMC.BA'. Proba en el archivo de simbolos: TICKER_IOL,TICKER_YAHOO explicito (ej. GGAL,GGAL.BA o otro simbolo que Yahoo tenga activo)."
+  }
+}
