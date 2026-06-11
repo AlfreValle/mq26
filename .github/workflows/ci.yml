@@ -55,7 +55,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - name: Pytest suite + cobertura (umbral 75% definido en pyproject.toml)
-        run: pytest tests/ -q --tb=short -m "not integration and not slow"
+        run: pytest tests/ -q --tb=short -m "not integration and not slow" -n auto
         env:
           MQ26_PASSWORD: test_password_123
 
