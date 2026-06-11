@@ -47,15 +47,30 @@ competitivo ([BACKLOG_MOSCOW.md](BACKLOG_MOSCOW.md)) en este orden aprobado:
   resolver_precios, resolver_precios_con_origen y PriceEngine delegan al modelo.
 - Fix operativo: rev de ruff en pre-commit alineado a local/CI (v0.15.12).
 
-### Sprint 3 (pendiente)
+### Sprint 3 (2026-06-11) ✅ — commit `bb0ef9d`
 
-- **A02 PriceQuote**: evaluar si `PriceRecord` necesita moneda/convención
-  explícitas (hoy implícitas en la invariante CEDEAR) — diseñar sin romper
-  los 9 sitios de instanciación.
-- **A13 multi-moneda formal**: FX por fecha de operación (hoy CCL spot único).
-- **Frescura en tab_inversor**: la tabla de posiciones del inversor
-  (posiciones_broker_table) aún no muestra fuente/frescura.
-- Luego → **Pilar 2: ficha de ticker nivel pro**.
+- **A13** `core/fx.py`: FX por fecha de operación. `ccl_para_fecha()` (pasado
+  → serie histórica sin look-ahead, futuro → spot), `ccl_series()` para
+  VaR/CVaR (P0-02), `ars_a_usd`/`usd_a_ars` con `FXQuote` trazable.
+  `calcular_posicion_neta` cumple por fin su docstring: con fecha de compra,
+  el costo ARS usa el CCL de esa fecha, no el spot.
+- **A02**: `PriceRecord.moneda` + `convencion` (ars_por_unidad | ars_por_vn)
+  con defaults compatibles; el fallback RF declara ars_por_vn.
+- **Frescura inversor**: `build_posiciones_broker_html` muestra fuente en
+  tooltip y ⚠ en precios vencidos; `run_mq26` aplica la política stale a
+  sus records (antes solo app_main).
+
+### Pilar 1 — Musts cerrados: A01, A04, A13, A15, A45, A02 (parcial: convención
+explícita; PriceQuote como contrato separado quedó innecesario). Restan del
+backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
+
+### Siguiente → **Pilar 2: ficha de ticker nivel pro**
+
+Vista unificada por ticker: fundamentals + técnico + DCF + comparables del
+sector + score multifactor con explicación humana de cada componente.
+Piezas existentes a unificar: services/analizador_ticker.py,
+services/empresa_ficha.py, services/dcf_simple.py,
+services/comparador_instrumentos.py, services/scoring_multifactor.py.
 
 ## Criterio de éxito del plan
 
