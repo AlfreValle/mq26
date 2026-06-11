@@ -415,22 +415,8 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
         rec_px = ctx.get("precio_records") or {}
 
         def _label_fuente_precio(tk) -> str:
-            from core.price_engine import PriceSource
-            r = rec_px.get(str(tk).upper().strip())
-            if r is None:
-                return "—"
-            src = getattr(r, "source", None)
-            if src in (PriceSource.LIVE_YFINANCE, PriceSource.LIVE_BYMA):
-                return "LIVE"
-            if src == PriceSource.FALLBACK_BD:
-                return "FALLBACK_BD"
-            if src == PriceSource.FALLBACK_HARD:
-                return "FALLBACK_HARD"
-            if src == PriceSource.FALLBACK_PPC:
-                return "FALLBACK_PPC"
-            if src == PriceSource.MISSING:
-                return "MISSING"
-            return getattr(src, "label", str(src)) if src else "—"
+            from core.price_engine import label_fuente_con_frescura
+            return label_fuente_con_frescura(rec_px.get(str(tk).upper().strip()))
 
         df_pos["FUENTE_PRECIO"] = df_pos["TICKER"].astype(str).map(_label_fuente_precio)
 

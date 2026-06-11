@@ -30,7 +30,6 @@ import yfinance as yf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import (
-    RATIOS_CEDEAR,
     RSI_COMPRA,
     RSI_VENTA,
     RSI_VENTANA,
@@ -1220,7 +1219,8 @@ def calcular_cartera_optima(
         ticker = row["Ticker"]
         senal  = row.get("Senal", "")
         precio = float(row.get("Precio", 0)) or 1.0
-        ratio  = float(RATIOS_CEDEAR.get(ticker, 1.0))
+        from core.instrument_master import get_master
+        ratio  = get_master().ratio(ticker)
         precio_ars = precio * ccl / ratio  # precio del CEDEAR en ARS
 
         if precio_ars <= 0:

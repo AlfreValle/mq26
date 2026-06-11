@@ -26,6 +26,14 @@ def set_universo_df(df: pd.DataFrame) -> None:
     """Registra el DataFrame de universo cargado por DataEngine."""
     global _universo_df
     _universo_df = df
+    # Reconstruye el maestro consolidado (A01) con el universo nuevo, así
+    # cualquier get_master() posterior sin args ya lo incluye.
+    try:
+        from core.instrument_master import get_master
+
+        get_master(df)
+    except Exception:  # pragma: no cover - el maestro nunca debe romper la carga
+        pass
 
 
 def obtener_ratio(ticker: str) -> float:

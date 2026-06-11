@@ -93,6 +93,42 @@ class TestEsStale:
         assert es_stale("CEDEAR", None, AHORA)
 
 
+class TestLabelFuenteConFrescura:
+    def test_none_guion(self):
+        from core.price_engine import label_fuente_con_frescura
+
+        assert label_fuente_con_frescura(None) == "—"
+
+    def test_live_limpio(self):
+        from core.price_engine import PriceRecord, PriceSource, label_fuente_con_frescura
+
+        rec = PriceRecord(
+            ticker="AAPL", precio_cedear_ars=30000, precio_subyacente_usd=200,
+            ccl=1450, ratio=20, source=PriceSource.LIVE_BYMA, timestamp=datetime.now(),
+        )
+        assert label_fuente_con_frescura(rec) == "LIVE"
+
+    def test_fallback_stale_marcado(self):
+        from core.price_engine import PriceRecord, PriceSource, label_fuente_con_frescura
+
+        rec = PriceRecord(
+            ticker="AAPL", precio_cedear_ars=30000, precio_subyacente_usd=200,
+            ccl=1450, ratio=20, source=PriceSource.FALLBACK_BD,
+            timestamp=datetime.now(), stale=True,
+        )
+        assert label_fuente_con_frescura(rec) == "FALLBACK_BD ⚠STALE"
+
+    def test_fallback_fresco_limpio(self):
+        from core.price_engine import PriceRecord, PriceSource, label_fuente_con_frescura
+
+        rec = PriceRecord(
+            ticker="PN43O", precio_cedear_ars=1473, precio_subyacente_usd=0,
+            ccl=1450, ratio=1, source=PriceSource.FALLBACK_CATALOGO_RF,
+            timestamp=datetime.now(), stale=False,
+        )
+        assert label_fuente_con_frescura(rec) == "CATALOGO_RF"
+
+
 class TestIntegracionPriceEngine:
     def test_aplicar_politica_marca_solo_no_live(self):
         from core.price_engine import PriceRecord, PriceSource, aplicar_politica_stale

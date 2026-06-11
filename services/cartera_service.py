@@ -201,7 +201,7 @@ def resolver_precios(
 
     # ONs/bonos: último recurso desde paridad_ref en renta_fija_ar (no pisa live/fallback)
     try:
-        from core.renta_fija_ar import get_meta
+        from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
 
         ccl_f = float(ccl or 0.0)
         for t in tickers:
@@ -210,15 +210,7 @@ def resolver_precios(
                 continue
             if float(resultado.get(t, 0) or resultado.get(tu, 0) or 0) > 0:
                 continue
-            meta = get_meta(tu)
-            if meta is None:
-                continue
-            paridad = float(meta.get("paridad_ref", 100.0))
-            moneda = str(meta.get("moneda", "USD")).upper()
-            if moneda == "USD":
-                precio_ars = (paridad / 100.0) * ccl_f if ccl_f > 0 else 0.0
-            else:
-                precio_ars = paridad
+            precio_ars = precio_referencia_ars_desde_catalogo(tu, ccl_f)
             if precio_ars > 0:
                 resultado[t] = precio_ars
                 if t != tu:
@@ -270,17 +262,12 @@ def resolver_precios_con_origen(
             resultado[tu] = (fallback, "fallback_bd")
             continue
         try:
-            from core.renta_fija_ar import get_meta
+            from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
 
-            ccl_f = float(ccl or 0.0)
-            meta = get_meta(tu)
-            if meta:
-                paridad = float(meta.get("paridad_ref", 100.0))
-                moneda = str(meta.get("moneda", "USD")).upper()
-                precio = (paridad / 100.0) * ccl_f if moneda == "USD" else paridad
-                if precio > 0:
-                    resultado[tu] = (precio, "paridad_rf")
-                    continue
+            precio = precio_referencia_ars_desde_catalogo(tu, float(ccl or 0.0))
+            if precio > 0:
+                resultado[tu] = (precio, "paridad_rf")
+                continue
         except Exception:
             pass
         resultado[tu] = (0.0, "sin_dato")
@@ -600,7 +587,7 @@ def calcular_twrr(
 
     try:
 
-        from config import RATIOS_CEDEAR as _RATIOS
+        from core.instrument_master import get_master as _get_master
 
         # Identificar fechas de flujos (compras y ventas)
         trans = transacciones.copy()
@@ -641,7 +628,7 @@ def calcular_twrr(
                     cant = t_trans["CANTIDAD"].sum()
                     ppc  = (t_trans["CANTIDAD"] * t_trans["PPC_USD"]).sum() / max(cant, 1)
                     if cant > 0:
-                        ratio = float(_RATIOS.get(t, 1.0))
+                        ratio = _get_master().ratio(t)
                         posiciones[t] = {"cant": cant, "ppc": ppc, "ratio": ratio}
 
             if not posiciones:

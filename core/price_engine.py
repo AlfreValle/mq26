@@ -169,6 +169,32 @@ def aplicar_politica_stale(records: dict[str, PriceRecord]) -> dict[str, PriceRe
     return records
 
 
+_LABEL_FUENTE = {
+    PriceSource.LIVE_YFINANCE: "LIVE",
+    PriceSource.LIVE_BYMA: "LIVE",
+    PriceSource.FALLBACK_BD: "FALLBACK_BD",
+    PriceSource.FALLBACK_HARD: "FALLBACK_HARD",
+    PriceSource.FALLBACK_PPC: "FALLBACK_PPC",
+    PriceSource.FALLBACK_CATALOGO_RF: "CATALOGO_RF",
+    PriceSource.MISSING: "MISSING",
+}
+
+
+def label_fuente_con_frescura(record: PriceRecord | None) -> str:
+    """
+    Label de fuente para columnas «Fuente px» de la UI, con marca de frescura
+    (A15). Un fallback dentro del umbral de su tipo se muestra limpio; uno
+    vencido lleva el sufijo ⚠STALE para que el usuario no opere sobre humo.
+    """
+    if record is None:
+        return "—"
+    src = getattr(record, "source", None)
+    base = _LABEL_FUENTE.get(src) or (getattr(src, "label", None) or "—")
+    if getattr(record, "stale", False):
+        base += " ⚠STALE"
+    return base
+
+
 # ─── PriceEngine ──────────────────────────────────────────────────────────────
 
 class PriceEngine:
@@ -513,15 +539,14 @@ class PriceEngine:
                 return None
             if not meta.get("activo", True):
                 return None
-            paridad_pct = float(meta.get("paridad_ref") or 0)
-            if paridad_pct <= 0 or ccl <= 0:
-                return None
-            # Precio por 1 VN USD = paridad_pct / 100 × CCL
-            px_ars = round(paridad_pct / 100.0 * ccl, 2)
+            from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
+
+            # A04: conversión paridad→ARS/VN normalizada en el modelo RF
+            px_ars = round(precio_referencia_ars_desde_catalogo(ticker, ccl), 2)
             if px_ars <= 0:
                 return None
             # En USD: el precio de mercado por cada VN USD nominal
-            px_usd = round(paridad_pct / 100.0, 6)
+            px_usd = round(float(meta.get("paridad_ref") or 0) / 100.0, 6)
             return PriceRecord(
                 ticker=ticker,
                 precio_cedear_ars=px_ars,

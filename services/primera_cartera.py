@@ -11,8 +11,8 @@ from typing import Any
 
 from sqlalchemy import text
 
-from config import RATIOS_CEDEAR
 from core import db_manager as dbm
+from core.instrument_master import get_master
 from core.pricing_utils import precio_cedear_ars
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def _precio_ars_actual(ticker: str, tipo: str, ccl: float) -> float:
         close = float(hist["Close"].dropna().iloc[-1])
         if tipo in ("Acción Local", "Merval"):
             return round(close, 2)
-        ratio = float(RATIOS_CEDEAR.get(ticker.upper(), 1) or 1)
+        ratio = get_master().ratio(ticker)
         return precio_cedear_ars(close, ratio, ccl)
     except Exception as e:
         logger.debug("_precio_ars_actual %s: %s", ticker, e)
@@ -285,7 +285,7 @@ def _ficha_fundamentals(
     import yfinance as yf  # noqa: PLC0415
 
     sym = _ticker_yahoo_symbol(ticker, tipo)
-    ratio = float(RATIOS_CEDEAR.get(ticker.upper(), 1) or 1)
+    ratio = get_master().ratio(ticker)
     info: dict[str, Any] = {}
     try:
         info = yf.Ticker(sym).info or {}

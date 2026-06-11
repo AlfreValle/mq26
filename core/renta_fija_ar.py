@@ -721,6 +721,42 @@ def precio_ars_on_usd_por_base_vn(
     return v * (p / 100.0) * c
 
 
+def precio_referencia_ars_desde_catalogo(
+    ticker: str,
+    ccl: float,
+    *,
+    vn: float = 1.0,
+) -> float:
+    """
+    A04: precio ARS de referencia por ``vn`` nominales desde ``paridad_ref``
+    del catálogo. Normaliza la convención precio/VN en un solo lugar — antes
+    esta aritmética vivía repetida en resolver_precios, resolver_precios_con_origen
+    y PriceEngine, con el riesgo de divergir.
+
+    - moneda USD: paridad% sobre VN USD × CCL → ARS por VN.
+    - moneda ARS: ``paridad_ref`` ya es ARS por VN (BONCER/LECAP).
+
+    Devuelve 0.0 si el ticker no está en catálogo, la paridad no es válida
+    o falta CCL para instrumentos USD.
+    """
+    meta = get_meta(ticker)
+    if meta is None:
+        return 0.0
+    try:
+        paridad = float(meta.get("paridad_ref", 0) or 0)
+        v = float(vn)
+    except (TypeError, ValueError):
+        return 0.0
+    if paridad <= 0 or v <= 0:
+        return 0.0
+    if str(meta.get("moneda", "USD")).upper() == "USD":
+        c = float(ccl or 0)
+        if c <= 0:
+            return 0.0
+        return v * (paridad / 100.0) * c
+    return v * paridad
+
+
 def meta_on_usd_unidades_resumen(ticker: str) -> dict[str, Any] | None:
     """
     Texto operativo único para alinear cartera, motor y pantallas (todas las ON USD del catálogo).

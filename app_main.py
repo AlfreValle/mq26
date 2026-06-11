@@ -696,6 +696,10 @@ if cartera_activa != "-- Todas las carteras --" and not _cartera_sin_datos and n
                 _records = records_tras_rellenar_ppc(
                     _records, _precios_pre_ppc, precios_dict, float(ccl or 0)
                 )
+                # A15: marca stale según umbral por tipo de instrumento
+                from core.price_engine import aplicar_politica_stale
+
+                _records = aplicar_politica_stale(_records)
                 tickers_sin_precio = [
                     t for t in tickers_cartera if float(precios_dict.get(str(t).upper(), 0) or 0) <= 0
                 ]

@@ -462,3 +462,46 @@ class TestTirEstimadaConCcl:
 
     def test_ccl_cero_devuelve_none(self):
         assert tir_estimada_con_ccl("TLCTO", ccl=0.0) is None
+
+
+class TestPrecioReferenciaArsDesdeCatalogo:
+    """A04: normalizador único paridad→ARS/VN (antes repetido en 3 sitios)."""
+
+    def test_on_usd_paridad_por_ccl(self):
+        from core.renta_fija_ar import get_meta, precio_referencia_ars_desde_catalogo
+
+        meta = get_meta("PN43O")
+        esperado = (float(meta["paridad_ref"]) / 100.0) * 1429.0
+        assert precio_referencia_ars_desde_catalogo("PN43O", 1429.0) == pytest.approx(esperado)
+
+    def test_vn_multiplica(self):
+        from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
+
+        p1 = precio_referencia_ars_desde_catalogo("PN43O", 1429.0, vn=1.0)
+        p100 = precio_referencia_ars_desde_catalogo("PN43O", 1429.0, vn=100.0)
+        assert p100 == pytest.approx(p1 * 100.0)
+
+    def test_usd_sin_ccl_cero(self):
+        from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
+
+        assert precio_referencia_ars_desde_catalogo("PN43O", 0.0) == 0.0
+
+    def test_ticker_fuera_catalogo_cero(self):
+        from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
+
+        assert precio_referencia_ars_desde_catalogo("AAPL", 1429.0) == 0.0
+        assert precio_referencia_ars_desde_catalogo("", 1429.0) == 0.0
+
+    def test_moneda_ars_no_usa_ccl(self):
+        from core.renta_fija_ar import INSTRUMENTOS_RF, precio_referencia_ars_desde_catalogo
+
+        t_ars = next(
+            (t for t, m in INSTRUMENTOS_RF.items()
+             if str(m.get("moneda", "")).upper() == "ARS" and float(m.get("paridad_ref", 0) or 0) > 0),
+            None,
+        )
+        if t_ars is None:
+            pytest.skip("catálogo sin instrumentos ARS con paridad")
+        con_ccl = precio_referencia_ars_desde_catalogo(t_ars, 1429.0)
+        sin_ccl = precio_referencia_ars_desde_catalogo(t_ars, 0.0)
+        assert con_ccl == sin_ccl > 0

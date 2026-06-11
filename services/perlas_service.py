@@ -544,8 +544,8 @@ def detectar_perlas_desde_scoring(
             # Fallback: convertir precio USD del scoring usando el ratio de config
             precio_usd_sub = float(row.get("Precio", 0) or 0)
             try:
-                from config import RATIOS_CEDEAR
-                ratio = float(RATIOS_CEDEAR.get(ticker, 1))
+                from core.instrument_master import get_master
+                ratio = get_master().ratio(ticker)
                 if precio_usd_sub > 0 and ratio > 0 and ccl > 0:
                     precio_ars = round(precio_usd_sub * ccl / ratio, 2)
             except Exception:

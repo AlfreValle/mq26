@@ -317,7 +317,7 @@ def render_tab_perlas(ctx: dict | None = None) -> None:
     try:
         from pathlib import Path
 
-        from config import RATIOS_CEDEAR
+        from core.instrument_master import get_master
         from services.bdi_reports import (
             listar_tickers_con_bdi,
             obtener_reporte_bdi,
@@ -390,7 +390,7 @@ def render_tab_perlas(ctx: dict | None = None) -> None:
             if sel_bdi != "—":
                 rep_sel = obtener_reporte_bdi(sel_bdi)
                 if rep_sel:
-                    ratio_sel = float(RATIOS_CEDEAR.get(sel_bdi.upper(), 1) or 1)
+                    ratio_sel = get_master().ratio(sel_bdi)
                     st.markdown(reporte_bdi_html(rep_sel, ccl=ccl, ratio_cedear=ratio_sel),
                                 unsafe_allow_html=True)
             st.divider()
@@ -651,11 +651,11 @@ def _render_perla_card(perla, ctx: dict, perlas_libre: float, idx) -> None:
 
     # ── Análisis MQ26 / Externo (si existe para este ticker) ─────────────────
     try:
-        from config import RATIOS_CEDEAR
+        from core.instrument_master import get_master
         from services.bdi_reports import obtener_reporte_bdi, reporte_bdi_html
         reporte = obtener_reporte_bdi(ticker)
         if reporte is not None:
-            ratio = float(RATIOS_CEDEAR.get(ticker.upper(), 1) or 1)
+            ratio = get_master().ratio(ticker)
             titulo_origen = "📊 Análisis Externo" if es_externo else "🤖 Análisis MQ26"
             with st.expander(
                 f"{titulo_origen} disponible — "

@@ -90,7 +90,7 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
 
     # ── 1) ANÁLISIS DISPONIBLES (MQ26 auto + externos) ───────────────────────
     try:
-        from config import RATIOS_CEDEAR
+        from core.instrument_master import get_master
         from services.bdi_reports import (
             listar_tickers_con_bdi,
             obtener_reporte_bdi,
@@ -106,7 +106,7 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
                 r = obtener_reporte_bdi(t)
                 if r is None:
                     continue
-                ratio = float(RATIOS_CEDEAR.get(t.upper(), 1) or 1)
+                ratio = get_master().ratio(t)
                 px_ars = r.precio_actual_usd * ccl / ratio if ratio > 0 else 0
                 target_ars = r.precio_objetivo_usd * ccl / ratio if ratio > 0 else 0
                 filas.append({
@@ -146,7 +146,7 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
                 if sel_bdi != "—":
                     r_sel = obtener_reporte_bdi(sel_bdi)
                     if r_sel:
-                        ratio_sel = float(RATIOS_CEDEAR.get(sel_bdi.upper(), 1) or 1)
+                        ratio_sel = get_master().ratio(sel_bdi)
                         st.markdown(
                             reporte_bdi_html(r_sel, ccl=ccl, ratio_cedear=ratio_sel),
                             unsafe_allow_html=True,
@@ -254,23 +254,8 @@ def render_tab_reporte(ctx: dict) -> None:
     rec_px = ctx.get("precio_records") or {}
     if isinstance(df_ag, pd.DataFrame) and not df_ag.empty and "TICKER" in df_ag.columns:
         def _label_fuente_precio(tk) -> str:
-            from core.price_engine import PriceSource
-
-            r = rec_px.get(str(tk).upper().strip())
-            if r is None:
-                return "—"
-            src = getattr(r, "source", None)
-            if src in (PriceSource.LIVE_YFINANCE, PriceSource.LIVE_BYMA):
-                return "LIVE"
-            if src == PriceSource.FALLBACK_BD:
-                return "FALLBACK_BD"
-            if src == PriceSource.FALLBACK_HARD:
-                return "FALLBACK_HARD"
-            if src == PriceSource.FALLBACK_PPC:
-                return "FALLBACK_PPC"
-            if src == PriceSource.MISSING:
-                return "MISSING"
-            return getattr(src, "label", str(src)) if src else "—"
+            from core.price_engine import label_fuente_con_frescura
+            return label_fuente_con_frescura(rec_px.get(str(tk).upper().strip()))
 
         df_ag = df_ag.copy()
         df_ag["FUENTE_PRECIO"] = df_ag["TICKER"].astype(str).map(_label_fuente_precio)

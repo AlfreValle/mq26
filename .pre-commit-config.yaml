@@ -10,8 +10,10 @@ default_language_version:
 exclude: '^(\.claude/|0_Data_Maestra/|htmlcov/|assets/)'
 
 repos:
+  # rev alineado a la versión local/CI de ruff (0.15.x) — un rev viejo aplica
+  # reglas ya deprecadas (ej. UP038) y bloquea commits que el CI aceptaría.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.15.12
     hooks:
       - id: ruff
         args: [--fix]
