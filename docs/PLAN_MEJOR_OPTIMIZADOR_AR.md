@@ -64,13 +64,28 @@ competitivo ([BACKLOG_MOSCOW.md](BACKLOG_MOSCOW.md)) en este orden aprobado:
 explícita; PriceQuote como contrato separado quedó innecesario). Restan del
 backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
 
-### Siguiente → **Pilar 2: ficha de ticker nivel pro**
+## Pilar 2 — estado
 
-Vista unificada por ticker: fundamentals + técnico + DCF + comparables del
-sector + score multifactor con explicación humana de cada componente.
-Piezas existentes a unificar: services/analizador_ticker.py,
-services/empresa_ficha.py, services/dcf_simple.py,
-services/comparador_instrumentos.py, services/scoring_multifactor.py.
+### Sprint 1 (2026-06-11) ✅ — commit `ab85ebe`
+
+- `services/ficha_ticker.py`: ficha unificada que compone identidad
+  (instrument_master), fundamentals (cache 24h), score multifactor
+  (35/30/20/15 con cada dimensión explicada), DCF (margen de seguridad +
+  supuestos) y comparables (vs mediana de industria).
+- Hallazgo clave: `calcular_action_score` y `analizar_ticker` no tenían
+  ningún consumidor en la UI — motores construidos que nadie veía.
+- Degradación elegante por sección (cobertura "4/5"), resumen ejecutivo que
+  cruza señales (multifactor COMPRAR + DCF SOBREVALUADA → aviso de entrada
+  escalonada). RF deriva a ficha RF. 11 tests con dobles, sin red.
+
+### Sprint 2 (pendiente)
+
+- **UI de la ficha**: render en tab_universo (asesor: buscar ticker → ficha
+  completa) y versión simplificada para el inversor (tab_perlas / análisis).
+- Gráfico de velas de empresa_ficha como sección opcional.
+- Export de la ficha a HTML/PDF para que el asesor la mande al cliente.
+- Evaluar: precio objetivo consenso de analistas (analizador_ticker) como
+  sección extra.
 
 ## Criterio de éxito del plan
 
