@@ -34,19 +34,28 @@ competitivo ([BACKLOG_MOSCOW.md](BACKLOG_MOSCOW.md)) en este orden aprobado:
 - **A45** validación de tickers contra el maestro en `ui/carga_activos.py`
   con sugerencias por typo. `universo_service.obtener_tipo` delega al maestro.
 
-### Sprint 2 (pendiente)
+### Sprint 2 (2026-06-11) ✅ — commit `f7e3c6f`
 
-- **Adoptar el maestro en los consumidores**: los 6+ sitios que todavía hacen
-  `RATIOS_CEDEAR.get()` o leen universo_df a mano → migrar a `get_master()`.
-- **Mostrar frescura en UI**: columna calidad/frescura en tablas de posiciones
-  (tab_cartera, tab_inversor) usando `clasificar_frescura` — hoy solo existe
-  el label de fuente (LIVE/FALLBACK-*).
+- **Maestro adoptado**: 10 sitios `RATIOS_CEDEAR.get()` migrados a
+  `get_master().ratio()` (perlas, primera_cartera, scoring, timeline,
+  multicuenta, cartera_service, tab_perlas, tab_reporte).
+  `set_universo_df()` reconstruye el maestro al cargar universo.
+- **Frescura en UI**: `aplicar_politica_stale()` en app_main +
+  `label_fuente_con_frescura()` unifica los labels de tab_cartera/tab_reporte
+  con sufijo ⚠STALE por umbral de tipo.
+- **A04**: `precio_referencia_ars_desde_catalogo()` normaliza paridad→ARS/VN;
+  resolver_precios, resolver_precios_con_origen y PriceEngine delegan al modelo.
+- Fix operativo: rev de ruff en pre-commit alineado a local/CI (v0.15.12).
+
+### Sprint 3 (pendiente)
+
 - **A02 PriceQuote**: evaluar si `PriceRecord` necesita moneda/convención
   explícitas (hoy implícitas en la invariante CEDEAR) — diseñar sin romper
   los 9 sitios de instanciación.
-- **A04 normalizador bonos**: precio/VN explícito en el modelo (hoy la
-  paridad RF se convierte ad-hoc en resolver_precios).
 - **A13 multi-moneda formal**: FX por fecha de operación (hoy CCL spot único).
+- **Frescura en tab_inversor**: la tabla de posiciones del inversor
+  (posiciones_broker_table) aún no muestra fuente/frescura.
+- Luego → **Pilar 2: ficha de ticker nivel pro**.
 
 ## Criterio de éxito del plan
 
