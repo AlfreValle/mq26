@@ -21,10 +21,13 @@ Basado en evidencia concreta: `ruff check` (≈1.700 hallazgos), revisión de `c
 > y sus 2 helpers dedicados (`_bloque_competitivo`, `_spy_daily_returns_log_returns_cached`).
 > `ui/tab_inversor.py`: **3383 → 3071 líneas** (-9%). Limpieza de 3 imports top-level huérfanos.
 > Tests inversor 23/23 verdes; ruff verde.
+> **Fase 2.1 — segundo slice (2026-06-11):** `ui/inversor/_helpers.py` (319 líneas) con los
+> 14 helpers compartidos (diagnóstico cacheado, precios, mix RF, identificación de tickers,
+> `_TIPOS_EDICION_PRIMERA_CARTERA`). Eliminada constante muerta `_MESES_HORIZONTE` y 3 imports
+> huérfanos. `ui/tab_inversor.py`: **3071 → 2785 líneas** (acumulado -18%). Suite 2111 verde.
 > **Pendiente Fase 2.1:** seguir extrayendo módulos del mismo paquete en commits atómicos —
-> primero crear `ui/inversor/_helpers.py` (compartidos: `_horizonte_ui`, `_senales_precalculadas`,
-> `_mix_*`, `_precios_para_recomendar`, `_cartera_resuelta_*`, `_tipo_universo_*`, etc.),
-> después mover `plata_nueva`, `primera_cartera`, `posiciones`, `paneles_kpi`, `bienvenida + wizard`.
+> mover `plata_nueva` (~425 líneas), `primera_cartera` (~500), `posiciones` (~450),
+> `paneles_kpi` (~390), `bienvenida + wizard` (~230).
 > Meta: `tab_inversor.py` ≤ 800 líneas (orquestador + `render_tab_inversor` solamente).
 > Resto del Fase 2.1: `core/renta_fija_ar.py` (2343), `ui/tab_cartera.py` (1673),
 > `ui/tab_optimizacion.py` (1512).
