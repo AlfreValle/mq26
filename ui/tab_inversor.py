@@ -1586,6 +1586,7 @@ def _render_tabla_posiciones_resumen(ctx: dict) -> None:
         ctx.get("metricas"),
         hint_text=f"Valores en pesos (ARS) — último precio cargado en MQ26 · CCL {float(ctx.get('ccl') or 0):,.0f}. Pasá el mouse sobre cada cifra para ver el equivalente en USD.",
         ccl=ctx.get("ccl"),
+        precio_records=ctx.get("precio_records"),
     )
     if _html:
         st.markdown(_html, unsafe_allow_html=True)

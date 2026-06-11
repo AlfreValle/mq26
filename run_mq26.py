@@ -1089,6 +1089,12 @@ if (
                 else 100.0
             )
 
+        if _records:
+            # A15: marca stale según umbral por tipo de instrumento
+            from core.price_engine import aplicar_politica_stale
+
+            _records = aplicar_politica_stale(_records)
+
         st.session_state["_mq26_audit_ctx"] = {
             "records": _records,
             "precios_live": dict(precios_dict_live),

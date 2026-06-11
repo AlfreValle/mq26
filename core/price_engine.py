@@ -66,20 +66,31 @@ class PriceSource(Enum):
 
 # ─── Registro de precio ────────────────────────────────────────────────────────
 
+# A02: convenciones de cotización explícitas (antes implícitas en el nombre del campo)
+CONVENCION_ARS_POR_UNIDAD = "ars_por_unidad"   # RV: precio de 1 CEDEAR/acción en ARS
+CONVENCION_ARS_POR_VN = "ars_por_vn"           # RF: precio ARS por 1 valor nominal
+
+
 @dataclass
 class PriceRecord:
     """
     Registro atómico de precio con trazabilidad de fuente y timestamp.
     Todas las conversiones usan la invariante canónica CEDEAR.
+
+    A02: ``moneda`` y ``convencion`` hacen explícito qué significa el número.
+    Para RF, ``precio_cedear_ars`` reusa el campo histórico pero la convención
+    es ARS por valor nominal (``CONVENCION_ARS_POR_VN``), no por unidad.
     """
     ticker:               str
-    precio_cedear_ars:    float        # precio de 1 CEDEAR en ARS
+    precio_cedear_ars:    float        # precio en ARS (ver `convencion`)
     precio_subyacente_usd: float       # precio del activo subyacente en USD
     ccl:                  float
     ratio:                float
     source:               PriceSource
     timestamp:            datetime
     stale:                bool = False  # True si > STALE_MINUTES antigüedad
+    moneda:               str = "ARS"
+    convencion:           str = CONVENCION_ARS_POR_UNIDAD
 
     STALE_MINUTES: int = field(default=30, repr=False, compare=False)
 
@@ -103,6 +114,8 @@ class PriceRecord:
             "source":               self.source.label,
             "calidad":              self.calidad,
             "timestamp":            self.timestamp.isoformat(),
+            "moneda":               self.moneda,
+            "convencion":           self.convencion,
         }
 
 
@@ -555,6 +568,7 @@ class PriceEngine:
                 ratio=ratio,
                 source=PriceSource.FALLBACK_CATALOGO_RF,
                 timestamp=datetime.now(),
+                convencion=CONVENCION_ARS_POR_VN,
             )
         except Exception as _e:
             logger.debug("PriceEngine._try_on_usd %s: %s", ticker, _e)

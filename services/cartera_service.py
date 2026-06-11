@@ -434,15 +434,31 @@ def calcular_posicion_neta(
             ],
             dtype=bool,
         )
+        # A13: si hay fecha de compra por fila, el costo en ARS usa el CCL de
+        # esa fecha (core.fx) — cumple el contrato del docstring («costo
+        # histórico real, no CCL actual»). Sin fecha: CCL spot, como siempre.
+        _fecha_col = next(
+            (c for c in ("FECHA_PRIMERA_COMPRA", "FECHA_COMPRA") if c in df.columns),
+            None,
+        )
+        if _fecha_col is not None and ccl > 0:
+            from core.fx import ccl_para_fecha
+
+            _ccl_fila = pd.to_numeric(
+                df[_fecha_col].map(lambda f: ccl_para_fecha(f, spot=ccl).valor),
+                errors="coerce",
+            ).fillna(float(ccl))
+        else:
+            _ccl_fila = pd.Series([float(ccl)] * len(df), index=df.index)
         _ppc_loc = np.where(
             _rf_usd_par & (ccl > 0),
-            df["PPC_USD_PROM"] / 100.0 * ccl,
+            df["PPC_USD_PROM"] / 100.0 * _ccl_fila,
             df["PPC_USD_PROM"],
         )
         df["PPC_ARS"] = np.where(
             df["ES_LOCAL"],
             _ppc_loc,
-            df["PPC_USD_PROM"] * ccl,
+            df["PPC_USD_PROM"] * _ccl_fila,
         )
         df["INV_ARS"] = df["CANTIDAD_TOTAL"] * df["PPC_ARS"]
 

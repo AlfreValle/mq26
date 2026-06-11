@@ -100,12 +100,17 @@ def build_posiciones_broker_html(
     hint_text: str | None = None,
     group_rf_rv: bool = True,
     ccl: float | None = None,
+    precio_records: dict | None = None,
 ) -> str | None:
     """
     Devuelve HTML completo (hint + wrap + table) o None si faltan columnas.
 
     Todas las celdas de moneda muestran "$ARS" (no solo `$`) y opcionalmente
     el equivalente USD entre paréntesis si se pasa CCL.
+
+    ``precio_records`` (A15): dict ticker → PriceRecord. Si está, el precio
+    actual lleva tooltip con la fuente y un ⚠ cuando superó el umbral de
+    frescura de su tipo de instrumento.
     """
     if df_ag is None or df_ag.empty:
         return None
@@ -178,6 +183,7 @@ def build_posiciones_broker_html(
 
     body_parts: list[str] = []
     prev_gk: int | None = None
+    hay_stale = False
     for _, r in work.iterrows():
         gk = int(r["_gk"])
         if group_rf_rv and gk != prev_gk:
@@ -239,12 +245,26 @@ def build_posiciones_broker_html(
                 return f" title='≈ USD {valor_ars/_ccl:,.2f}'"
             return ""
 
+        # A15: fuente + frescura del precio actual (si hay records)
+        rec_px = (precio_records or {}).get(str(r["TICKER"]).strip().upper())
+        px_warn = ""
+        px_title = f"≈ USD {px/ccl_usado:,.2f}" if ccl_usado > 0 else ""
+        if rec_px is not None:
+            from core.price_engine import label_fuente_con_frescura
+
+            fuente_lbl = label_fuente_con_frescura(rec_px)
+            px_title = (px_title + " · " if px_title else "") + f"Fuente: {fuente_lbl}"
+            if getattr(rec_px, "stale", False):
+                px_warn = "⚠ "
+                hay_stale = True
+        px_attr = f" title='{html_module.escape(px_title)}'" if px_title else ""
+
         body_parts.append(
             "<tr>"
             f"<td class='mq-pos-ticker'><strong>{tk}</strong></td>"
             f"{hold_cells}"
             f"<td class='mq-pos-num'>{html_module.escape(fmt_decimal_ar(cant, 2))}</td>"
-            f"<td class='mq-pos-num'{_t(px)}>ARS$ {html_module.escape(fmt_decimal_ar(px, 2))}</td>"
+            f"<td class='mq-pos-num'{px_attr}>{px_warn}ARS$ {html_module.escape(fmt_decimal_ar(px, 2))}</td>"
             f"<td class='mq-pos-num'>{html_module.escape(fmt_decimal_ar(peso, 1))} %</td>"
             f"<td class='mq-pos-num'{_t(ppc)}>ARS$ {html_module.escape(fmt_decimal_ar(ppc, 2))}</td>"
             f"<td class='mq-pos-num'{_t(va)}>ARS$ {html_module.escape(fmt_enteros_ar(va))}</td>"
@@ -312,10 +332,19 @@ def build_posiciones_broker_html(
             "<strong>% rend. USD</strong> y <strong>% resultado</strong> siguen disponibles sin esa fecha. "
             "<em>% resultado</em>: costo histórico en pesos; <strong>% rend. USD</strong>: base USD×CCL del certificado."
         )
+    _note_stale = ""
+    if hay_stale:
+        _note_stale = (
+            "<div class='mq-broker-pos-hint' style='font-size:0.7rem;margin-top:0.15rem;'>"
+            "⚠ = el precio superó el umbral de frescura de su tipo de instrumento "
+            "(pasá el mouse para ver la fuente). Verificalo antes de operar."
+            "</div>"
+        )
     return (
         f"<div class='mq-broker-pos-hint'>{html_module.escape(_hint)}</div>"
         f"<div class='mq-broker-pos-hint' style='font-size:0.7rem;margin-top:0.15rem;line-height:1.35;'>"
         f"{_note_static}</div>"
+        f"{_note_stale}"
         "<div class='mq-broker-pos-wrap'>"
         "<table class='mq-broker-pos'><thead><tr>"
         f"{th}</tr></thead><tbody>{''.join(body_parts)}</tbody>{foot}</table>"
