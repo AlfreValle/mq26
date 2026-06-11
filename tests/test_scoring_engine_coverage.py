@@ -127,7 +127,7 @@ class TestScoreSectorContexto:
 
         tickers = ["AAPL", "MSFT", "KO", "YPFD", "GGAL", "TICKER_XYZ"]
         tipos = ["CEDEAR", "CEDEAR", "CEDEAR", "Acción Local", "Acción Local", "CEDEAR"]
-        for t, tipo in zip(tickers, tipos):
+        for t, tipo in zip(tickers, tipos, strict=True):
             s, _ = score_sector_contexto(t, tipo)
             assert 0.0 <= s <= 100.0, f"{t}: score={s} fuera de [0,100]"
 

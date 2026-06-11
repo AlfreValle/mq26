@@ -60,6 +60,7 @@ def test_carga_cedear_no_importa_streamlit_en_logica():
 def test_vaciar_cartera_match_exacto():
     """Flujo asesor: el valor de cartera_activa coincide exactamente con el CSV."""
     from unittest.mock import MagicMock
+
     from ui.carga_activos import aplicar_vaciar_cartera
 
     df = pd.DataFrame([
@@ -83,6 +84,7 @@ def test_vaciar_cartera_match_exacto():
 def test_vaciar_cartera_fallback_prefijo_inversor():
     """Flujo inversor: cartera_activa es el nombre normalizado pero CSV tiene sufijo distinto."""
     from unittest.mock import MagicMock
+
     from ui.carga_activos import aplicar_vaciar_cartera
 
     df = pd.DataFrame([
@@ -110,6 +112,7 @@ def test_vaciar_cartera_fallback_prefijo_inversor():
 def test_vaciar_cartera_sin_datos_devuelve_cero():
     """Si la cartera no tiene filas (inversor sin datos), retorna 0 sin crash."""
     from unittest.mock import MagicMock
+
     from ui.carga_activos import aplicar_vaciar_cartera
 
     mock_ed = MagicMock()
@@ -121,7 +124,6 @@ def test_vaciar_cartera_sin_datos_devuelve_cero():
 
 
 def test_broker_importar_archivo_csv_vacio_no_crash():
-    import io
 
     import pandas as pd
 

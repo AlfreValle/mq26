@@ -64,7 +64,21 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B"]
-ignore = ["E501", "B008", "N806", "N803"]
+# Reglas ignoradas:
+#   E501 — long lines (legible en código cuantitativo)
+#   E701/E402 — estilo histórico (multi-stmt, import no-top): limpieza progresiva
+#   B008/N802/N803/N805/N806/N811/N814/N999 — convenciones de naming heredadas
+#   UP042 — str-enum → StrEnum requiere refactor manual cuidadoso
+#   F841 — variables sin usar (deuda: 35 ocurrencias, limpieza progresiva)
+#   E712 — `== True` en filtros SQLAlchemy (idiomático del ORM)
+ignore = [
+    "E501", "E701", "E402",
+    "B008",
+    "N802", "N803", "N805", "N806", "N811", "N814", "N999",
+    "UP042",
+    "F841",
+    "E712",
+]
 
 [tool.mypy]
 python_version = "3.12"

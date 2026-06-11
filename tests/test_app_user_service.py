@@ -5,8 +5,6 @@ import os
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("MQ26_PASSWORD", "test_password_123")
@@ -56,8 +54,8 @@ def test_authenticate_inversor_solo_cliente_vinculado(db_en_memoria):
 
 def test_authenticate_migra_sha256_legacy_a_bcrypt(db_en_memoria):
     dbm = db_en_memoria
-    from core.password_hashing import hash_password_sha256_legacy
     from core.db_manager import AppUsuario, get_session
+    from core.password_hashing import hash_password_sha256_legacy
     from services.app_user_service import authenticate_app_user
 
     dbm.create_app_usuario(

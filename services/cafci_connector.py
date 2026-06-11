@@ -24,7 +24,7 @@ import json
 import re
 import sys
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from difflib import get_close_matches
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -233,7 +233,7 @@ def obtener_catalogo_fondos_cacheado(
     fondos = listar_todos_fondos_activos()
     try:
         payload = {
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "fetched_at": datetime.now(UTC).isoformat(),
             "count":      len(fondos),
             "fondos":     fondos,
         }
@@ -499,7 +499,7 @@ def _score_heuristico(nombre: str) -> tuple[float, dict]:
 # ─── SCANNER COMPLETO FCI ────────────────────────────────────────────────────
 
 def escanear_todos_los_fci(
-    tipos: list[int] = None,
+    tipos: list[int] | None = None,
     top_n: int = 20,
     callback = None,
     max_escaneados: int = 600,

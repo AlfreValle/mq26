@@ -180,12 +180,12 @@ class TestMarketConnectorSmoke:
 
 class TestTabRecomendadorSmoke:
     def test_modulo_importa(self):
-        import services.tab_recomendador as tr
+        import ui.tab_recomendador as tr
 
         assert tr is not None
 
     def test_render_es_callable(self):
-        import services.tab_recomendador as tr
+        import ui.tab_recomendador as tr
 
         assert callable(tr.render_tab_recomendador)
 
@@ -224,15 +224,15 @@ class TestAuditTrailSmoke:
 
 
 class TestDashboardEjecutivoSmoke:
-    """Smoke de services.dashboard_ejecutivo sin red."""
+    """Smoke de ui.dashboard_ejecutivo sin red."""
 
     def test_render_vacio_llama_info(self, mock_st_global):
         from importlib import reload
 
-        import services.dashboard_ejecutivo as dash_mod
+        import ui.dashboard_ejecutivo as dash_mod
 
         reload(dash_mod)
-        from services.dashboard_ejecutivo import render_dashboard_ejecutivo
+        from ui.dashboard_ejecutivo import render_dashboard_ejecutivo
 
         render_dashboard_ejecutivo(pd.DataFrame(), 1500.0)
         dash_mod.st.info.assert_called()
@@ -240,10 +240,10 @@ class TestDashboardEjecutivoSmoke:
     def test_render_con_posiciones_no_lanza(self, mock_st_global):
         from importlib import reload
 
-        import services.dashboard_ejecutivo as dash_mod
+        import ui.dashboard_ejecutivo as dash_mod
 
         reload(dash_mod)
-        from services.dashboard_ejecutivo import render_dashboard_ejecutivo
+        from ui.dashboard_ejecutivo import render_dashboard_ejecutivo
 
         df = pd.DataFrame(
             {

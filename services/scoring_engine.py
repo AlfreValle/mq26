@@ -31,8 +31,11 @@ import yfinance as yf
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import (
     RATIOS_CEDEAR,
-    RSI_COMPRA, RSI_VENTA, RSI_VENTANA,
-    SECTORES, SMA_VENTANA,
+    RSI_COMPRA,
+    RSI_VENTA,
+    RSI_VENTANA,
+    SECTORES,
+    SMA_VENTANA,
     TICKERS_NO_CEDEAR_BYMA,
     UNIVERSO_CEDEARS_SCORING,
     UNIVERSO_MERVAL_SCORING,
@@ -461,7 +464,7 @@ def _score_accion_local(ticker: str) -> tuple[float, dict]:
 
 # ─── HELPERS TÉCNICOS ELITE ───────────────────────────────────────────────────
 
-def _calcular_tecnico_elite(cierre: "pd.Series") -> tuple[float, dict]:
+def _calcular_tecnico_elite(cierre: pd.Series) -> tuple[float, dict]:
     """
     Calcula score técnico 0-100 sobre una Serie de precios de cierre.
     Distribución de puntos:
@@ -601,7 +604,7 @@ def _calcular_tecnico_elite(cierre: "pd.Series") -> tuple[float, dict]:
         return 40.0, det
 
 
-def _calcular_volatilidad_penalizacion(cierre: "pd.Series") -> tuple[float, dict]:
+def _calcular_volatilidad_penalizacion(cierre: pd.Series) -> tuple[float, dict]:
     """
     Calcula penalización por riesgo/volatilidad (0 a -8 puntos).
 

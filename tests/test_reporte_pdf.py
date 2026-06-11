@@ -1,8 +1,9 @@
 """Tests services/reporte_pdf.py — generación de PDF profesional."""
 from __future__ import annotations
 
-import pytest
 from datetime import date
+
+import pytest
 
 # fpdf2 puede no estar instalado en CI; saltear graciosamente
 fpdf2 = pytest.importorskip("fpdf", reason="fpdf2 no instalado")
@@ -16,7 +17,6 @@ from services.reporte_pdf import (
     generar_reporte_pdf,
     reporte_desde_cartera,
 )
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 

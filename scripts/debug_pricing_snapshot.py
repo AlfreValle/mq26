@@ -25,10 +25,10 @@ except ImportError:
     pass
 os.environ.setdefault("MQ26_PASSWORD", os.environ.get("MQ26_PASSWORD", "debug_snapshot"))
 
-import pandas as pd
+from data_engine import DataEngine, obtener_ccl
+
 import services.cartera_service as cs
 from core.price_engine import PriceEngine
-from data_engine import DataEngine, obtener_ccl
 
 LOG = BASE_DIR / "debug-0e4ef1.log"
 

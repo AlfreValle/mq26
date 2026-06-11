@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -82,7 +82,7 @@ def save_favoritos_mes(
         "schema_version": SCHEMA_VERSION,
         "rf": _normalize_tickers(rf),
         "rv": _normalize_tickers(rv),
-        "published_at": datetime.now(timezone.utc).isoformat(),
+        "published_at": datetime.now(UTC).isoformat(),
         "published_by": (published_by or "").strip(),
         "disclaimer": (disclaimer or "").strip(),
     }

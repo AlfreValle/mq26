@@ -33,10 +33,10 @@ seccion("TEST 1 — Imports")
 try:
     from core.pipeline_optimizador import (
         ResultadoOptimizacion,
+        _calcular_metricas_portafolio,
         _clasificar_activos,
         _construir_constraints_perfil,
         _postprocesar_hrp,
-        _calcular_metricas_portafolio,
         reporte_cartera,
         resumen_ejecutivo,
     )
@@ -47,7 +47,7 @@ except Exception as e:
     sys.exit(1)
 
 try:
-    from config import RESTRICCIONES_POR_PERFIL, PARAMETROS_HISTORICO, MACRO_AR
+    from config import RESTRICCIONES_POR_PERFIL
     print(f"{PASS}  config.py — RESTRICCIONES_POR_PERFIL, PARAMETROS_HISTORICO, MACRO_AR")
 except Exception as e:
     print(f"{FAIL}  config.py import falló: {e}")
@@ -95,7 +95,7 @@ except Exception as e:
 seccion("TEST 3 — _clasificar_activos")
 
 try:
-    from config import CEDEAR_INFO, ACCIONES_ARGENTINAS, OBLIGACIONES_NEGOCIABLES
+    from config import ACCIONES_ARGENTINAS, CEDEAR_INFO, OBLIGACIONES_NEGOCIABLES
 
     # Elegimos un ticker de cada categoría (si existen)
     tickers_test = []
@@ -228,7 +228,7 @@ try:
     print(f"        sum(w)={w.sum():.6f}  n_nonzero={(w > 1e-4).sum()}")
 
     # Mostrar top pesos
-    for t, wi in sorted(zip(tickers_mock, w), key=lambda x: -x[1]):
+    for t, wi in sorted(zip(tickers_mock, w, strict=True), key=lambda x: -x[1]):
         if wi > 1e-4:
             print(f"        {t:20s}  {wi:.2%}")
 
@@ -261,7 +261,7 @@ try:
     sharpe = (ret_p - 0.043) / vol_p if vol_p > 0 else 0
     print(f"        Retorno={ret_p:.2%}  Vol={vol_p:.2%}  Sharpe={sharpe:.3f}")
 
-    for t, wi in sorted(zip(tickers_mock, w_ms), key=lambda x: -x[1]):
+    for t, wi in sorted(zip(tickers_mock, w_ms, strict=True), key=lambda x: -x[1]):
         if wi > 1e-4:
             print(f"        {t:20s}  {wi:.2%}")
 

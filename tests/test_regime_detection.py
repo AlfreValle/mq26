@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.regime_detection import (
     Regimen,
@@ -11,7 +10,6 @@ from core.regime_detection import (
     resumen_regimen,
     sigma_segun_regimen,
 )
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 

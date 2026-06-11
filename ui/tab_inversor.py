@@ -5,8 +5,8 @@ Secciones: resumen + lista legible, carga, plata nueva, proyección.
 """
 from __future__ import annotations
 
-import html
 import hashlib
+import html
 import time
 from datetime import date
 
@@ -15,7 +15,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from core.logging_config import get_logger
 from core.diagnostico_types import (
     CARTERA_IDEAL,
     RENDIMIENTO_MODELO_YTD_REF,
@@ -23,6 +22,8 @@ from core.diagnostico_types import (
     perfil_diagnostico_valido,
     perfil_motor_salida,
 )
+from core.logging_config import get_logger
+from core.renta_fija_ar import _meta_unificado as _rf_meta_unificado
 from core.renta_fija_ar import (
     es_fila_renta_fija_ar,
     es_renta_fija,
@@ -31,13 +32,20 @@ from core.renta_fija_ar import (
     tir_ponderada_cartera,
     top_instrumentos_rf,
 )
-from core.renta_fija_ar import _meta_unificado as _rf_meta_unificado
+from services.cartera_service import PRECIOS_FALLBACK_ARS
 from services.copy_inversor import (
     GLOSARIO_INVERSOR,
     antes_despues_defensivo,
     copy_rebalanceo_humano,
     pasos_onboarding_hub,
     patrimonio_dual_line,
+)
+from services.investor_hub_snapshot import build_investor_hub_snapshot
+from services.plan_simulaciones import (
+    agrupar_pesos_torta,
+    df_ag_tiene_posiciones_reales,
+    dias_desde_primera_compra,
+    ideal_dict_desde_mix_plan,
 )
 from ui.mq26_ux import (
     dataframe_auto_height,
@@ -47,14 +55,6 @@ from ui.mq26_ux import (
     plotly_chart_layout_base,
     semaforo_html,
 )
-from services.investor_hub_snapshot import build_investor_hub_snapshot
-from services.plan_simulaciones import (
-    agrupar_pesos_torta,
-    df_ag_tiene_posiciones_reales,
-    dias_desde_primera_compra,
-    ideal_dict_desde_mix_plan,
-)
-from services.cartera_service import PRECIOS_FALLBACK_ARS
 from ui.posiciones_broker_table import build_posiciones_broker_html
 
 _OBS_PRIO_MAP = {
@@ -122,7 +122,7 @@ def _render_selector_perfil_cards(ctx: dict) -> None:
     )
 
     cols = st.columns(4)
-    for col, (nombre, info) in zip(cols, _PERFILES_INFO.items()):
+    for col, (nombre, info) in zip(cols, _PERFILES_INFO.items(), strict=False):
         activo = nombre == perfil_actual
         borde = f"2px solid {info['color']}" if activo else "1px solid #424242"
         bg = f"{info['color']}18" if activo else "transparent"
@@ -166,24 +166,24 @@ def _render_selector_perfil_cards(ctx: dict) -> None:
 
 
 # ── Panel de KPIs Renta Fija ──────────────────────────────────────────────────
-def _render_panel_rf_kpis(ctx: dict, df_ag: "pd.DataFrame", ccl: float, diag) -> None:
+def _render_panel_rf_kpis(ctx: dict, df_ag: pd.DataFrame, ccl: float, diag) -> None:
     """
     Panel dedicado de Renta Fija con KPIs propios:
     TIR ponderada, paridad BYMA live, % RF vs objetivo,
     próximo vencimiento y ladder de vencimientos.
     """
+    from core.diagnostico_types import UNIVERSO_RENTA_FIJA_AR
     from core.perfil_allocation import target_rf_efectivo
     from core.renta_fija_ar import (
-        tir_ponderada_cartera,
-        ladder_vencimientos,
-        es_fila_renta_fija_ar,
-        get_meta,
         INSTRUMENTOS_RF,
+        es_fila_renta_fija_ar,
         ficha_rf_minima_bundle,
+        get_meta,
+        ladder_vencimientos,
+        tir_ponderada_cartera,
     )
     from ui.components.ficha_rf_minima import render_ficha_rf_minima
     from ui.tab_cartera import _paridad_implicita_pct_on_usd_desde_fila
-    from core.diagnostico_types import UNIVERSO_RENTA_FIJA_AR
 
     perfil = str(ctx.get("cliente_perfil", "Moderado"))
     horizonte = str(ctx.get("cliente_horizonte_label", "1 año"))
@@ -392,13 +392,13 @@ def _render_panel_rf_kpis(ctx: dict, df_ag: "pd.DataFrame", ccl: float, diag) ->
 
 
 # ── Panel de KPIs Renta Variable ──────────────────────────────────────────────
-def _render_panel_rv_kpis(ctx: dict, df_ag: "pd.DataFrame", metricas: dict, ccl: float, diag) -> None:
+def _render_panel_rv_kpis(ctx: dict, df_ag: pd.DataFrame, metricas: dict, ccl: float, diag) -> None:
     """
     Panel dedicado de Renta Variable con KPIs propios:
     P&L%, CAGR, Sharpe estimado, % RV vs objetivo y top posiciones.
     """
-    from core.perfil_allocation import target_rv_efectivo
     from core.diagnostico_types import UNIVERSO_RENTA_FIJA_AR
+    from core.perfil_allocation import target_rv_efectivo
     from core.renta_fija_ar import es_fila_renta_fija_ar
 
     perfil = str(ctx.get("cliente_perfil", "Moderado"))
@@ -1041,7 +1041,7 @@ def _render_wizard_objetivos(ctx: dict) -> None:
             unsafe_allow_html=True,
         )
         cols = st.columns(3, gap="small")
-        for col, cod in zip(cols, codigos):
+        for col, cod in zip(cols, codigos, strict=False):
             ui = _OBJ_UI[cod]
             cfg = CATALOGO_OBJETIVOS[cod]
             activo = cod in seleccionados
@@ -1314,13 +1314,12 @@ def _render_primera_cartera_inversor(ctx: dict) -> None:
     plan_obj = st.session_state.get("pci_plan_objetivos")
     if plan_obj is not None and objetivos_elegidos:
         try:
+            import plotly.express as px
+            import plotly.graph_objects as go
+
             from services.portfolio_optimizer import (
-                CATALOGO_OBJETIVOS as _CAT,
-                resumen_plan_df as _resumen_plan_df,
                 proyeccion_consolidada_df as _proy_df,
             )
-            import plotly.graph_objects as go
-            import plotly.express as px
 
             _colores_obj = {
                 "CP1": "#2ECC71", "CP2": "#27AE60", "CP3": "#F39C12",
@@ -2142,7 +2141,10 @@ def _render_inv_onboarding_hub() -> None:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _estado_universo_inversor_cached() -> tuple[dict, pd.DataFrame]:
-    from services.estado_universo_mq26 import dataframe_estado_universo, resumen_estado_universo_mq26
+    from services.estado_universo_mq26 import (
+        dataframe_estado_universo,
+        resumen_estado_universo_mq26,
+    )
 
     r = resumen_estado_universo_mq26(
         max_scan_cedears=80,
@@ -2417,10 +2419,10 @@ def render_tab_inversor(ctx: dict) -> None:
             "Proyecciones y benchmarks **ilustrativos**: no son promesa de resultado ni asesoramiento personalizado."
         )
         st.markdown(
-            f"<p style='font-size:0.85rem;color:var(--c-text-2);margin:0 0 0.75rem 0;'>"
-            f"En esta pestaña: <strong>prioridades</strong>, <strong>mix</strong> vs referencia, "
-            f"<strong>comparativas de rendimiento</strong> (con matices de período) y una "
-            f"<strong>proyección</strong> con escenarios.</p>",
+            "<p style='font-size:0.85rem;color:var(--c-text-2);margin:0 0 0.75rem 0;'>"
+            "En esta pestaña: <strong>prioridades</strong>, <strong>mix</strong> vs referencia, "
+            "<strong>comparativas de rendimiento</strong> (con matices de período) y una "
+            "<strong>proyección</strong> con escenarios.</p>",
             unsafe_allow_html=True,
         )
         with st.expander("Qué asumimos en los números de abajo", expanded=False):

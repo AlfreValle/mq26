@@ -233,10 +233,10 @@ def build_posiciones_broker_html(
 
         # Tooltip con equivalente USD si CCL disponible
         ccl_usado = float(ccl) if ccl else 0.0
-        def _t(valor_ars: float) -> str:
+        def _t(valor_ars: float, _ccl: float = ccl_usado) -> str:
             """Tooltip USD si tenemos CCL."""
-            if ccl_usado > 0:
-                return f" title='≈ USD {valor_ars/ccl_usado:,.2f}'"
+            if _ccl > 0:
+                return f" title='≈ USD {valor_ars/_ccl:,.2f}'"
             return ""
 
         body_parts.append(

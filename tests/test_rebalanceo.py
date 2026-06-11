@@ -1,15 +1,12 @@
 """Tests core/rebalanceo.py — comparar holdings vs cartera óptima → órdenes."""
 from __future__ import annotations
 
-import pytest
-
 from core.rebalanceo import (
     TipoOrden,
     calcular_ordenes_rebalanceo,
     ordenes_a_dataframe,
     resumen_rebalanceo,
 )
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -171,6 +168,6 @@ def test_cartera_vacia_no_falla():
 def test_ccl_afecta_monto_usd():
     res1 = calcular_ordenes_rebalanceo(ACTUALES, OBJETIVO, capital_total_ars=CAPITAL, ccl=1000.0, banda_tolerancia=0.0)
     res2 = calcular_ordenes_rebalanceo(ACTUALES, OBJETIVO, capital_total_ars=CAPITAL, ccl=2000.0, banda_tolerancia=0.0)
-    for o1, o2 in zip(res1.ordenes, res2.ordenes):
+    for o1, o2 in zip(res1.ordenes, res2.ordenes, strict=True):
         if o1.monto_ars > 0:
             assert abs(o2.monto_usd - o1.monto_usd / 2) < 0.01

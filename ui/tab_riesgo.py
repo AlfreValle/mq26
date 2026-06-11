@@ -12,7 +12,6 @@ from core.structured_logging import log_degradacion
 from services.risk_var import calcular_var_cvar
 from ui.mq26_ux import dataframe_auto_height
 
-
 # ── Glosario de métricas de riesgo en lenguaje humano (U39 Must) ─────────
 _GLOSARIO_RIESGO = {
     "VaR 95%": (

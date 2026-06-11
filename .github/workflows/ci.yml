@@ -7,17 +7,44 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ruff (bloqueante — config en pyproject.toml)
+        run: |
+          pip install ruff
+          ruff check . --exclude .claude
+
+  mypy-strict:
+    # Bloqueante: módulos H06 con disallow_untyped_defs activo (ver [tool.mypy.overrides] en pyproject.toml).
+    # Estos cinco módulos son "puros" y deben mantenerse 100% tipados.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Mypy strict (módulos H06)
+        run: |
+          pip install mypy pandas-stubs
+          mypy core/hrp_weights.py core/deflated_sharpe.py core/corporate_actions_proxy.py core/after_tax.py core/hypothesis_metrics.py --follow-imports=silent
+
+  mypy-informativo:
+    # No bloqueante: full repo. Deuda actual ~229 errores (Fase 2 — limpieza progresiva).
+    runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Ruff + Black (Fase D — endurecer a blocking cuando el repo esté limpio)
+      - name: Mypy informativo (core + services)
         run: |
-          pip install ruff black
-          ruff check core services ui tests scripts
-          black --check core services ui tests run_mq26.py app_main.py
+          pip install mypy pandas-stubs
+          pip install -r requirements.txt
+          mypy core services 2>&1 | tail -1
 
   test:
     runs-on: ubuntu-latest
@@ -27,10 +54,41 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: Pytest suite (paridad P3-QA-01 — ver docs/product/CHECKLIST_P3_QA01_RELEASE.md)
-        run: pytest tests/ -q --tb=short --no-cov
+      - name: Pytest suite + cobertura (umbral 75% definido en pyproject.toml)
+        run: pytest tests/ -q --tb=short -m "not integration and not slow"
         env:
           MQ26_PASSWORD: test_password_123
+
+  smoke-streamlit:
+    # Levanta la app con streamlit run headless y pega GET /_stcore/health.
+    # Detecta regresiones de import en run_mq26.py antes de mergear.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Arrancar streamlit en background
+        env:
+          MQ26_PASSWORD: test_password_123
+        run: |
+          streamlit run run_mq26.py --server.port 8502 --server.headless true --browser.gatherUsageStats false &
+          echo $! > /tmp/streamlit.pid
+      - name: Esperar a /_stcore/health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8502/_stcore/health > /dev/null; then
+              echo "Streamlit listo tras ${i}s"
+              break
+            fi
+            sleep 1
+          done
+      - name: Smoke HTTP
+        run: python scripts/smoke_produccion.py --base-url http://127.0.0.1:8502
+      - name: Detener streamlit
+        if: always()
+        run: kill $(cat /tmp/streamlit.pid) || true
 
   deploy:
     needs: test

@@ -14,8 +14,8 @@ import streamlit as st
 
 from core import db_manager as dbm
 from services.precio_cache_service import estado_circuit_breaker
-from ui.rbac import can_action
 from ui.mq26_ux import dataframe_auto_height
+from ui.rbac import can_action
 
 
 def _require_panel_admin_write(ctx: dict) -> bool:
@@ -444,7 +444,7 @@ def _render_app_usuarios_admin(ctx: dict, tenant_id: str, df_clientes: pd.DataFr
             )
             default_lbls = []
             for cid in u.get("cliente_ids", []):
-                match = next((l for l in opts_labels if l.startswith(f"{cid} — ")), None)
+                match = next((lbl for lbl in opts_labels if lbl.startswith(f"{cid} — ")), None)
                 if match:
                     default_lbls.append(match)
             sel2 = st.multiselect(

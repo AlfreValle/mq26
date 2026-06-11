@@ -5,8 +5,8 @@ y seguimiento de objetivo / stop / tiempo maximo en posicion.
 from __future__ import annotations
 
 import json
-import time
 import math
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal

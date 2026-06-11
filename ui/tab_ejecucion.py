@@ -459,7 +459,7 @@ def render_tab_ejecucion(ctx: dict) -> None:
             _df_cli_rec["Perfil"].iloc[0] if not _df_cli_rec.empty else "Moderado")
 
         try:
-            from services.tab_recomendador import render_tab_recomendador
+            from ui.tab_recomendador import render_tab_recomendador
             # MQ2-D10: email y presupuesto desde BD, con fallback a valores hardcoded
             _email_bd = ""
             _presup_bd = 500_000.0

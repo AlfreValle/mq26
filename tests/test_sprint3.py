@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
 # ── Wizard onboarding ─────────────────────────────────────────────────────────
 
 def test_tab_estudio_importa():
@@ -18,6 +17,7 @@ def test_tab_estudio_importa():
     mock_st.tabs.return_value = [MagicMock(), MagicMock()]
     with patch.dict(sys.modules, {"streamlit": mock_st}):
         import importlib
+
         import ui.tab_estudio as te
         importlib.reload(te)
         assert hasattr(te, "render_tab_estudio")
@@ -34,6 +34,7 @@ def test_wizard_paso1_requiere_nombre():
 
     with patch.dict(sys.modules, {"streamlit": mock_st}):
         import importlib
+
         import ui.tab_estudio as te
         importlib.reload(te)
         # No debe lanzar excepción con nombre vacío
@@ -49,6 +50,7 @@ def test_wizard_paso3_valores_por_defecto():
 
     with patch.dict(sys.modules, {"streamlit": mock_st}):
         import importlib
+
         import ui.tab_estudio as te
         importlib.reload(te)
         te._wizard_paso3({})   # no debe lanzar
@@ -81,7 +83,7 @@ def test_run_backtest_multimodelo_retorna_dict():
 
 
 def test_run_backtest_multimodelo_claves_resultado():
-    from services.backtester import run_backtest_multimodelo, BacktestResult
+    from services.backtester import run_backtest_multimodelo
     precios = _precios_fake()
     tickers = list(precios.columns)
     pesos = {t: 1 / len(tickers) for t in tickers}

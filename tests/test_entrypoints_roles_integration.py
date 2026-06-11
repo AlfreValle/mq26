@@ -5,7 +5,6 @@ from pathlib import Path
 
 from ui.navigation import get_main_tabs
 
-
 ROOT = Path(__file__).resolve().parent.parent
 
 

@@ -22,7 +22,6 @@ from typing import Any
 
 import numpy as np
 
-
 # ─── Tipos ────────────────────────────────────────────────────────────────────
 
 class TipoOrden(str, Enum):
@@ -80,7 +79,7 @@ def _normalizar_pesos(pesos: dict[str, float]) -> dict[str, float]:
     s = vals.sum()
     if s > 0:
         vals = vals / s
-    return dict(zip(pesos.keys(), vals.tolist()))
+    return dict(zip(pesos.keys(), vals.tolist(), strict=True))
 
 
 # ─── Función principal ────────────────────────────────────────────────────────

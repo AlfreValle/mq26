@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field, replace as dc_replace
+from dataclasses import dataclass, field
+from dataclasses import replace as dc_replace
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -184,9 +185,8 @@ class PriceEngine:
 
     def __init__(self, universo_df=None) -> None:
         from config import RATIOS_CEDEAR
-        from services.cartera_service import PRECIOS_FALLBACK_ARS
-
         from core.pricing_utils import obtener_ratio
+        from services.cartera_service import PRECIOS_FALLBACK_ARS
 
         self._ratios: dict[str, float] = {k: float(v) for k, v in RATIOS_CEDEAR.items()}
         if universo_df is not None and not universo_df.empty and "Ticker" in universo_df.columns:
@@ -423,6 +423,7 @@ class PriceEngine:
             return None
 
         import time as _time
+
         from core.pricing_utils import es_instrumento_local_ars
 
         is_local = es_instrumento_local_ars(ticker)

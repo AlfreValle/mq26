@@ -2,8 +2,8 @@
 ui/tab_cartera.py — Tab 1: Cartera & Libro Mayor
 Combina: Posición Neta (P&L + Motor de Salida + Kelly) + Libro Mayor (reemplaza CRM)
 """
-from datetime import date, datetime
 import html
+from datetime import date, datetime
 
 import pandas as pd
 import plotly.express as px

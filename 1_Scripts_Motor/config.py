@@ -21,11 +21,11 @@ try:
     )
     from config import PESO_MAX_OPT as PESO_MAX_ALTO  # noqa: F401
     from config import PESO_MIN_OPT as PESO_MIN_DEFAULT  # noqa: F401
-    PESO_MAX_MEDIO = PESO_MAX_OPT * 0.6  # noqa: F841 — perfil moderado = 15%
-    PESO_MAX_BAJO  = PESO_MAX_OPT * 0.4  # noqa: F841 — perfil bajo = 10%
+    PESO_MAX_MEDIO = PESO_MAX_OPT * 0.6  # noqa: F405,F841 — perfil moderado = 15%
+    PESO_MAX_BAJO  = PESO_MAX_OPT * 0.4  # noqa: F405,F841 — perfil bajo = 10%
     UMBRAL_ORDEN   = 0.05                # solo genera orden si desviación ≥ 5%
-    RSI_MIN = RSI_COMPRA                 # noqa: F821
-    RSI_MAX = RSI_VENTA                  # noqa: F821
-    NOTA_VENTA = NOTA_ALERTA             # noqa: F821
+    RSI_MIN = RSI_COMPRA                 # noqa: F405
+    RSI_MAX = RSI_VENTA                  # noqa: F405
+    NOTA_VENTA = NOTA_ALERTA             # noqa: F405
 except ImportError:
     pass

@@ -6,8 +6,8 @@ Soporta rate limiting (MQ-S4) y log de accesos (DS-S3).
 from __future__ import annotations
 
 import hashlib
-import html as html_module
 import hmac
+import html as html_module
 import os
 import secrets
 import time

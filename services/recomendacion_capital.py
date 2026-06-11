@@ -11,20 +11,20 @@ import logging
 from datetime import date
 from typing import Any
 
-from config import TICKERS_NO_CEDEAR_BYMA
-
 import pandas as pd
+
+from config import TICKERS_NO_CEDEAR_BYMA
 
 logger = logging.getLogger(__name__)
 
 from core.diagnostico_types import (
     CARTERA_IDEAL,
     CLASIFICACION_ACTIVOS,
+    LIMITE_CONCENTRACION,
+    RENTA_AR_PENDIENTE_MSG,
     CategoriaActivo,
     ItemRecomendacion,
-    LIMITE_CONCENTRACION,
     PrioridadAccion,
-    RENTA_AR_PENDIENTE_MSG,
     RecomendacionResult,
     perfil_diagnostico_valido,
 )
@@ -37,7 +37,6 @@ from core.renta_fija_ar import (
 from services.cartera_service import resolver_precios
 from services.diagnostico_cartera import _pct_rf_actual, _piso_defensivo_requerido
 from services.favoritos_mes import aplicar_prioridad_favoritos, load_favoritos_mes
-
 
 # ── Scoring estático por sector (proxy sin yfinance) ─────────────────────────
 # Refleja SCORE_SECTORIAL_BASE de scoring_engine.py más contexto macro 2026.
@@ -168,12 +167,12 @@ _SECTORES_MERVAL = frozenset({"Acción Local", "Energía Local"})
 def _seleccionar_rv_para_perfil(
     perfil: str,
     peso_rv_total: float,
-    df_scores: "pd.DataFrame | None" = None,
+    df_scores: pd.DataFrame | None = None,
     n_max: int | None = None,
     max_por_sector: int | None = None,
     score_minimo: float = 45.0,
-    excluir: "set[str] | None" = None,
-    precios_ars: "dict[str, float] | None" = None,
+    excluir: set[str] | None = None,
+    precios_ars: dict[str, float] | None = None,
     capital_pool_ars: float = 0.0,
 ) -> dict[str, float]:
     """
@@ -196,7 +195,7 @@ def _seleccionar_rv_para_perfil(
     try:
         from config import UNIVERSO_MERVAL_SCORING
     except ImportError:
-        UNIVERSO_MERVAL_SCORING: list[str] = []
+        UNIVERSO_MERVAL_SCORING = []  # type: ignore[no-redef]
 
     n_max = n_max or _N_MAX_RV.get(perfil, 12)
     max_por_sector = max_por_sector if max_por_sector is not None else _MAX_POR_SECTOR_RV.get(perfil, 3)
@@ -345,10 +344,10 @@ def _expandir_ideal(
     ideal: dict[str, float],
     perfil: str,
     n_max_ons: int = 3,
-    df_scores: "pd.DataFrame | None" = None,
+    df_scores: pd.DataFrame | None = None,
     capital_ars: float = 0.0,
     ccl: float = 1.0,
-    precios_ars: "dict[str, float] | None" = None,
+    precios_ars: dict[str, float] | None = None,
 ) -> dict[str, float]:
     """
     Expande los pools dinámicos del dict ideal:
@@ -423,7 +422,7 @@ def _enriquecer_precios_recomendacion(
     ccl: float,
     universo_df: pd.DataFrame | None,
     favoritos_mes: dict[str, Any] | None,
-    df_scores: "pd.DataFrame | None" = None,
+    df_scores: pd.DataFrame | None = None,
 ) -> dict[str, float]:
     """
     El contexto suele traer solo cotizaciones de la cartera; el modelo ideal incluye ON/RV
@@ -658,7 +657,8 @@ def recomendar(
             delta_ideal[_tu] = min(_ref_delta, 0.10)  # delta simbólico para activar compra
 
     if renta_ar_gap > 1e-6:
-        _px = lambda t: float(precios_dict.get(t, precios_dict.get(t.upper(), 0.0)) or 0.0)
+        def _px(t: str) -> float:
+            return float(precios_dict.get(t, precios_dict.get(t.upper(), 0.0)) or 0.0)
         tiene_rf_cotizable = any(
             _es_compra_defensiva(kt)
             and float(delta_ideal.get(kt, 0.0)) > 1e-6

@@ -5,9 +5,10 @@ Los pesos sectoriales son aproximación educativa del índice (no tiempo real).
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 

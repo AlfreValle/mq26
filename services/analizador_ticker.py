@@ -17,41 +17,29 @@ Scanner de universo:
 """
 from __future__ import annotations
 
+import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Any
-import sys
 
-import numpy as np
 import pandas as pd
 import yfinance as yf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import (
     SECTORES,
-    RATIOS_CEDEAR,
     TICKERS_NO_CEDEAR_BYMA,
-    UNIVERSO_CEDEARS_SCORING,
     UNIVERSO_MERVAL_SCORING,
 )
 from core.logging_config import get_logger
 from services.scoring_engine import (
     _MOAT_SCORE,
     _SECTOR_CICLO_2026,
-    SCORE_SECTORIAL_BASE,
     _ticker_yahoo,
-    _calcular_tecnico_elite,
-    _calcular_volatilidad_penalizacion,
-    _moat_bonus,
-    score_fundamental,
-    score_sector_contexto,
     calcular_score_total,
-    PESO_FUNDAMENTAL,
-    PESO_TECNICO,
-    PESO_SECTOR_CTX,
 )
 
 _log = get_logger(__name__)
@@ -149,21 +137,21 @@ class AnalizadorResult:
             f"  Precio: ${self.precio_actual:.2f}  |  52w: ${self.precio_52w_low:.2f} – ${self.precio_52w_high:.2f}",
             f"  Descuento vs máx: {self.descuento_vs_max_pct:.1f}%",
             f"  Target consenso: ${self.precio_target:.2f} ({self.upside_pct:+.1f}%) [{self.consensus_rating}]",
-            f"",
+            "",
             f"  Score MQ26:   {self.score_total:.1f}/100  →  {self.senal}",
             f"  Fundamental:  {self.score_fundamental:.1f}  |  Técnico: {self.score_tecnico:.1f}  |  Sector: {self.score_sector:.1f}",
             f"  Moat: {'⬛'*self.moat}{'⬜'*(3-self.moat)} (+{self.moat_bonus:.1f}pts)  |  HV20d: {self.hv20:.1f}%  |  MaxDD: {self.max_dd_1y:.1f}%",
-            f"",
+            "",
             f"  RSI: {self.rsi:.1f}  |  MACD: {'▲' if self.macd > self.macd_signal else '▼'}  |  BB: {self.bb_pos}",
             f"  FCF Yield: {self.fcf_yield_pct:.1f}%  |  ROE: {self.roe_pct:.1f}%  |  P/E: {self.pe_ratio:.1f}",
             f"  Revenue growth: {self.revenue_growth_pct:+.1f}%  |  D/E: {self.debt_to_equity:.1f}",
-            f"",
+            "",
             f"  Gem Score: {self.gem_score:.0f}/100",
         ]
         if self.gem_reasons:
-            lines.append(f"  ✅ {chr(10).join('  ✅ ' + r for r in self.gem_reasons).lstrip('  ✅ ')}")
+            lines.append(f"  ✅ {chr(10).join('  ✅ ' + r for r in self.gem_reasons).removeprefix('  ✅ ')}")
         if self.red_flags:
-            lines.append(f"  🚩 {chr(10).join('  🚩 ' + f for f in self.red_flags).lstrip('  🚩 ')}")
+            lines.append(f"  🚩 {chr(10).join('  🚩 ' + f for f in self.red_flags).removeprefix('  🚩 ')}")
         lines.append(f"{'─'*60}")
         return "\n".join(lines)
 
@@ -323,13 +311,13 @@ def _calcular_gem_score(
         reasons.append(f"Moat muy amplio + sector en {ciclo_sector} — combinación ideal")
     elif moat >= 3:
         gem += 10
-        reasons.append(f"Moat muy amplio (máximo nivel) — ventaja competitiva durable")
+        reasons.append("Moat muy amplio (máximo nivel) — ventaja competitiva durable")
     elif moat >= 2 and ciclo_bueno:
         gem += 12
         reasons.append(f"Moat amplio + ciclo {ciclo_sector} — viento de cola")
     elif moat >= 2:
         gem += 8
-        reasons.append(f"Moat amplio — ventaja competitiva sostenible")
+        reasons.append("Moat amplio — ventaja competitiva sostenible")
     elif moat >= 1 and ciclo_bueno:
         gem += 6
     elif moat == 0 and ciclo_sector == "contraction":
@@ -349,7 +337,7 @@ def _calcular_gem_score(
     elif upside_pct <= -10:
         red_flags.append(f"Analistas con precio target inferior al actual ({upside_pct:.0f}%)")
     elif consensus_rating.lower() in ("sell", "underperform"):
-        red_flags.append(f"Consenso analistas SELL/UNDERPERFORM")
+        red_flags.append("Consenso analistas SELL/UNDERPERFORM")
 
     # ── 5. Momento técnico (15 pts) ───────────────────────────────────────────
     rsi_bueno    = 32 <= rsi <= 52

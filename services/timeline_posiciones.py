@@ -99,7 +99,7 @@ def render_timeline_posiciones(
     # ── Gantt chart ───────────────────────────────────────────────────
     fig = go.Figure()
 
-    for i, row in df.iterrows():
+    for _i, row in df.iterrows():
         color  = color_barra(row["pnl_pct"])
         grosor = max(12, min(40, int(row["peso_pct"] * 1.5)))
 

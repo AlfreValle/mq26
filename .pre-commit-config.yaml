@@ -1,7 +1,10 @@
 # Instalación: pip install -e ".[dev]" && pre-commit install
+# Ejecutar en todo el repo: pre-commit run --all-files
 # Alineado a pyproject.toml ([tool.ruff], [tool.black])
 default_language_version:
   python: python3.12
+
+exclude: '^(\.claude/|0_Data_Maestra/|htmlcov/|assets/)'
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -14,3 +17,14 @@ repos:
     hooks:
       - id: black
         language_version: python3.12
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: mixed-line-ending
+        args: [--fix=lf]

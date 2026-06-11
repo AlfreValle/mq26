@@ -63,7 +63,7 @@ def registrar_login(app_id: str, exito: bool, usuario: str = "") -> None:
     )
 
 
-def registrar_eliminacion(entidad: str, id_registro: int, cliente_id: int = None, usuario: str = "") -> None:
+def registrar_eliminacion(entidad: str, id_registro: int, cliente_id: int | None = None, usuario: str = "") -> None:
     """Registra eliminación de un registro (soft o hard delete)."""
     registrar_accion(
         accion=f"ELIMINAR_{entidad.upper()}",
@@ -74,7 +74,7 @@ def registrar_eliminacion(entidad: str, id_registro: int, cliente_id: int = None
     )
 
 
-def registrar_modificacion(entidad: str, id_registro: int, campos: dict, cliente_id: int = None) -> None:
+def registrar_modificacion(entidad: str, id_registro: int, campos: dict, cliente_id: int | None = None) -> None:
     """Registra modificación de un registro existente."""
     campos_str = ", ".join(f"{k}={v}" for k, v in campos.items())
     registrar_accion(

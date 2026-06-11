@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import Any
+
+from sqlalchemy import text
 
 from config import RATIOS_CEDEAR
 from core import db_manager as dbm
 from core.pricing_utils import precio_cedear_ars
-from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 

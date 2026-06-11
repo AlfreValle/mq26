@@ -2,8 +2,8 @@
 from core.diagnostico_types import (
     PISO_DEFENSIVO,
     RENDIMIENTO_MODELO_YTD_REF,
-    Semaforo,
     UNIVERSO_RENTA_FIJA_AR,
+    Semaforo,
     perfil_diagnostico_valido,
     perfil_motor_salida,
     semaforo_desde_score,

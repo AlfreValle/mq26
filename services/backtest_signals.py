@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from statistics import mean, median, pstdev
 from typing import Any
 

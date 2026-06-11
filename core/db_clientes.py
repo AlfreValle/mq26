@@ -11,17 +11,27 @@ Sin FK hacia otros dominios; referencia cross-domain solo por cliente_id (int).
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Float, Index,
-    Integer, String, Text, UniqueConstraint,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
 
 from core.db_domains import CLIENTES
 
-_B = CLIENTES.Base
+if TYPE_CHECKING:
+    import pandas as pd
 
-
+_B: Any = CLIENTES.Base  # mypy: alias dinámico SQLAlchemy
 # ─── Modelos ──────────────────────────────────────────────────────────────────
 
 class Cliente(_B):
@@ -98,7 +108,7 @@ def registrar_cliente(
         return cli.id
 
 
-def obtener_clientes_df(tenant_id: str = "default") -> "pd.DataFrame":
+def obtener_clientes_df(tenant_id: str = "default") -> pd.DataFrame:
     """Lista de clientes activos del tenant como DataFrame."""
     import pandas as pd
 
@@ -179,7 +189,7 @@ def registrar_objetivo(
         return obj.id
 
 
-def obtener_objetivos_cliente(cliente_id: int) -> "pd.DataFrame":
+def obtener_objetivos_cliente(cliente_id: int) -> pd.DataFrame:
     """Objetivos activos de un cliente."""
     import pandas as pd
 

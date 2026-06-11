@@ -323,7 +323,7 @@ def _html_posiciones(df_pos: pd.DataFrame) -> str:
     # Fila de totales
     total_cls = _cls_pnl(total_pnl)
     total_row = '<tr class="total-row">'
-    for col, label in present.items():
+    for col, _label in present.items():
         if col == "TICKER":
             total_row += "<td><strong>TOTAL</strong></td>"
         elif col == "VALOR_ARS":

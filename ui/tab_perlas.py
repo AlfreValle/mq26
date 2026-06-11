@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from typing import Any
 
 import pandas as pd
 import streamlit as st
@@ -316,9 +315,14 @@ def render_tab_perlas(ctx: dict | None = None) -> None:
 
     # ── Tickers con Análisis MQ26 / Externo disponible ──────────────────────
     try:
-        from services.bdi_reports import listar_tickers_con_bdi, obtener_reporte_bdi, reporte_bdi_html
-        from config import RATIOS_CEDEAR
         from pathlib import Path
+
+        from config import RATIOS_CEDEAR
+        from services.bdi_reports import (
+            listar_tickers_con_bdi,
+            obtener_reporte_bdi,
+            reporte_bdi_html,
+        )
         all_tickers = listar_tickers_con_bdi()
 
         # Distinguir: análisis MQ26 (auto) vs reportes externos manuales
@@ -394,69 +398,143 @@ def render_tab_perlas(ctx: dict | None = None) -> None:
         import logging
         logging.getLogger(__name__).debug("BDI index render skipped: %s", _e_bdi_idx)
 
-    # ── Verificar disponibilidad de scoring ─────────────────────────────────
+    # ── AUTO-SCAN al entrar (si no hay scoring previo) ──────────────────────
     df_scores = st.session_state.get("df_scores")
     tiene_scoring = (df_scores is not None
                      and hasattr(df_scores, "empty")
                      and not df_scores.empty)
 
-    if not tiene_scoring:
-        st.warning(
-            "🔍 **Aún no se ejecutó el escaneo del universo.**\n\n"
-            "Para detectar perlas, primero hay que escanear el universo de "
-            "CEDEARs/acciones con el motor de scoring (≈30-60 segundos)."
-        )
-        col_btn, _ = st.columns([1, 3])
-        with col_btn:
-            if st.button("🔍 Escanear universo ahora", type="primary",
-                         use_container_width=True, key="btn_escanear_perlas"):
-                _ejecutar_escaneo(ctx)
-                st.rerun()
+    # Si no hay scoring cargado, ejecutarlo automáticamente UNA VEZ por sesión.
+    # Marca la sesión para no reintentar si falla (evita loops).
+    if not tiene_scoring and not st.session_state.get("_perlas_autoscan_intentado", False):
+        st.session_state["_perlas_autoscan_intentado"] = True
+        with st.spinner(
+            "🔍 Cargando perlas automáticamente · escaneando universo "
+            "de CEDEARs y acciones (≈30-60 segundos)..."
+        ):
+            try:
+                from services.scoring_engine import escanear_universo_completo
+                df_scores_new = escanear_universo_completo(
+                    incluir_cedears=True,
+                    incluir_merval=True,
+                    incluir_bonos=False,
+                    incluir_internacional=False,
+                    incluir_fci=False,
+                    max_activos=80,
+                )
+                st.session_state["df_scores"] = df_scores_new
+                df_scores = df_scores_new
+                tiene_scoring = df_scores_new is not None and not df_scores_new.empty
+                if tiene_scoring:
+                    st.success(
+                        f"✓ Escaneo completo: {len(df_scores_new)} tickers procesados. "
+                        f"Las perlas se actualizan automáticamente."
+                    )
+            except Exception as _e_autoscan:
+                st.warning(
+                    f"⚠️ No se pudo escanear automáticamente ({_e_autoscan}). "
+                    "Podés intentar manualmente más abajo."
+                )
 
-        # Mostrar perlas de demo si se quiere visualizar el layout
-        with st.expander("Ver mockup de cómo se vería con perlas detectadas"):
+    # Botón manual de re-escaneo (siempre disponible)
+    _col_rs, _col_info = st.columns([1, 3])
+    with _col_rs:
+        if st.button("🔄 Re-escanear universo", key="btn_rescan_auto",
+                     use_container_width=True, help="Fuerza un re-escaneo del universo"):
+            try:
+                from services.scoring_engine import escanear_universo_completo
+                with st.spinner("Re-escaneando..."):
+                    df_new = escanear_universo_completo(
+                        incluir_cedears=True, incluir_merval=True,
+                        incluir_bonos=False, incluir_internacional=False,
+                        incluir_fci=False, max_activos=80,
+                    )
+                    st.session_state["df_scores"] = df_new
+                    st.session_state["_perlas_autoscan_intentado"] = True
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
+    with _col_info:
+        if tiene_scoring:
+            n_tickers = len(df_scores) if hasattr(df_scores, "__len__") else 0
+            st.caption(
+                f"📊 Universo escaneado: **{n_tickers}** tickers. "
+                "Las perlas se filtran de este universo según el perfil de cada tab."
+            )
+
+    # Si tras el auto-scan tampoco hay scoring, mostrar mockup demo y salir
+    if not tiene_scoring:
+        st.info(
+            "📊 No hay datos del universo todavía. "
+            "Esperá a la próxima corrida o re-escaneá manualmente arriba."
+        )
+        with st.expander("Ver mockup de cómo se verían las perlas detectadas"):
             _render_mockup_demo(perlas_libre, ccl)
         return
 
-    # ── Detectar perlas con el scoring actual ───────────────────────────────
-    from services.perlas_service import detectar_perlas_desde_scoring
+    # ── PERLAS POR PERFIL DE RIESGO (tabs internos) ─────────────────────────
+    from services.perlas_service import detectar_perlas_desde_scoring, resumen_perlas_df
 
-    perlas = detectar_perlas_desde_scoring(
-        df_scores=df_scores,
-        perfil=perfil,
-        n_max=6,
-        ccl=ccl,
-    )
-
-    st.markdown(f"### 💎 {len(perlas)} perla(s) detectada(s) para perfil **{perfil}**")
+    st.divider()
+    st.markdown("### 💎 Perlas detectadas por perfil de riesgo")
     st.caption(
-        f"Filtros: Score ≥ "
-        f"{ {'Conservador':75, 'Moderado':65, 'Arriesgado':55, 'Muy arriesgado':50}.get(perfil, 65) }, "
-        f"RSI ≤ 45 ó drawdown ≥ 20%. Ordenadas por score descendente."
+        f"**Tu perfil actual: {perfil}** — pero podés ver oportunidades de los 4 perfiles. "
+        "Cada perfil exige un score mínimo distinto (Conservador 75+ es más estricto, "
+        "Muy arriesgado 50+ es más permisivo)."
     )
 
-    if not perlas:
-        st.info(
-            "📊 No hay perlas que cumplan los filtros en este momento. "
-            "Probá escanear de nuevo o esperá a la próxima corrida diaria."
+    _PERFILES = ["Conservador", "Moderado", "Arriesgado", "Muy arriesgado"]
+    _SCORE_MIN = {"Conservador": 75, "Moderado": 65, "Arriesgado": 55, "Muy arriesgado": 50}
+
+    # Ordenar tabs poniendo el perfil del usuario PRIMERO
+    perfiles_ordenados = ([perfil] +
+                          [p for p in _PERFILES if p != perfil]) if perfil in _PERFILES else _PERFILES
+
+    # Generar etiquetas de tabs con contador
+    tab_labels = []
+    perlas_por_perfil = {}
+    for p in perfiles_ordenados:
+        perlas_p = detectar_perlas_desde_scoring(
+            df_scores=df_scores,
+            perfil=p,
+            n_max=8,
+            ccl=ccl,
         )
-        if st.button("🔄 Volver a escanear", key="btn_rescan"):
-            _ejecutar_escaneo(ctx)
-            st.rerun()
-        return
+        perlas_por_perfil[p] = perlas_p
+        emoji = "⭐ " if p == perfil else ""
+        tab_labels.append(f"{emoji}{p} ({len(perlas_p)})")
 
-    # ── Render de cada perla como tarjeta ───────────────────────────────────
-    for i, perla in enumerate(perlas):
-        _render_perla_card(perla, ctx, perlas_libre, idx=i)
-        st.divider()
+    perfil_tabs = st.tabs(tab_labels)
+    for tab, perfil_actual in zip(perfil_tabs, perfiles_ordenados, strict=True):
+        with tab:
+            perlas_actual = perlas_por_perfil[perfil_actual]
+            score_min_actual = _SCORE_MIN.get(perfil_actual, 65)
+            st.caption(
+                f"**Filtros perfil {perfil_actual}**: Score MOD-23 ≥ **{score_min_actual}** · "
+                f"RSI ≤ 45 ó drawdown ≥ 20% · ordenadas por score descendente."
+            )
 
-    # ── Footer: tabla resumen ───────────────────────────────────────────────
-    with st.expander("📋 Tabla resumen de todas las perlas", expanded=False):
-        from services.perlas_service import resumen_perlas_df
-        df_res = resumen_perlas_df(perlas)
-        st.dataframe(df_res, use_container_width=True, hide_index=True)
+            if not perlas_actual:
+                st.info(
+                    f"📊 No hay perlas que cumplan los filtros de **{perfil_actual}** ahora mismo. "
+                    "Esperá a la próxima corrida o probá un perfil menos estricto."
+                )
+                continue
+
+            # Render tarjetas para este perfil
+            for i, perla in enumerate(perlas_actual):
+                _render_perla_card(perla, ctx, perlas_libre,
+                                   idx=f"{perfil_actual.lower().replace(' ', '_')}_{i}")
+                st.divider()
+
+            # Tabla resumen del perfil
+            with st.expander(f"📋 Tabla resumen — {len(perlas_actual)} perlas de {perfil_actual}",
+                             expanded=False):
+                df_res = resumen_perlas_df(perlas_actual)
+                st.dataframe(df_res, use_container_width=True, hide_index=True)
 
     # ── Disclaimer legal ────────────────────────────────────────────────────
+    st.divider()
     st.caption(
         "⚠️ Las perlas son sugerencias basadas en señales técnicas/fundamentales "
         "del motor MOD-23. NO constituyen recomendación de inversión. "
@@ -466,7 +544,7 @@ def render_tab_perlas(ctx: dict | None = None) -> None:
 
 # ─── Render de tarjeta de perla individual ────────────────────────────────────
 
-def _render_perla_card(perla, ctx: dict, perlas_libre: float, idx: int) -> None:
+def _render_perla_card(perla, ctx: dict, perlas_libre: float, idx) -> None:
     """
     Renderiza una perla como tarjeta con:
       - Tesis HTML enriquecida (motivos detallados, plan de acción)
@@ -499,8 +577,9 @@ def _render_perla_card(perla, ctx: dict, perlas_libre: float, idx: int) -> None:
     tiene_analisis = False
     es_externo = False
     try:
-        from services.bdi_reports import obtener_reporte_bdi
         from pathlib import Path
+
+        from services.bdi_reports import obtener_reporte_bdi
         if obtener_reporte_bdi(ticker) is not None:
             tiene_analisis = True
             # Existe archivo SIN sufijo _auto = externo (BDI Consultora u otro)
@@ -527,7 +606,7 @@ def _render_perla_card(perla, ctx: dict, perlas_libre: float, idx: int) -> None:
         if dcf_recom == "INFRAVALORADA":
             badge_dcf = _badge(f"🧮 DCF +{dcf_margen:.0f}%", "#15803d")
         elif dcf_recom == "FAIR":
-            badge_dcf = _badge(f"🧮 DCF FAIR", "#b45309")
+            badge_dcf = _badge("🧮 DCF FAIR", "#b45309")
         elif dcf_recom == "SOBREVALUADA":
             badge_dcf = _badge(f"🧮 DCF {dcf_margen:.0f}%", "#dc2626")
 
@@ -572,8 +651,8 @@ def _render_perla_card(perla, ctx: dict, perlas_libre: float, idx: int) -> None:
 
     # ── Análisis MQ26 / Externo (si existe para este ticker) ─────────────────
     try:
-        from services.bdi_reports import obtener_reporte_bdi, reporte_bdi_html
         from config import RATIOS_CEDEAR
+        from services.bdi_reports import obtener_reporte_bdi, reporte_bdi_html
         reporte = obtener_reporte_bdi(ticker)
         if reporte is not None:
             ratio = float(RATIOS_CEDEAR.get(ticker.upper(), 1) or 1)

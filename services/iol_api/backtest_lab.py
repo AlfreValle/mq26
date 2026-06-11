@@ -6,8 +6,9 @@ Simula posiciones long/flat o long/short con retardo de 1 barra para evitar look
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Literal
+from typing import Literal
 
 import numpy as np
 import pandas as pd

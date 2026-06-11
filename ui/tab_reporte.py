@@ -7,16 +7,17 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+
 from core.auth import has_feature
 from ui.mq26_ux import dataframe_auto_height
 from ui.rbac import can_action as _can_action_rbac
 
 
-
 def _render_historial_snapshots(ctx: dict) -> None:
     """Historial de snapshots de optimización del cliente/cartera activa."""
-    from services.portfolio_snapshot import listar_snapshots
     import plotly.graph_objects as go
+
+    from services.portfolio_snapshot import listar_snapshots
 
     cid = ctx.get("cliente_id")
     cartera = str(ctx.get("cartera_activa", "") or "")
@@ -89,12 +90,12 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
 
     # ── 1) ANÁLISIS DISPONIBLES (MQ26 auto + externos) ───────────────────────
     try:
+        from config import RATIOS_CEDEAR
         from services.bdi_reports import (
             listar_tickers_con_bdi,
             obtener_reporte_bdi,
             reporte_bdi_html,
         )
-        from config import RATIOS_CEDEAR
 
         bdi_tickers = listar_tickers_con_bdi()
         if bdi_tickers:
@@ -162,9 +163,8 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
     # ── 2) PERLAS DINÁMICAS DEL SCORING ──────────────────────────────────────
     try:
         from services.perlas_service import (
-            detectar_perlas_desde_scoring,
-            seleccionar_perlas,
             construir_tesis_html,
+            detectar_perlas_desde_scoring,
         )
 
         df_scores = st.session_state.get("df_scores")
@@ -811,7 +811,7 @@ def render_tab_reporte(ctx: dict) -> None:
     if _extra_names:
         st.divider()
         _subtabs = st.tabs(_extra_names)
-        _tab_map = dict(zip(_extra_tabs, _subtabs))
+        _tab_map = dict(zip(_extra_tabs, _subtabs, strict=True))
 
         if "ficha_empresa" in _tab_map:
             with _tab_map["ficha_empresa"]:
@@ -862,6 +862,7 @@ def render_tab_reporte(ctx: dict) -> None:
             with _tab_map["retiro"]:
                 import numpy as np
                 import plotly.graph_objects as go
+
                 from core.retirement_goal import (
                     calcular_aporte_necesario,
                     simulate_retirement,
@@ -960,7 +961,9 @@ def render_tab_reporte(ctx: dict) -> None:
                 with col_c2:
                     with st.spinner("Cargando datos históricos..."):
                         try:
-                            from services.comparador_instrumentos import generar_comparador_instrumentos
+                            from services.comparador_instrumentos import (
+                                generar_comparador_instrumentos,
+                            )
                             fig_comp = generar_comparador_instrumentos(
                                 start=start_comp,
                                 capital=float(capital_comp),

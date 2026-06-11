@@ -27,7 +27,7 @@ def enviar_email_gmail(
     cuerpo_html:  str,
     remitente:    str | None = None,
     app_password: str | None = None,
-    adjuntos:     list[str] = None,
+    adjuntos:     list[str] | None = None,
 ) -> tuple[bool, str]:
     """
     Envía un email HTML vía Gmail SMTP con SSL.

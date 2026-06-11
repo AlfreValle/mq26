@@ -8,8 +8,6 @@ from __future__ import annotations
 import os
 from typing import Any, Protocol, runtime_checkable
 
-from services.byma_provider import BymaRestMarketProvider
-
 BYMA_FIRST: bool = os.environ.get("MQ26_BYMA_FIRST", "").strip().lower() in ("1", "true", "yes")
 
 

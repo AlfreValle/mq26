@@ -428,7 +428,7 @@ def render_sidebar(
                 _nuevos = {
                     t: float(p)
                     for t, p in zip(
-                        _df_fb_edit["Ticker"], _df_fb_edit["Precio ARS"]
+                        _df_fb_edit["Ticker"], _df_fb_edit["Precio ARS"], strict=True
                     )
                     if t and p and float(p) > 0
                 }

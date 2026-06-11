@@ -23,10 +23,10 @@ if str(ROOT) not in sys.path:
 
 from config import (  # noqa: E402
     RUTA_ANALISIS,
+    RUTA_DB,
     RUTA_MAESTRA,
     RUTA_TRANSAC,
     RUTA_UNIVERSO,
-    RUTA_DB,
 )
 
 

@@ -11,18 +11,23 @@ Sin FK hacia otros dominios.
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any
 
 import pandas as pd
 from sqlalchemy import (
-    Column, Date, DateTime, Float, Index,
-    Integer, String, UniqueConstraint,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
 )
 
 from core.db_domains import MERCADO
 
-_B = MERCADO.Base
-
-
+_B: Any = MERCADO.Base  # mypy: alias dinámico SQLAlchemy
 # ─── Modelos ──────────────────────────────────────────────────────────────────
 
 class PrecioFallback(_B):

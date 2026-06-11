@@ -508,7 +508,7 @@ def render_tab_universo(ctx: dict) -> None:
                                 close, bb_lower, bb_upper, sk, datos)
 
                         if entradas_xy:
-                            x_e, y_e = zip(*entradas_xy)
+                            x_e, y_e = zip(*entradas_xy, strict=True)
                             fig_v.add_trace(go.Scatter(
                                 x=list(x_e), y=[y * 0.985 for y in y_e],
                                 mode="markers", name="ENTRADA",
@@ -517,7 +517,7 @@ def render_tab_universo(ctx: dict) -> None:
                             ), row=1, col=1)
 
                         if salidas_xy:
-                            x_s, y_s = zip(*salidas_xy)
+                            x_s, y_s = zip(*salidas_xy, strict=True)
                             fig_v.add_trace(go.Scatter(
                                 x=list(x_s), y=[y * 1.015 for y in y_s],
                                 mode="markers", name="SALIDA",
@@ -527,7 +527,7 @@ def render_tab_universo(ctx: dict) -> None:
 
                         if mostrar_vol and "Volume" in datos.columns and row_vol:
                             colores_vol = ["#27AE60" if c >= o else "#E74C3C"
-                                           for c, o in zip(close, datos["Open"])]
+                                           for c, o in zip(close, datos["Open"], strict=True)]
                             fig_v.add_trace(go.Bar(
                                 x=datos.index, y=datos["Volume"],
                                 name="Volumen", marker_color=colores_vol, opacity=0.6,

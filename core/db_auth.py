@@ -13,16 +13,25 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Index, Integer,
-    String, Text, UniqueConstraint,
+    Boolean,
+    Column,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
 
 from core.db_domains import AUTH
 
-_B = AUTH.Base
+if TYPE_CHECKING:
+    import pandas as pd
 
+_B: Any = AUTH.Base  # mypy: alias dinámico SQLAlchemy
 _ROLES_VALIDOS  = frozenset({"super_admin", "asesor", "estudio", "inversor"})
 _RAMAS_VALIDAS  = frozenset({"profesional", "retail"})
 
@@ -128,7 +137,7 @@ def crear_usuario(
         return u.id
 
 
-def verificar_password(username: str, password: str, tenant_id: str = "default") -> "AppUsuario | None":
+def verificar_password(username: str, password: str, tenant_id: str = "default") -> AppUsuario | None:
     """Verifica credenciales y retorna el usuario si son correctas."""
     with AUTH.session() as s:
         u = (
@@ -154,7 +163,7 @@ def verificar_password(username: str, password: str, tenant_id: str = "default")
         return u
 
 
-def obtener_usuarios_df(tenant_id: str = "default") -> "pd.DataFrame":
+def obtener_usuarios_df(tenant_id: str = "default") -> pd.DataFrame:
     import pandas as pd
 
     with AUTH.session() as s:

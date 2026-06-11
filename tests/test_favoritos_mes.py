@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-from types import SimpleNamespace
 
 from services.favoritos_mes import (
     aplicar_prioridad_favoritos,

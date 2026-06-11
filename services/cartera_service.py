@@ -31,7 +31,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import time as _time_mod
 
-from config import RATIOS_CEDEAR
 from core.logging_config import get_logger
 from core.pricing_utils import obtener_ratio, subyacente_usd_desde_cedear
 
@@ -444,7 +443,7 @@ def calcular_posicion_neta(
         _rf_usd_par = np.array(
             [
                 _ppc_usd_es_paridad_rf_usd(str(t), str(tp))
-                for t, tp in zip(df["TICKER"].astype(str), _tipos)
+                for t, tp in zip(df["TICKER"].astype(str), _tipos, strict=True)
             ],
             dtype=bool,
         )
@@ -466,7 +465,7 @@ def calcular_posicion_neta(
     _rf_usd_par = np.array(
         [
             _ppc_usd_es_paridad_rf_usd(str(t), str(tp))
-            for t, tp in zip(df["TICKER"].astype(str), _tipos)
+            for t, tp in zip(df["TICKER"].astype(str), _tipos, strict=True)
         ],
         dtype=bool,
     )

@@ -1839,7 +1839,7 @@ def generar_vector_flujos(
     flujos: list[dict] = []
     n_futuros = len(futuros)
 
-    for i, c_str in enumerate(futuros):
+    for _i, c_str in enumerate(futuros):
         es_ultimo = (c_str == futuros[-1])
 
         capital = 0.0
@@ -1968,7 +1968,7 @@ def tickers_rf_por_tipo_ampliado(tipo: str) -> list[str]:
 
 def calcular_duration_rf_unificado(
     ticker: str,
-    fecha_liq: "date | None" = None,
+    fecha_liq: date | None = None,
 ) -> dict[str, Any]:
     """
     Punto de entrada unificado de duration para todos los tipos de RF.

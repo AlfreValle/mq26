@@ -1,10 +1,10 @@
 """C03 — alineación de calendario en panel de precios (inner join de fechas)."""
 from __future__ import annotations
 
-import pandas as pd
-
 import sys
 from pathlib import Path
+
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "1_Scripts_Motor"))
 from data_engine import alinear_panel_precios_cierre

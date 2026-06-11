@@ -14,7 +14,7 @@ Uso
 
 Automatización con Windows Task Scheduler (sin cron nativo en Win):
     Programa: python.exe
-    Argumentos: scripts\cron_update_fundamentales.py
+    Argumentos: scripts\\cron_update_fundamentales.py
     Inicio: C:\\Users\\...\\MQ26_V11
     Hora: 23:00
     Frecuencia: diario (lunes a viernes)
@@ -70,7 +70,7 @@ def main() -> int:
 
     # ── 1. Importar universo ──────────────────────────────────────────────────
     try:
-        from config import CEDEAR_INFO, ACCIONES_ARGENTINAS, FUNDAMENTALES_CACHE_PATH
+        from config import ACCIONES_ARGENTINAS, CEDEAR_INFO, FUNDAMENTALES_CACHE_PATH
     except ImportError as exc:
         log.error("No se puede importar config: %s", exc)
         return 1

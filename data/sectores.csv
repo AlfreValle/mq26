@@ -1,0 +1,382 @@
+ticker,sector
+GLD,Cobertura
+AMX,Comunicaciones
+AMZN,Comunicaciones
+BABA,Comunicaciones
+BIDU,Comunicaciones
+DESP,Comunicaciones
+DTEA,Comunicaciones
+EBAY,Comunicaciones
+ERIC,Comunicaciones
+ETSY,Comunicaciones
+GLW,Comunicaciones
+JD,Comunicaciones
+MELI,Comunicaciones
+META,Comunicaciones
+MSI,Comunicaciones
+NFLX,Comunicaciones
+NGG,Comunicaciones
+ORAN,Comunicaciones
+PINS,Comunicaciones
+ROKU,Comunicaciones
+SE,Comunicaciones
+SHPW,Comunicaciones
+SNAP,Comunicaciones
+SPOT,Comunicaciones
+T,Comunicaciones
+TCOM,Comunicaciones
+TEFO,Comunicaciones
+TIIAY,Comunicaciones
+TIMB,Comunicaciones
+TIMS3,Comunicaciones
+TMUS,Comunicaciones
+TRIP,Comunicaciones
+TV,Comunicaciones
+TWTR,Comunicaciones
+VIV,Comunicaciones
+VIVT3,Comunicaciones
+VOD,Comunicaciones
+WBO,Comunicaciones
+YY,Comunicaciones
+AAL,Consumo Ciclico
+ABNB,Consumo Ciclico
+ANF,Consumo Ciclico
+ARCO,Consumo Ciclico
+BKNG,Consumo Ciclico
+CAR,Consumo Ciclico
+CBRB,Consumo Ciclico
+CCL,Consumo Ciclico
+COST,Consumo Ciclico
+DAL,Consumo Ciclico
+DISN,Consumo Ciclico
+F,Consumo Ciclico
+GM,Consumo Ciclico
+GT,Consumo Ciclico
+HD,Consumo Ciclico
+HMC,Consumo Ciclico
+HOG,Consumo Ciclico
+JMIA,Consumo Ciclico
+LREN3,Consumo Ciclico
+LVS,Consumo Ciclico
+MBG,Consumo Ciclico
+MCD,Consumo Ciclico
+MGLU3,Consumo Ciclico
+NIO,Consumo Ciclico
+NKE,Consumo Ciclico
+NSAN,Consumo Ciclico
+ORLY,Consumo Ciclico
+PCAR,Consumo Ciclico
+RACE,Consumo Ciclico
+RENT3,Consumo Ciclico
+ROST,Consumo Ciclico
+SONY,Consumo Ciclico
+SPCE,Consumo Ciclico
+SQ,Consumo Ciclico
+STLA,Consumo Ciclico
+TGT,Consumo Ciclico
+TJX,Consumo Ciclico
+TM,Consumo Ciclico
+TSLA,Consumo Ciclico
+TTM,Consumo Ciclico
+UAL,Consumo Ciclico
+UBER,Consumo Ciclico
+AAP,Consumo Def.
+ABBV,Consumo Def.
+ABEV3,Consumo Def.
+ABT,Consumo Def.
+AGRO,Consumo Def.
+AKO.B,Consumo Def.
+AMGN,Consumo Def.
+AVY,Consumo Def.
+BIIB,Consumo Def.
+BIOX,Consumo Def.
+BMY,Consumo Def.
+BNG,Consumo Def.
+BRFS,Consumo Def.
+BSN,Consumo Def.
+CAH,Consumo Def.
+CL,Consumo Def.
+CRES,Consumo Def.
+CVS,Consumo Def.
+DEO,Consumo Def.
+ELP,Consumo Def.
+GILD,Consumo Def.
+GSK,Consumo Def.
+ISRG,Consumo Def.
+JNJ,Consumo Def.
+KMB,Consumo Def.
+KO,Consumo Def.
+KOFM,Consumo Def.
+LLY,Consumo Def.
+LND,Consumo Def.
+MDLZ,Consumo Def.
+MDT,Consumo Def.
+MO,Consumo Def.
+MOLI,Consumo Def.
+MRK,Consumo Def.
+MRNA,Consumo Def.
+NATU3,Consumo Def.
+NTCO,Consumo Def.
+NVS,Consumo Def.
+PEP,Consumo Def.
+PFE,Consumo Def.
+PG,Consumo Def.
+PHG,Consumo Def.
+PM,Consumo Def.
+PSO,Consumo Def.
+SBS,Consumo Def.
+SBSP3,Consumo Def.
+SBUX,Consumo Def.
+SPGI,Consumo Def.
+SYY,Consumo Def.
+TMO,Consumo Def.
+UL,Consumo Def.
+UNH,Consumo Def.
+URBN,Consumo Def.
+VRSN,Consumo Def.
+WBA,Consumo Def.
+WMT,Consumo Def.
+LMT,Defensa
+ARKK,ETF
+CIBR,ETF
+DIA,ETF
+EEM,ETF
+ETHA,ETF
+EWY,ETF
+EWZ,ETF
+FXI,ETF
+IBB,ETF
+IBIT,ETF
+ICLN,ETF
+IEUR,ETF
+ITA,ETF
+IVE,ETF
+IVW,ETF
+IWM,ETF
+QQQ,ETF
+RSP,ETF
+SH,ETF
+SMH,ETF
+SPXL,ETF
+SPY,ETF
+TQQQ,ETF
+URA,ETF
+VEA,ETF
+VXX,ETF
+XLB,ETF
+XLC,ETF
+XLE,ETF
+XLF,ETF
+XLI,ETF
+XLK,ETF
+XLP,ETF
+XLRE,ETF
+XLU,ETF
+XLV,ETF
+XLY,ETF
+XME,ETF
+ATAD,Energía
+BKR,Energía
+BP,Energía
+COP,Energía
+CVX,Energía
+E,Energía
+EOAN,Energía
+EQNR,Energía
+FSLR,Energía
+GLNG,Energía
+GPRK,Energía
+HAL,Energía
+HNPIY,Energía
+LKOD,Energía
+NEE,Energía
+OGZD,Energía
+OXY,Energía
+PBR,Energía
+PETR3,Energía
+PRIO3,Energía
+PSX,Energía
+PTR,Energía
+SHEL,Energía
+SLB,Energía
+SNP,Energía
+TTE,Energía
+UGP,Energía
+VIST,Energía
+XOM,Energía
+YZCA,Energía
+CEPU,Energía Local
+PAMP,Energía Local
+TGNO4,Energía Local
+YPFD,Energía Local
+AEG,Financiero
+AXP,Financiero
+BAC,Financiero
+BBAS3,Financiero
+BBD,Financiero
+BBDC3,Financiero
+BBV,Financiero
+BCS,Financiero
+BK,Financiero
+BMA,Financiero
+BPA11,Financiero
+BRKB,Financiero
+BSBR,Financiero
+BYMA,Financiero
+C,Financiero
+COIN,Financiero
+FISV,Financiero
+FNMA,Financiero
+GGAL,Financiero
+GS,Financiero
+HDB,Financiero
+HSBC,Financiero
+IBN,Financiero
+ING,Financiero
+ITUB,Financiero
+ITUB3,Financiero
+JPM,Financiero
+KB,Financiero
+LFC,Financiero
+LYG,Financiero
+MA,Financiero
+MFG,Financiero
+MMC,Financiero
+MUFG,Financiero
+NMR,Financiero
+NU,Financiero
+PAGS,Financiero
+PKS,Financiero
+SAN,Financiero
+SCHW,Financiero
+SI,Financiero
+STNE,Financiero
+SUPV,Financiero
+TRVV,Financiero
+USB,Financiero
+V,Financiero
+WFC,Financiero
+XP,Financiero
+ASR,Industria
+BA,Industria
+BOLT,Industria
+CAT,Industria
+COME,Industria
+CX,Industria
+DE,Industria
+ERJ,Industria
+FDX,Industria
+GE,Industria
+HON,Industria
+HWM,Industria
+JCI,Industria
+MIRG,Industria
+MMM,Industria
+PAC,Industria
+RTX,Industria
+SNA,Industria
+TEN,Industria
+UNP,Industria
+WEGE3,Industria
+AEM,Materiales
+ALUA,Materiales
+AOCA,Materiales
+AUY,Materiales
+BAK,Materiales
+BAS,Materiales
+BAYN,Materiales
+BHP,Materiales
+CCJ,Materiales
+CDE,Materiales
+CSNA3,Materiales
+DD,Materiales
+DOW,Materiales
+GFI,Materiales
+GGB,Materiales
+GOLD,Materiales
+HL,Materiales
+HMY,Materiales
+IFF,Materiales
+IP,Materiales
+KGC,Materiales
+LAAC,Materiales
+LOMA,Materiales
+MOS,Materiales
+MP,Materiales
+MUX,Materiales
+NEM,Materiales
+NG,Materiales
+NLM,Materiales
+NUE,Materiales
+NXE,Materiales
+PAAS,Materiales
+RIO,Materiales
+SCCO,Materiales
+SID,Materiales
+SUZ,Materiales
+SUZB3,Materiales
+TXAR,Materiales
+TXR,Materiales
+VALE,Materiales
+VALE3,Materiales
+X,Materiales
+IRSA,Real Estate
+O,Real Estate
+HAPV3,Salud
+HIMS,Salud
+AAPL,Tecnología
+ACN,Tecnología
+ADBE,Tecnología
+ADI,Tecnología
+ADP,Tecnología
+ADS,Tecnología
+AMAT,Tecnología
+AMD,Tecnología
+ANET,Tecnología
+ARM,Tecnología
+AVGO,Tecnología
+BB,Tecnología
+CAJ,Tecnología
+CRWD,Tecnología
+CSCO,Tecnología
+DOCU,Tecnología
+EA,Tecnología
+GLOB,Tecnología
+GOOGL,Tecnología
+HHPD,Tecnología
+HPQ,Tecnología
+HUT,Tecnología
+IBM,Tecnología
+INFY,Tecnología
+INTC,Tecnología
+KEEL,Tecnología
+LRCX,Tecnología
+MRVL,Tecnología
+MSFT,Tecnología
+MSTR,Tecnología
+MU,Tecnología
+NBIS,Tecnología
+NEC1,Tecnología
+NTES,Tecnología
+NVDA,Tecnología
+ONDS,Tecnología
+ORCL,Tecnología
+PANW,Tecnología
+PBI,Tecnología
+PCRF,Tecnología
+PLTR,Tecnología
+QCOM,Tecnología
+RBLX,Tecnología
+SAP,Tecnología
+SATL,Tecnología
+SDA,Tecnología
+SIEGY,Tecnología
+SMSN,Tecnología
+SNDK,Tecnología
+SNOW,Tecnología
+SWKS,Tecnología
+TSM,Tecnología
+TWLO,Tecnología
+TXN,Tecnología
+XROX,Tecnología
+ZM,Tecnología

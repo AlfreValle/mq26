@@ -14,8 +14,8 @@ import streamlit as st
 from core.logging_config import get_logger
 from core.panel_precios import validar_panel_precios
 from core.structured_logging import log_degradacion
-from ui.rbac import can_action as _can_action_rbac
 from ui.mq26_ux import dataframe_auto_height
+from ui.rbac import can_action as _can_action_rbac
 
 _log = get_logger(__name__)
 
@@ -108,6 +108,8 @@ def render_tab_optimizacion(ctx: dict) -> None:
         "🎯 Backtest / Stress Test / Ejecución",
         "📊 Backtest Multi-Modelo",
     ])
+    # Expuesto vía ctx para _renderizar_resultados (extraído como helper, mantiene tabs).
+    ctx["_sub_multi_tab"] = sub_multi
 
     # ══════════════════════════════════════════════════════════════════
     # SUB-TAB 1: COMPARATIVA AUTOMÁTICA — 3 MODELOS
@@ -293,7 +295,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
                 _mx  = [max(v[i] for v in _raw) for i in range(5)]
                 def _n(v, mn, mx): return (v - mn) / (mx - mn) if mx > mn else 0.5
                 fig_radar = go.Figure()
-                for lbl, raw in zip(all_lbl, _raw):
+                for lbl, raw in zip(all_lbl, _raw, strict=True):
                     normed = [_n(raw[i], _mn[i], _mx[i]) for i in range(5)]
                     fig_radar.add_trace(go.Scatterpolar(
                         r=normed + [normed[0]], theta=_dim + [_dim[0]],
@@ -311,7 +313,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
                 st.divider()
                 st.markdown("#### 📈 Performance histórica — base 100")
                 fig_eq = go.Figure()
-                for lbl, met in zip(all_lbl, all_met):
+                for lbl, met in zip(all_lbl, all_met, strict=True):
                     eq = np.cumprod(1 + met["r"]) * 100
                     fig_eq.add_trace(go.Scatter(
                         x=list(ret_d.index[:len(eq)]), y=eq,
@@ -939,6 +941,10 @@ def _renderizar_resultados(ctx: dict) -> None:
     capital_nuevo = ctx["capital_nuevo"]
     _boton_exportar = ctx["_boton_exportar"]
     RiskEngineCls = ctx["RiskEngine"]
+    RiskEngine    = RiskEngineCls
+    RISK_FREE_RATE = ctx["RISK_FREE_RATE"]
+    _is_viewer    = not _can_action_rbac(ctx, "write")
+    sub_multi     = ctx.get("_sub_multi_tab")
     _cov_ok = st.session_state.get("risk_cov_psd_ok") is True
     _precios_ok = st.session_state.get("risk_prices_panel_ok") is True
     _export_ok = _cov_ok and _precios_ok and str(ctx.get("user_role", "admin")).lower() != "viewer"
@@ -1059,7 +1065,7 @@ def _renderizar_resultados(ctx: dict) -> None:
                 _pdf.set_font("Helvetica", "B", 9)
                 _cols_pdf = ["Modelo","Sharpe","Sortino","Ret. Anual","Volatil.","Max DD","VaR 95%"]
                 _widths   = [40, 22, 22, 25, 22, 22, 22]
-                for _c, _w in zip(_cols_pdf, _widths):
+                for _c, _w in zip(_cols_pdf, _widths, strict=True):
                     _pdf.cell(_w, 7, _c, border=1)
                 _pdf.ln()
                 _pdf.set_font("Helvetica", "", 8)
@@ -1355,8 +1361,7 @@ def _renderizar_resultados(ctx: dict) -> None:
         if not lab_res or lab_hist is None:
             st.info("Sin datos. Ejecutá el **Lab Quant** primero para cargar el histórico y los pesos.")
         else:
-            import plotly.graph_objects as go
-            from services.backtester import run_backtest_multimodelo, MODELOS_DISPONIBLES
+            from services.backtester import run_backtest_multimodelo
 
             col_mb1, col_mb2 = st.columns([2, 1])
             with col_mb1:
@@ -1394,9 +1399,6 @@ def _renderizar_resultados(ctx: dict) -> None:
             # ── Mostrar resultados si existen ──────────────────────────────
             res_multi = st.session_state.get("multi_bt_resultados", {})
             if res_multi:
-                import numpy as np
-                import pandas as pd
-
                 # ── Equity curves ──────────────────────────────────────────
                 st.markdown("##### Equity curves (base 100)")
                 fig_eq = go.Figure()

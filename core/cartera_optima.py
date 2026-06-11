@@ -130,7 +130,6 @@ def _seleccionar_etfs_dinamico(
     Selecciona los mejores ETFs broad market del scoring (no fijos SPY/QQQ).
     Universo ETFs típicos: SPY, QQQ, DIA, IWM, EWZ, EEM, IBIT, ETHA, ARKK, GLD.
     """
-    import pandas as pd
 
     ETF_UNIVERSE = {"SPY", "QQQ", "DIA", "IWM", "VOO", "VTI", "EWZ", "EEM",
                     "IBIT", "IVW", "IVE", "XLK", "XLF", "XLE", "XLV"}

@@ -19,12 +19,12 @@ _log = get_logger(__name__)
 from core.renta_fija_ar import (
     INSTRUMENTOS_RF,
     descripcion_legible,
+    es_renta_fija,
     get_meta,
     tickers_por_tipo,
     tickers_rf_activos,
     tir_al_precio,
     valor_nominal_a_ars,
-    es_renta_fija,
 )
 
 
@@ -61,7 +61,7 @@ def _universo_opciones_labels(ctx: dict) -> tuple[list[str], dict[str, str]]:
         lbl = f"{t} — {nom}" + (f" ({sec})" if sec else "")
         labels.append(lbl)
         m[lbl] = t
-    pairs = sorted(zip(m.keys(), m.values()), key=lambda x: x[1])
+    pairs = sorted(zip(m.keys(), m.values(), strict=True), key=lambda x: x[1])
     labels_ord = [p[0] for p in pairs]
     m2 = {p[0]: p[1] for p in pairs}
     return labels_ord, m2
@@ -735,7 +735,7 @@ def _render_importar_broker(ctx: dict) -> None:
                 cartera=_cartera_csv(ctx),
                 ccl=float(ctx.get("ccl") or 1450.0),
             )
-        except Exception as e:
+        except Exception:
             _log.exception("carga_activos: importar_archivo_broker inesperado")
             st.error("No se pudo procesar el archivo. Si el problema persiste, contactá soporte.")
             df_imp = pd.DataFrame()

@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import importlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 import streamlit as st
 
@@ -208,7 +209,7 @@ def render_main_tabs(ctx: dict, app_kind: AppKind, role: str) -> None:
     _deeplink_tab_hint(specs)
 
     tabs = st.tabs([s.label for s in specs])
-    for tab_obj, spec in zip(tabs, specs):
+    for tab_obj, spec in zip(tabs, specs, strict=True):
         with tab_obj:
             # Spinner visible mientras el tab calcula (C19).
             # Para tabs rápidas desaparece en milisegundos; para tabs

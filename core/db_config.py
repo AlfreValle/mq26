@@ -12,14 +12,16 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Column, DateTime, Index, Integer, String, Text
 
 from core.db_domains import CONFIG
 
-_B = CONFIG.Base
+if TYPE_CHECKING:
+    import pandas as pd
 
+_B: Any = CONFIG.Base  # mypy: alias dinámico SQLAlchemy
 # Claves que generan fila de auditoría al modificarse
 PARAM_AUDIT_KEYS = frozenset({
     "RISK_FREE_RATE",
@@ -137,7 +139,7 @@ def registrar_evento_admin(
         ))
 
 
-def historial_param(clave: str, limit: int = 50) -> "pd.DataFrame":
+def historial_param(clave: str, limit: int = 50) -> pd.DataFrame:
     """Historial de cambios de un parámetro auditado."""
     import pandas as pd
 

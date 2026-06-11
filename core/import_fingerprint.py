@@ -7,7 +7,6 @@ import hashlib
 
 import pandas as pd
 
-
 FINGERPRINT_COL = "IMPORT_FINGERPRINT"
 
 
