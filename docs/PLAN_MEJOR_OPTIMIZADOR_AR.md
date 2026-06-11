@@ -78,14 +78,20 @@ backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
   cruza señales (multifactor COMPRAR + DCF SOBREVALUADA → aviso de entrada
   escalonada). RF deriva a ficha RF. 11 tests con dobles, sin red.
 
-### Sprint 2 (pendiente)
+### Sprint 2 (2026-06-11) ✅ — commit `a927205`
 
-- **UI de la ficha**: render en tab_universo (asesor: buscar ticker → ficha
-  completa) y versión simplificada para el inversor (tab_perlas / análisis).
-- Gráfico de velas de empresa_ficha como sección opcional.
-- Export de la ficha a HTML/PDF para que el asesor la mande al cliente.
-- Evaluar: precio objetivo consenso de analistas (analizador_ticker) como
-  sección extra.
+- Sub-tab "📑 Ficha de ticker" en tab_universo para ambos roles, con buscador
+  validado contra el maestro (sugerencias de typo antes de gastar red).
+- Componente `ui/components/ficha_ticker_view.py`: recomendación semaforizada,
+  score + cobertura, 4 dimensiones con pesos, secciones en expanders, velas
+  opcionales, descarga HTML. Cache 15 min + persistencia del último ticker.
+- `ficha_ticker_html()`: export standalone imprimible con contenido escapado.
+
+### Sprint 3 (pendiente)
+
+- Precio objetivo consenso de analistas (analizador_ticker) como sección extra.
+- Link directo a la ficha desde tab_perlas y posiciones (click en ticker).
+- Luego → **Pilar 3: recomendador explicable end-to-end**.
 
 ## Criterio de éxito del plan
 
