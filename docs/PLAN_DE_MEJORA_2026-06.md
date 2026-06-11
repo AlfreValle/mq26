@@ -4,20 +4,32 @@ Diagnóstico realizado el 2026-06-10 sobre la rama `session/nivel-a-multifactor-
 Basado en evidencia concreta: `ruff check` (≈1.700 hallazgos), revisión de `ci.yml`,
 `pyproject.toml`, tamaños de módulos y estado del working tree.
 
-> **Estado al 2026-06-10 (cierre de sesión):**
-> Fases 0.1–0.3, 1.1–1.5, 2.2–2.3, **3.1–3.4 completadas**.
+> **Estado al 2026-06-11:**
+> Fases 0.1–0.3, 1.1–1.5, 2.2–2.3, **3.1–3.4 completadas** + Fase 2.1 **iniciada**.
 > Ruff verde (0 errores); 2111 tests pasan; CI con 5 puertas:
 > ruff bloqueante + cobertura ≥75% + mypy-strict H06 + mypy informativo + smoke streamlit headless.
 > Fase 3.1: smoke streamlit en cada PR (levanta app, GET `/_stcore/health`).
 > Fase 3.2: `.github/dependabot.yml` para pip + github-actions semanal.
-> Fase 3.3: working tree limpio (debug-*.log, htmlcov/ ya en .gitignore).
+> Fase 3.3: working tree limpio (`.claude/`, `.env.demo`, debug-*.log, htmlcov/ ignorados).
 > Fase 3.4: `SECTORES` (381 tickers, 128 líneas) extraídos a `data/sectores.csv` con loader+fallback.
 > Elimina la clase de bug F601 por diseño; permite editar sin deploy.
 > Fase 4.1 (limpieza mypy): de 225 a **149 errores** (-35%). Resueltos: 30× `[valid-type]`
 > alias dinámico SQLAlchemy (`_B: Any = ...Base`), 18× `[assignment]` implicit Optional
 > (`param: T = None` → `param: T | None = None`).
-> **Pendiente:** Fase 2.1 (partir módulos gigantes — sprint dedicado), 8 archivos restantes en
-> services/ con `import streamlit` (refactor profundo), 149 errores mypy informativos
+> **Fase 2.1 — primer slice (2026-06-11):** paquete `ui/inversor/` creado con
+> `ui/inversor/proyeccion.py` (332 líneas) que extrae `_render_proyeccion_y_pie_inversor`
+> y sus 2 helpers dedicados (`_bloque_competitivo`, `_spy_daily_returns_log_returns_cached`).
+> `ui/tab_inversor.py`: **3383 → 3071 líneas** (-9%). Limpieza de 3 imports top-level huérfanos.
+> Tests inversor 23/23 verdes; ruff verde.
+> **Pendiente Fase 2.1:** seguir extrayendo módulos del mismo paquete en commits atómicos —
+> primero crear `ui/inversor/_helpers.py` (compartidos: `_horizonte_ui`, `_senales_precalculadas`,
+> `_mix_*`, `_precios_para_recomendar`, `_cartera_resuelta_*`, `_tipo_universo_*`, etc.),
+> después mover `plata_nueva`, `primera_cartera`, `posiciones`, `paneles_kpi`, `bienvenida + wizard`.
+> Meta: `tab_inversor.py` ≤ 800 líneas (orquestador + `render_tab_inversor` solamente).
+> Resto del Fase 2.1: `core/renta_fija_ar.py` (2343), `ui/tab_cartera.py` (1673),
+> `ui/tab_optimizacion.py` (1512).
+> **Pendiente Fase 2.2:** 8 archivos restantes en services/ con `import streamlit` (refactor profundo).
+> **Pendiente Fase 4.1:** 149 errores mypy informativos
 > (mayoría: `[arg-type]`/`[operator]`/`[return-value]` por interacción con ndarray/pandas).
 
 ---
