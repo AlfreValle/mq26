@@ -19,7 +19,6 @@ _log = get_logger(__name__)
 from core.renta_fija_ar import (
     INSTRUMENTOS_RF,
     descripcion_legible,
-    es_renta_fija,
     get_meta,
     tickers_por_tipo,
     tickers_rf_activos,
@@ -78,31 +77,28 @@ def _filtrar_univ_por_busqueda(ctx: dict, q: str) -> tuple[list[str], dict[str, 
 
 
 def _validar_tickers(filas: list[dict[str, Any]], ctx: dict) -> list[str]:
-    """Advierte si el ticker no está en el universo (no bloquea el guardado)."""
+    """Advierte contra el maestro de instrumentos (A45). No bloquea el guardado."""
+    from core.instrument_master import get_master
+
+    master = get_master(ctx.get("universo_df"))
     warnings_out: list[str] = []
-    universo_df = ctx.get("universo_df")
-    universo_tickers: set[str] = set()
-    if universo_df is not None and not universo_df.empty:
-        col = "TICKER" if "TICKER" in universo_df.columns else universo_df.columns[0]
-        universo_tickers = set(
-            universo_df[col].astype(str).str.upper().str.strip()
-        )
     for f in filas:
         ticker = str(f.get("TICKER", "")).strip().upper()
-        tipo = str(f.get("TIPO", "CEDEAR")).upper()
         if not ticker:
             continue
-        if es_renta_fija(ticker):
+        v = master.validar(ticker, str(f.get("TIPO", "") or ""))
+        if v.valido and not v.motivo:
             continue
-        if tipo in (
-            "ON", "ON_USD", "BONO", "BONO_USD", "LETRA", "LECAP", "LEDE",
-        ):
-            continue
-        if universo_tickers and ticker not in universo_tickers:
-            warnings_out.append(
-                f"**{ticker}** no está en el universo de activos conocidos. "
-                "Verificá el símbolo antes de confirmar."
+        if not v.valido:
+            msg = (
+                f"**{ticker}** no está en el maestro de instrumentos "
+                "(universo + catálogo RF). Verificá el símbolo antes de confirmar."
             )
+            if v.sugerencias:
+                msg += f" ¿Quisiste decir **{', '.join(v.sugerencias)}**?"
+            warnings_out.append(msg)
+        else:
+            warnings_out.append(f"**{ticker}**: {v.motivo}")
     return warnings_out
 
 

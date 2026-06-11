@@ -179,8 +179,11 @@ class TestObtenerTipo:
         assert us.obtener_tipo("TICKER_XYZ_NO_EXISTE") == "CEDEAR"
 
     def test_con_universo_df_accion_local(self, universo_df_sample):
+        # A01: el contrato documentado siempre fue el tipo canónico
+        # ("ACCION_LOCAL"); antes la implementación filtraba el string crudo
+        # del Excel ("Acción Local"). El maestro lo normaliza.
         us.set_universo_df(universo_df_sample)
-        assert us.obtener_tipo("YPFD") == "Acción Local"
+        assert us.obtener_tipo("YPFD") == "ACCION_LOCAL"
 
 
 # ─── listar_tickers ──────────────────────────────────────────────────────────

@@ -150,6 +150,25 @@ def records_tras_rellenar_ppc(
     return out
 
 
+def aplicar_politica_stale(records: dict[str, PriceRecord]) -> dict[str, PriceRecord]:
+    """
+    A15: marca ``stale`` según el umbral del tipo de instrumento (core.stale_policy).
+
+    Un CEDEAR con precio de hace 2 horas queda STALE; una ON con el mismo
+    timestamp sigue ACEPTABLE (la referencia válida en RF es el cierre anterior).
+    Idempotente; los precios live recién fetcheados nunca se marcan.
+    """
+    from core.instrument_master import get_master
+    from core.stale_policy import es_stale
+
+    master = get_master()
+    for rec in records.values():
+        if rec.source.is_live:
+            continue
+        rec.stale = es_stale(master.tipo(rec.ticker) or None, rec.timestamp)
+    return records
+
+
 # ─── PriceEngine ──────────────────────────────────────────────────────────────
 
 class PriceEngine:
