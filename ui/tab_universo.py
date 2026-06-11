@@ -184,19 +184,27 @@ def render_tab_universo(ctx: dict) -> None:
     _is_inversor    = str(ctx.get("user_role", "admin")).lower() == "inversor"
 
     if _is_inversor:
-        sub_mod23, sub_byma = st.tabs([
+        sub_mod23, sub_ficha, sub_byma = st.tabs([
             "🔍 Señales de compra",
+            "📑 Ficha de ticker",
             "📋 Mercado BYMA",
         ])
         sub_velas = None
         sub_fci   = None
     else:
-        sub_mod23, sub_velas, sub_byma, sub_fci = st.tabs([
+        sub_mod23, sub_ficha, sub_velas, sub_byma, sub_fci = st.tabs([
             "🔍 Señales de compra",
+            "📑 Ficha de ticker",
             "🕯️ Análisis técnico",
             "📋 Mercado BYMA",
             "🏦 Fondos comunes (FCIs)",
         ])
+
+    # ── SUB-TAB: Ficha de ticker (Pilar 2 — análisis integral explicado) ───────
+    with sub_ficha:
+        from ui.components.ficha_ticker_view import render_buscador_ficha
+
+        render_buscador_ficha(ctx, key_prefix="univ_ficha")
 
     # ── SUB-TAB: MOD-23 ─────────────────────────────────────────────────────────
     with sub_mod23:

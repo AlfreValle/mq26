@@ -180,3 +180,34 @@ class TestCasosEspeciales:
     def test_ticker_vacio(self, todo_ok):
         f = ft.generar_ficha_ticker("")
         assert not f.identidad.ok
+
+
+# ─── Export HTML ──────────────────────────────────────────────────────────────
+
+class TestFichaHtml:
+    def test_html_completo_standalone(self, todo_ok):
+        f = ft.generar_ficha_ticker("AAPL")
+        html = ft.ficha_ticker_html(f)
+        assert html.startswith("<!DOCTYPE html>")
+        assert "AAPL" in html
+        assert "COMPRAR" in html
+        assert "72/100" in html
+        assert "no constituye recomendación" in html
+
+    def test_html_escapa_contenido(self, todo_ok, monkeypatch):
+        # Un nombre con HTML malicioso no debe inyectarse crudo
+        f = ft.generar_ficha_ticker("AAPL")
+        f.identidad.datos["nombre"] = "<script>alert(1)</script>"
+        html = ft.ficha_ticker_html(f)
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
+
+    def test_html_ficha_degradada_sale_igual(self, monkeypatch):
+        monkeypatch.setattr(
+            ft, "obtener_fundamentales",
+            lambda t, force_refresh=False: (_ for _ in ()).throw(RuntimeError("x")),
+        )
+        f = ft.generar_ficha_ticker("AAPL")
+        html = ft.ficha_ticker_html(f)
+        assert "SIN DATOS" in html
+        assert "1/5" in html

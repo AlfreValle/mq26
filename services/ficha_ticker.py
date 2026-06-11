@@ -351,3 +351,75 @@ def generar_ficha_ticker(ticker: str, *, force_refresh: bool = False) -> FichaTi
         recomendacion=reco,
         resumen=resumen,
     )
+
+
+# ─── Export HTML ──────────────────────────────────────────────────────────────
+
+_COLOR_RECO = {
+    "COMPRAR": "#10b981",
+    "MANTENER": "#f59e0b",
+    "VENDER": "#ef4444",
+    "VER FICHA RF": "#3b82f6",
+    "SIN DATOS": "#94a3b8",
+}
+
+
+def _html_seccion(s: SeccionFicha, titulo: str) -> str:
+    import html as _html
+
+    estado = "✓" if s.ok else "—"
+    color = "#10b981" if s.ok else "#94a3b8"
+    cuerpo = _html.escape(s.explicacion or s.error or "Sin datos.")
+    return (
+        f"<section style='margin:14px 0;padding:14px 16px;border:1px solid #e2e8f0;"
+        f"border-radius:10px;'>"
+        f"<h3 style='margin:0 0 6px 0;font-size:0.95rem;'>"
+        f"<span style='color:{color};'>{estado}</span> {_html.escape(titulo)}</h3>"
+        f"<p style='margin:0;font-size:0.85rem;color:#334155;line-height:1.5;'>{cuerpo}</p>"
+        f"</section>"
+    )
+
+
+def ficha_ticker_html(ficha: FichaTicker) -> str:
+    """
+    HTML standalone de la ficha (para descargar / mandar al cliente).
+    Sin dependencias externas ni JS; estilo inline imprimible.
+    """
+    import html as _html
+
+    reco_color = _COLOR_RECO.get(ficha.recomendacion, "#94a3b8")
+    score_txt = f"{ficha.score_global:.0f}/100" if ficha.score_global is not None else "—"
+    nombre = str(ficha.identidad.datos.get("nombre") or "") if ficha.identidad.ok else ""
+    secciones = (
+        _html_seccion(ficha.identidad, "Identidad")
+        + _html_seccion(ficha.multifactor, "Score multifactor")
+        + _html_seccion(ficha.valuacion_dcf, "Valuación DCF")
+        + _html_seccion(ficha.comparables, "Comparables de industria")
+        + _html_seccion(ficha.fundamentals, "Fundamentals")
+    )
+    return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Ficha {_html.escape(ficha.ticker)} — MQ26</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:760px;
+margin:24px auto;padding:0 16px;color:#0f172a;background:#fff;">
+<header style="border-bottom:2px solid #0f172a;padding-bottom:10px;">
+<h1 style="margin:0;font-size:1.4rem;">{_html.escape(ficha.ticker)}
+<span style="font-weight:400;color:#475569;font-size:1rem;">{_html.escape(nombre)}</span></h1>
+<p style="margin:6px 0 0 0;">
+<span style="background:{reco_color};color:#fff;padding:3px 12px;border-radius:14px;
+font-weight:700;font-size:0.85rem;">{_html.escape(ficha.recomendacion)}</span>
+<span style="margin-left:10px;font-size:0.9rem;color:#475569;">
+Score {score_txt} · cobertura {ficha.cobertura} · {_html.escape(ficha.generada_utc)}</span></p>
+</header>
+<section style="margin:16px 0;padding:14px 16px;background:#f8fafc;border-radius:10px;">
+<p style="margin:0;font-size:0.92rem;line-height:1.55;">{_html.escape(ficha.resumen)}</p>
+</section>
+{secciones}
+<footer style="margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;
+font-size:0.72rem;color:#64748b;">
+Generado por MQ26. Análisis informativo: no constituye recomendación de inversión
+personalizada. Verificá precios y supuestos antes de operar.
+</footer>
+</body></html>"""
