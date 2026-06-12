@@ -78,12 +78,22 @@ COMP_OK = {
 }
 
 
+CONSENSO_OK = {
+    "precio_target_usd": 230.0,
+    "precio_actual_usd": 200.0,
+    "upside_pct": 15.0,
+    "rating": "buy",
+    "n_analysts": 38,
+}
+
+
 @pytest.fixture()
 def todo_ok(monkeypatch):
     monkeypatch.setattr(ft, "obtener_fundamentales", lambda t, force_refresh=False: SnapFake())
     monkeypatch.setattr(ft, "calcular_action_score", lambda t, force_refresh=False: ActionFake(ticker=t))
     monkeypatch.setattr(ft, "calcular_dcf", lambda t, snap=None: DCFFake(ticker=t))
     monkeypatch.setattr(ft, "comparar_vs_industria", lambda s, i, sec=None: dict(COMP_OK))
+    monkeypatch.setattr(ft, "consenso_analistas", lambda t, tipo="CEDEAR": dict(CONSENSO_OK))
 
 
 # ─── Camino feliz ─────────────────────────────────────────────────────────────
@@ -91,7 +101,7 @@ def todo_ok(monkeypatch):
 class TestFichaCompleta:
     def test_cinco_secciones_ok(self, todo_ok):
         f = ft.generar_ficha_ticker("AAPL")
-        assert f.cobertura == "5/5"
+        assert f.cobertura == "6/6"
         assert f.score_global == 72.0
         assert f.recomendacion == "COMPRAR"
 
@@ -134,7 +144,7 @@ class TestDegradacion:
         f = ft.generar_ficha_ticker("AAPL")
         assert not f.valuacion_dcf.ok
         assert f.multifactor.ok                  # el resto sigue vivo
-        assert f.cobertura == "4/5"
+        assert f.cobertura == "5/6"
         assert "flujo de caja" in f.valuacion_dcf.explicacion
 
     def test_comparables_sin_benchmark(self, todo_ok, monkeypatch):
@@ -144,7 +154,7 @@ class TestDegradacion:
         )
         f = ft.generar_ficha_ticker("AAPL")
         assert not f.comparables.ok
-        assert f.cobertura == "4/5"
+        assert f.cobertura == "5/6"
 
     def test_tension_dcf_sobrevaluada_vs_comprar(self, todo_ok, monkeypatch):
         monkeypatch.setattr(
@@ -210,4 +220,39 @@ class TestFichaHtml:
         f = ft.generar_ficha_ticker("AAPL")
         html = ft.ficha_ticker_html(f)
         assert "SIN DATOS" in html
-        assert "1/5" in html
+        assert "1/6" in html
+
+
+# ─── Consenso de analistas ────────────────────────────────────────────────────
+
+class TestConsenso:
+    def test_consenso_en_resumen(self, todo_ok):
+        f = ft.generar_ficha_ticker("AAPL")
+        assert f.consenso.ok
+        assert "38 analistas" in f.consenso.explicacion
+        assert "+15.0%" in f.resumen
+
+    def test_sin_cobertura_degrada(self, todo_ok, monkeypatch):
+        monkeypatch.setattr(ft, "consenso_analistas", lambda t, tipo="CEDEAR": None)
+        f = ft.generar_ficha_ticker("AAPL")
+        assert not f.consenso.ok
+        assert f.cobertura == "5/6"
+        assert f.multifactor.ok  # el resto no se entera
+
+    def test_upside_negativo_redactado(self, todo_ok, monkeypatch):
+        monkeypatch.setattr(
+            ft, "consenso_analistas",
+            lambda t, tipo="CEDEAR": {
+                "precio_target_usd": 170.0, "precio_actual_usd": 200.0,
+                "upside_pct": -15.0, "rating": "hold", "n_analysts": 12,
+            },
+        )
+        f = ft.generar_ficha_ticker("AAPL")
+        assert "por debajo" in f.consenso.explicacion
+        assert "-15.0%" in f.resumen
+
+    def test_html_incluye_consenso(self, todo_ok):
+        f = ft.generar_ficha_ticker("AAPL")
+        html = ft.ficha_ticker_html(f)
+        assert "Consenso de analistas" in html
+        assert "38 analistas" in html

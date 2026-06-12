@@ -26,6 +26,7 @@ from typing import Any
 
 from core.instrument_master import get_master
 from core.logging_config import get_logger
+from services.analizador_ticker import consenso_analistas
 from services.dcf_simple import calcular_dcf
 from services.fundamental_cache import obtener_fundamentales
 from services.industry_benchmarks import comparar_vs_industria
@@ -56,6 +57,9 @@ class FichaTicker:
     multifactor: SeccionFicha
     valuacion_dcf: SeccionFicha
     comparables: SeccionFicha
+    consenso: SeccionFicha = field(
+        default_factory=lambda: SeccionFicha(nombre="consenso", ok=False, error="No evaluado.")
+    )
     score_global: float | None = None
     recomendacion: str = "SIN DATOS"
     resumen: str = ""
@@ -68,6 +72,7 @@ class FichaTicker:
             self.multifactor,
             self.valuacion_dcf,
             self.comparables,
+            self.consenso,
         ]
 
     @property
@@ -237,6 +242,27 @@ def _seccion_comparables(comp: dict | None) -> SeccionFicha:
     return SeccionFicha(nombre="comparables", ok=True, datos=comp, explicacion=expl)
 
 
+def _seccion_consenso(con: dict | None) -> SeccionFicha:
+    if not con:
+        return SeccionFicha(
+            nombre="consenso",
+            ok=False,
+            error="Sin cobertura de analistas.",
+            explicacion="No hay consenso de analistas para este ticker (o el proveedor no respondió).",
+        )
+    rating = str(con.get("rating", "") or "").replace("_", " ")
+    upside = float(con.get("upside_pct", 0))
+    direccion = "por encima" if upside >= 0 else "por debajo"
+    expl = (
+        f"{int(con.get('n_analysts', 0))} analistas siguen el papel; precio objetivo medio "
+        f"USD {float(con.get('precio_target_usd', 0)):,.2f}, "
+        f"{abs(upside):.1f}% {direccion} del precio actual"
+        + (f" (rating: {rating})" if rating else "")
+        + ". El consenso es opinión de terceros, no una garantía."
+    )
+    return SeccionFicha(nombre="consenso", ok=True, datos=dict(con), explicacion=expl)
+
+
 # ─── Resumen ejecutivo ────────────────────────────────────────────────────────
 
 def _resumen_ejecutivo(
@@ -301,6 +327,7 @@ def generar_ficha_ticker(ticker: str, *, force_refresh: bool = False) -> FichaTi
             multifactor=sec_na("multifactor"),
             valuacion_dcf=sec_na("valuacion_dcf"),
             comparables=sec_na("comparables"),
+            consenso=sec_na("consenso"),
             recomendacion="VER FICHA RF",
             resumen=identidad.explicacion,
         )
@@ -336,7 +363,20 @@ def generar_ficha_ticker(ticker: str, *, force_refresh: bool = False) -> FichaTi
             _log.warning("ficha_ticker %s: comparables fallaron: %s", tu, exc)
     comparables = _seccion_comparables(comp)
 
+    con = None
+    if fundamentals.ok:
+        try:
+            con = consenso_analistas(tu, identidad.datos.get("tipo") or "CEDEAR")
+        except Exception as exc:
+            _log.warning("ficha_ticker %s: consenso falló: %s", tu, exc)
+    consenso = _seccion_consenso(con)
+
     score, reco, resumen = _resumen_ejecutivo(tu, multifactor, valuacion_dcf, comparables)
+    if consenso.ok:
+        upside = float(consenso.datos.get("upside_pct", 0))
+        n_an = int(consenso.datos.get("n_analysts", 0))
+        signo = "+" if upside >= 0 else ""
+        resumen += f" Consenso de {n_an} analistas: {signo}{upside:.1f}% al precio objetivo."
     if not identidad.ok:
         resumen = identidad.explicacion + " " + resumen
     return FichaTicker(
@@ -347,6 +387,7 @@ def generar_ficha_ticker(ticker: str, *, force_refresh: bool = False) -> FichaTi
         multifactor=multifactor,
         valuacion_dcf=valuacion_dcf,
         comparables=comparables,
+        consenso=consenso,
         score_global=score,
         recomendacion=reco,
         resumen=resumen,
@@ -395,6 +436,7 @@ def ficha_ticker_html(ficha: FichaTicker) -> str:
         + _html_seccion(ficha.multifactor, "Score multifactor")
         + _html_seccion(ficha.valuacion_dcf, "Valuación DCF")
         + _html_seccion(ficha.comparables, "Comparables de industria")
+        + _html_seccion(ficha.consenso, "Consenso de analistas")
         + _html_seccion(ficha.fundamentals, "Fundamentals")
     )
     return f"""<!DOCTYPE html>

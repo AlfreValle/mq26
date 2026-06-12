@@ -158,6 +158,32 @@ class AnalizadorResult:
 
 # ─── ENRIQUECIMIENTO VÍA YFINANCE ────────────────────────────────────────────
 
+def consenso_analistas(ticker: str, tipo: str = "CEDEAR") -> dict[str, Any] | None:
+    """
+    Consenso de analistas liviano (sin el scoring completo de analizar_ticker):
+    precio objetivo medio, rating, cantidad de analistas y upside vs precio
+    actual del subyacente. None si el ticker no tiene cobertura o falla la red.
+    """
+    try:
+        t_yf = _ticker_yahoo(ticker, tipo)
+        info = yf.Ticker(t_yf).info or {}
+        target = float(info.get("targetMeanPrice") or 0)
+        n = int(info.get("numberOfAnalystOpinions") or 0)
+        if target <= 0 or n <= 0:
+            return None
+        precio = float(info.get("currentPrice") or info.get("regularMarketPrice") or 0)
+        upside = ((target / precio) - 1.0) * 100.0 if precio > 0 else 0.0
+        return {
+            "precio_target_usd": round(target, 2),
+            "precio_actual_usd": round(precio, 2),
+            "upside_pct": round(upside, 1),
+            "rating": str(info.get("recommendationKey") or ""),
+            "n_analysts": n,
+        }
+    except Exception:
+        return None
+
+
 def _enriquecer_yfinance(ticker: str, tipo: str) -> dict[str, Any]:
     """
     Obtiene datos adicionales de yfinance.info que el scorer no expone:

@@ -669,6 +669,18 @@ def _render_perla_card(perla, ctx: dict, perlas_libre: float, idx) -> None:
         import logging
         logging.getLogger(__name__).debug("Análisis no disponible para %s: %s", ticker, _e_an)
 
+    # ── Ficha integral MQ26 (Pilar 2) — lazy: solo genera si la pedís ───────
+    with st.expander("📑 Ficha integral MQ26 — score multifactor + DCF + comparables", expanded=False):
+        _ficha_key = f"perla_ficha_on_{ticker}"
+        if not st.session_state.get(_ficha_key):
+            if st.button("Generar ficha completa", key=f"perla_ficha_btn_{ticker}"):
+                st.session_state[_ficha_key] = True
+                st.rerun()
+        else:
+            from ui.components.ficha_ticker_view import render_ficha_ticker
+
+            render_ficha_ticker(ticker, key_prefix=f"perla_{ticker}")
+
     # ── KPIs de niveles: ARS principal + USD equivalente ───────────────────
     st.markdown("##### 💰 Niveles de operación (ARS principal · USD equivalente)")
     k1, k2, k3, k4 = st.columns(4)

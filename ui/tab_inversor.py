@@ -1572,6 +1572,34 @@ def _render_posiciones_con_targets(ctx: dict, _diag: object) -> None:
         )
 
 
+def _render_ficha_posicion(ctx: dict, df_ag) -> None:
+    """Ficha integral de un activo de la cartera (Pilar 2) — lazy, solo RV."""
+    from core.instrument_master import get_master
+
+    master = get_master(ctx.get("universo_df"))
+    tickers_rv = sorted(
+        {
+            t
+            for t in df_ag["TICKER"].astype(str).str.strip().str.upper()
+            if t and (master.get(t) is None or not master.get(t).es_renta_fija)
+        }
+    )
+    if not tickers_rv:
+        return
+    with st.expander("📑 Ficha integral de un activo de tu cartera", expanded=False):
+        sel = st.selectbox(
+            "Elegí el activo",
+            tickers_rv,
+            index=None,
+            placeholder="Seleccioná un ticker…",
+            key="inv_ficha_pos_sel",
+        )
+        if sel:
+            from ui.components.ficha_ticker_view import render_ficha_ticker
+
+            render_ficha_ticker(sel, key_prefix="inv_pos")
+
+
 def _render_tabla_posiciones_resumen(ctx: dict) -> None:
     """
     Tabla tipo homebroker (Balanz / Bull Market): columnas claras, totales,
@@ -1598,6 +1626,7 @@ def _render_tabla_posiciones_resumen(ctx: dict) -> None:
             "La tasa anual **no** es la proyección de jubilación (está en Plan). "
             "La columna **Resultado** está resaltada como en tu broker."
         )
+        _render_ficha_posicion(ctx, df)
         return
     cols_map = [
         ("TICKER", "Activo"),
