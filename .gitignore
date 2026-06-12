@@ -9,7 +9,10 @@ venv/
 
 # Cursor / Claude Code / OS
 .cursor/
-.claude/
+# .claude: ignorar todo salvo skills y agents (compartidos del proyecto)
+.claude/*
+!.claude/skills/
+!.claude/agents/
 .env.demo
 .DS_Store
 Thumbs.db
