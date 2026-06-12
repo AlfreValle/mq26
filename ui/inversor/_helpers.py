@@ -306,6 +306,16 @@ def _cartera_resuelta_primera_cartera(ctx: dict) -> str:
     return raw
 
 
+def _flag_plan_explicado(ctx: dict) -> bool:
+    """Feature flag A08: plan explicado activable por tenant sin deploy."""
+    try:
+        from core.feature_flags import get_flag
+
+        return get_flag("plan_explicado", ctx.get("tenant_id"))
+    except Exception:
+        return True
+
+
 def _tipo_universo_ticker(ticker: str, udf: pd.DataFrame | None) -> str:
     if udf is None or udf.empty or "TICKER" not in udf.columns:
         return "CEDEAR"
