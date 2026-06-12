@@ -134,15 +134,36 @@ backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
   real), catálogo RF, cobertura/frescura de precios, caché y audit trail.
   Ping de proveedores (yfinance/BYMA) solo bajo demanda.
 
-### Sprint 2 (pendiente)
+### Sprint 2 (2026-06-12) ✅ — commit `de5a438` — **PILAR 4 CERRADO**
 
-- **Feature flags por tenant (A08)**: tabla en BD + API get_flag/set_flag +
-  panel admin para activarlos sin deploy (candidatos: BYMA_FIRST, secciones
-  de ficha, plan explicado).
-- **Métricas de uso**: vistas por tab/rol/tenant, planes generados por
-  semana, tickers más consultados (lee audit + latency_metrics).
-- **Acción rápida desde salud**: botón "actualizar serie CCL" que abra el
-  flujo de la skill actualizar-datos-referencia.
+- **A08** `core/feature_flags.py`: flags por tenant en la tabla configuracion
+  (FLAG.{tenant}.{flag}, sin migraciones), cache TTL 60s apto para camino
+  caliente, auditoría ADMIN.feature_flag.*, fallback a default si BD cae.
+- `byma_first` ya no exige reinicio: `byma_first_activo()` en los 5 sitios.
+- Flags cableados: plan_explicado, ficha_velas, ping_proveedores (default-on).
+- Panel admin (Uso): toggles por tenant + métricas de uso del audit trail
+  (planes/semana, eventos, perfiles).
+
+---
+
+# 🏁 PLAN COMPLETADO — los 4 pilares cerrados (2026-06-11 → 2026-06-12)
+
+| Pilar | Sprints | Entregas clave |
+|---|---|---|
+| 1. Fundación de datos AR | 3 | InstrumentMaster, stale policy, FX por fecha, normalizador bonos, convención PriceRecord |
+| 2. Ficha de ticker pro | 3 | Ficha 6 secciones explicadas, UI + export HTML, consenso, acceso desde perlas/posiciones |
+| 3. Recomendador explicable | 3 | PlanAccion auditable, UI con motivos+confianza, costos por sugerencia, auditoría visible |
+| 4. Admin SaaS | 2 | Monitor de salud de datos, feature flags por tenant, métricas de uso |
+
+## Backlog post-plan (oportunista)
+
+- Fase 2.1 de mantenibilidad: seguir partiendo tab_inversor/renta_fija_ar
+  (skill partir-modulo-gigante).
+- Actualizar serie CCL (chip pendiente) y catálogo RF (skill
+  actualizar-datos-referencia).
+- Mypy informativo: 149 errores restantes (Fase 4.1 del plan de mejora).
+- Musts restantes del MoSCoW: A21 (secrets), A37 (retención PII).
+- Tickers más consultados como métrica (requiere instrumentar la ficha).
 
 ## Criterio de éxito del plan
 
