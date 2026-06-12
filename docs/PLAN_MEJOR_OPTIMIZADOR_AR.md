@@ -125,12 +125,24 @@ backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
   `obtener_payload_recomendacion()` — el "por qué" de cualquier plan
   registrado, filtrable por evento.
 
-## Siguiente → **Pilar 4: Admin SaaS completo**
+## Pilar 4 — estado
 
-Panel super admin: gestión de tenants/usuarios, feature flags por tenant
-(A08), métricas de uso, monitor de salud de datos en vivo (qué proveedor
-está caído, qué precios están viejos — apoyado en PriceSource/stale_policy
-del Pilar 1 y la cobertura de la ficha del Pilar 2).
+### Sprint 1 (2026-06-12) ✅ — commit `c78f032`
+
+- `services/salud_datos.py` + sub-tab "🩺 Salud datos" en Admin: semáforo
+  global y chequeos de CCL spot, serie histórica (detectó 3 meses de atraso
+  real), catálogo RF, cobertura/frescura de precios, caché y audit trail.
+  Ping de proveedores (yfinance/BYMA) solo bajo demanda.
+
+### Sprint 2 (pendiente)
+
+- **Feature flags por tenant (A08)**: tabla en BD + API get_flag/set_flag +
+  panel admin para activarlos sin deploy (candidatos: BYMA_FIRST, secciones
+  de ficha, plan explicado).
+- **Métricas de uso**: vistas por tab/rol/tenant, planes generados por
+  semana, tickers más consultados (lee audit + latency_metrics).
+- **Acción rápida desde salud**: botón "actualizar serie CCL" que abra el
+  flujo de la skill actualizar-datos-referencia.
 
 ## Criterio de éxito del plan
 
