@@ -114,15 +114,23 @@ backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
   cartera ("🧭 Por qué esta cartera"); `auditar_plan()` cableado en ambos
   cálculos con payload completo. La auditoría nunca bloquea el flujo.
 
-### Sprint 3 (pendiente)
+### Sprint 3 (2026-06-12) ✅ — commit `a4efef9` — **PILAR 3 CERRADO**
 
-- Plan explicado en el flujo del asesor (tab_optimizacion / tab_cartera):
-  mismas explicaciones para recomendar a clientes.
-- Filtro alpha-neto de decision_engine como advertencia por sugerencia
-  ("la operación chica no paga sus costos") — revive el motor huérfano.
-- Vista de auditoría: historial de planes explicados por cliente (lee
-  recomendaciones_auditoria) para el asesor/admin.
-- Luego → **Pilar 4: Admin SaaS completo**.
+- Costos de operación (decision_engine revivido) en la trazabilidad de cada
+  compra + advertencia de operación chica. Bug de truncado de unidades
+  fraccionarias detectado por revisión quant y corregido pre-commit.
+- Plan explicado en tab_cartera (asesor): señales del motor de salida como
+  plan de vender/revisar con motivos.
+- Auditoría visible en tab_admin: `listar_recomendaciones()` +
+  `obtener_payload_recomendacion()` — el "por qué" de cualquier plan
+  registrado, filtrable por evento.
+
+## Siguiente → **Pilar 4: Admin SaaS completo**
+
+Panel super admin: gestión de tenants/usuarios, feature flags por tenant
+(A08), métricas de uso, monitor de salud de datos en vivo (qué proveedor
+está caído, qué precios están viejos — apoyado en PriceSource/stale_policy
+del Pilar 1 y la cobertura de la ficha del Pilar 2).
 
 ## Criterio de éxito del plan
 
