@@ -141,9 +141,9 @@ para que el lint nunca vuelva a acumularse.
 | Módulo | Líneas | Propuesta |
 |---|---|---|
 | `ui/tab_inversor.py` | ~~3.381~~ → **891** ✅ | COMPLETADO (6 slices): paquete `ui/inversor/` con _helpers, proyeccion, paneles_kpi, plata_nueva, posiciones, primera_cartera — todos < 800 líneas |
-| `core/renta_fija_ar.py` | 2.343 | Separar curvas, cálculo de TIR y catálogo de instrumentos |
-| `ui/tab_cartera.py` | 1.673 | Extraer libro mayor y P&L a componentes |
-| `ui/tab_optimizacion.py` | 1.510 | Extraer cada modelo de optimización a su panel |
+| `core/renta_fija_ar.py` | ~~2.379~~ → **1.330** ✅ | catálogo → renta_fija_catalogo.py; monitor ON + cashflow → renta_fija_monitor.py |
+| `ui/tab_cartera.py` | ~~1.681~~ → **621** ✅ | paquete ui/cartera/ (posicion_neta, libro_mayor) |
+| `ui/tab_optimizacion.py` | ~~1.512~~ → **880** ✅ | ui/optimizacion/resultados.py; render principal ~830 líneas (refactor interno opcional) |
 
 Regla práctica: ningún archivo nuevo > 800 líneas; al tocar uno gigante, extraer lo tocado.
 
