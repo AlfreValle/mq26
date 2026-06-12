@@ -87,11 +87,21 @@ backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
   opcionales, descarga HTML. Cache 15 min + persistencia del último ticker.
 - `ficha_ticker_html()`: export standalone imprimible con contenido escapado.
 
-### Sprint 3 (pendiente)
+### Sprint 3 (2026-06-12) ✅ — commit `b0369fd` — **PILAR 2 CERRADO**
 
-- Precio objetivo consenso de analistas (analizador_ticker) como sección extra.
-- Link directo a la ficha desde tab_perlas y posiciones (click en ticker).
-- Luego → **Pilar 3: recomendador explicable end-to-end**.
+- Sexta sección: consenso de analistas (`consenso_analistas()` liviano,
+  cobertura X/6, integrado al resumen ejecutivo con disclaimer).
+- Ficha accesible desde el detalle de cada perla (lazy, botón) y desde la
+  tabla de posiciones del inversor (selector de activos RV).
+
+## Siguiente → **Pilar 3: recomendador explicable end-to-end**
+
+Unificar perlas + recomendación de capital + decision engine en un solo
+flujo "qué hago con mi plata" con justificación auditable por sugerencia,
+para los 3 roles. Piezas: services/perlas_service.py,
+services/recomendacion_capital.py, services/decision_engine.py,
+services/primera_cartera.py. La ficha del Pilar 2 es el "por qué" de cada
+sugerencia (link ficha ←→ recomendación).
 
 ## Criterio de éxito del plan
 
