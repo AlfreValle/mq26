@@ -491,6 +491,44 @@ def _render_app_usuarios_admin(ctx: dict, tenant_id: str, df_clientes: pd.DataFr
                     st.rerun()
 
 
+_EMOJI_ESTADO = {"OK": "🟢", "AVISO": "🟡", "CRITICO": "🔴"}
+
+
+def _render_salud_datos(ctx: dict) -> None:
+    """Monitor de salud de datos (Pilar 4): ¿puedo confiar en los números de hoy?"""
+    from services.salud_datos import ping_proveedores, snapshot_salud_datos
+
+    st.markdown("#### 🩺 Salud de datos — ¿son confiables los números que muestra la app?")
+    salud = snapshot_salud_datos(
+        ccl=ctx.get("ccl"),
+        precio_records=ctx.get("precio_records"),
+    )
+    sem = salud.semaforo_global
+    cols = st.columns([1, 3])
+    cols[0].metric("Estado global", f"{_EMOJI_ESTADO.get(sem, '⚪')} {sem}")
+    cols[1].caption(
+        f"Snapshot {salud.generado_utc} — sin tocar la red. "
+        "El estado global es el peor de los chequeos individuales."
+    )
+
+    for ch in salud.chequeos:
+        emoji = _EMOJI_ESTADO.get(ch.estado, "⚪")
+        with st.expander(f"{emoji} {ch.nombre} — {ch.estado}", expanded=(ch.estado != "OK")):
+            st.markdown(ch.detalle)
+            if ch.valor:
+                st.json(ch.valor, expanded=False)
+
+    st.markdown("---")
+    st.caption(
+        "El ping de proveedores sale a internet (yfinance + BYMA) — corre solo si lo pedís."
+    )
+    if st.button("📡 Ping a proveedores externos", key="adm_salud_ping"):
+        with st.spinner("Consultando yfinance y BYMA…"):
+            for ch in ping_proveedores():
+                emoji = _EMOJI_ESTADO.get(ch.estado, "⚪")
+                st.markdown(f"{emoji} **{ch.nombre}** — {ch.detalle}")
+
+
 def render_tab_admin(ctx: dict) -> None:
     if ctx.get("user_role") != "super_admin":
         st.warning("Acceso restringido al Super Administrador.")
@@ -504,8 +542,9 @@ def render_tab_admin(ctx: dict) -> None:
 """,
         unsafe_allow_html=True,
     )
-    tab_lat, tab_audit, tab_uso, tab_inc, tab_demo, tab_users, tab_cartera_ini, tab_growth = st.tabs(
+    tab_salud, tab_lat, tab_audit, tab_uso, tab_inc, tab_demo, tab_users, tab_cartera_ini, tab_growth = st.tabs(
         [
+            "🩺 Salud datos",
             "Latencia",
             "Auditoria",
             "Uso",
@@ -516,6 +555,9 @@ def render_tab_admin(ctx: dict) -> None:
             "Growth Top 3",
         ]
     )
+
+    with tab_salud:
+        _render_salud_datos(ctx)
 
     with tab_lat:
         st.json({"metricas": ctx.get("metricas", {})})
