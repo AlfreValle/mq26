@@ -204,14 +204,15 @@ def test_notas_asesor_roundtrip():
 
 
 def test_bienvenida_inversor_existe():
-    import sys
-    import types
-
-    sys.modules.setdefault("streamlit", types.ModuleType("streamlit"))
+    # Fase 2.1: bienvenida/wizard/primera cartera viven en ui.inversor.primera_cartera;
+    # el orquestador re-exporta la entrada (_render_bienvenida_inversor).
+    import ui.inversor.primera_cartera as pc
     import ui.tab_inversor as ti
 
     assert hasattr(ti, "_render_bienvenida_inversor")
-    assert hasattr(ti, "_render_primera_cartera_inversor")
+    assert hasattr(pc, "_render_bienvenida_inversor")
+    assert hasattr(pc, "_render_primera_cartera_inversor")
+    assert hasattr(pc, "_render_wizard_objetivos")
     assert hasattr(ti, "_render_config_perfil")
     assert hasattr(ti, "_render_posiciones_con_targets")
 
@@ -278,9 +279,18 @@ def test_tab_inversor_contexto_minimo_j93():
 
     from importlib import reload
 
+    import ui.inversor._helpers as h_mod
+    import ui.inversor.plata_nueva as pn_mod
+    import ui.inversor.primera_cartera as pc_mod
+    import ui.inversor.proyeccion as pr_mod
     import ui.tab_inversor as ti_mod
 
+    _submods = (h_mod, pr_mod, pn_mod, pc_mod)
     try:
+        # Fase 2.1: el paquete ui.inversor captura `st` al importar — recargar
+        # los submódulos ANTES que el orquestador para que tomen el mock.
+        for _m in _submods:
+            reload(_m)
         reload(ti_mod)
         ctx = {
             "df_ag": pd.DataFrame(),
@@ -297,6 +307,11 @@ def test_tab_inversor_contexto_minimo_j93():
             sys.modules["streamlit"] = _prev
         else:
             sys.modules.pop("streamlit", None)
+        # Restaurar los módulos con el streamlit real para no contaminar
+        # otros tests del mismo worker.
+        for _m in _submods:
+            reload(_m)
+        reload(ti_mod)
 
 
 def test_posiciones_con_targets_sin_cartera():

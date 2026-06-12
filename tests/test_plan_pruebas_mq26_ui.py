@@ -62,8 +62,16 @@ def test_render_tab_inversor_df_vacio_no_lanza(mock_st_global):
     mock_st_global.button.return_value = False
     mock_st_global.session_state = {}
 
+    # Fase 2.1: los submódulos de ui.inversor capturan `st` al importar —
+    # recargarlos ANTES que el orquestador para que tomen el mock.
+    import ui.inversor._helpers as h_mod
+    import ui.inversor.plata_nueva as pn_mod
+    import ui.inversor.primera_cartera as pc_mod
+    import ui.inversor.proyeccion as pr_mod
     import ui.tab_inversor as ti_mod
 
+    for _m in (h_mod, pr_mod, pn_mod, pc_mod):
+        importlib.reload(_m)
     importlib.reload(ti_mod)
     ctx = {
         "df_ag": pd.DataFrame(),
