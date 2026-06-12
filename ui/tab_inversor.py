@@ -952,6 +952,33 @@ def _render_primera_cartera_inversor(ctx: dict) -> None:
                     )
                 except Exception as exc:
                     _log_degradacion(ctx, "audit_evento_simulacion_fallo", exc)
+                # Pilar 3: plan explicado de la primera cartera al audit trail
+                try:
+                    from services.recomendador_explicable import (
+                        auditar_plan,
+                        construir_plan_accion,
+                    )
+
+                    _plan_pci = construir_plan_accion(
+                        perfil=perfil_v,
+                        rr=rr,
+                        capital_ars=float(capital_ars),
+                        precio_records=ctx.get("precio_records"),
+                    )
+                    st.session_state["pci_plan_explicado"] = _plan_pci
+                    auditar_plan(
+                        _plan_pci,
+                        ctx={
+                            "cliente_id": ctx.get("cliente_id"),
+                            "cliente_nombre": str(ctx.get("cliente_nombre", "")),
+                            "tenant_id": str(ctx.get("tenant_id", "default") or "default"),
+                            "login_user": str(ctx.get("login_user", "") or ""),
+                            "correlation_id": str(st.session_state.get("session_correlation_id", "")),
+                            "cartera_activa": str(_cartera_resuelta_primera_cartera(ctx)),
+                        },
+                    )
+                except Exception:
+                    st.session_state.pop("pci_plan_explicado", None)
                 st.rerun()
             except Exception as e:
                 st.error(f"Error al calcular: {e}")
@@ -974,6 +1001,14 @@ def _render_primera_cartera_inversor(ctx: dict) -> None:
             "Probá con otro monto o consultá a tu asesor."
         )
         return
+
+    # Pilar 3: cada sugerencia con su porqué, confianza de datos y link a ficha
+    _plan_pci_exp = st.session_state.get("pci_plan_explicado")
+    if _plan_pci_exp is not None:
+        with st.expander("🧭 Por qué esta cartera — plan explicado", expanded=False):
+            from ui.components.plan_accion_view import render_plan_accion
+
+            render_plan_accion(_plan_pci_exp, key_prefix="pci_plan")
 
     # ── Panel de objetivos — plan multi-objetivo (si está disponible) ──────────
     plan_obj = st.session_state.get("pci_plan_objetivos")
@@ -2567,6 +2602,34 @@ def _render_bloque_plata_nueva(ctx: dict, df_ag, _diag, ccl: float) -> None:
                     )
                 except Exception:
                     pass
+                # Pilar 3: plan explicado con motivos + trazabilidad al audit trail
+                try:
+                    from services.recomendador_explicable import (
+                        auditar_plan,
+                        construir_plan_accion,
+                    )
+
+                    plan = construir_plan_accion(
+                        perfil=perfil_v,
+                        rr=rr,
+                        senales=senales,
+                        capital_ars=float(cap_in),
+                        precio_records=ctx.get("precio_records"),
+                    )
+                    st.session_state["inv_plan_explicado"] = plan
+                    auditar_plan(
+                        plan,
+                        ctx={
+                            "cliente_id": ctx.get("cliente_id"),
+                            "cliente_nombre": str(ctx.get("cliente_nombre", "")),
+                            "tenant_id": str(ctx.get("tenant_id", "default") or "default"),
+                            "login_user": str(ctx.get("login_user", "") or ""),
+                            "correlation_id": str(st.session_state.get("session_correlation_id", "")),
+                            "cartera_activa": str(_cartera_resuelta_primera_cartera(ctx)),
+                        },
+                    )
+                except Exception:
+                    st.session_state.pop("inv_plan_explicado", None)
                 st.rerun()
             except Exception as e:
                 st.error(f"Error al calcular: {e}")
@@ -2586,6 +2649,14 @@ def _render_bloque_plata_nueva(ctx: dict, df_ag, _diag, ccl: float) -> None:
 
     if getattr(rr, "resumen_recomendacion", ""):
         st.caption(str(rr.resumen_recomendacion))
+
+    # Pilar 3: cada sugerencia con su porqué, confianza de datos y link a ficha
+    _plan_exp = st.session_state.get("inv_plan_explicado")
+    if _plan_exp is not None:
+        with st.expander("🧭 Por qué estas sugerencias — plan explicado", expanded=False):
+            from ui.components.plan_accion_view import render_plan_accion
+
+            render_plan_accion(_plan_exp, key_prefix="inv_plan")
 
     items = list(getattr(rr, "compras_recomendadas", None) or [])
     if not items:
