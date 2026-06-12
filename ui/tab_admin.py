@@ -550,6 +550,49 @@ def render_tab_admin(ctx: dict) -> None:
         else:
             st.info("Sin registros.")
 
+        # ── Auditoría de recomendaciones (Pilar 3) ───────────────────────
+        st.markdown("---")
+        st.markdown("#### 🧭 Planes de acción y recomendaciones registradas")
+        st.caption(
+            "Cada simulación/plan queda persistido con su payload completo "
+            "(motivos y trazabilidad de datos). Seleccioná un evento para ver el detalle."
+        )
+        try:
+            from services.audit_trail import (
+                listar_recomendaciones,
+                obtener_payload_recomendacion,
+            )
+
+            _ev_opts = ["(todos)", "PLAN_ACCION_EXPLICADO", "SIMULACION_RECOMENDACION", "EJECUCION_CONFIRMADA"]
+            _ev_sel = st.selectbox("Filtrar evento", _ev_opts, key="adm_reco_evento")
+            df_reco = listar_recomendaciones(
+                evento=None if _ev_sel == "(todos)" else _ev_sel,
+                limit=200,
+            )
+            if df_reco.empty:
+                st.info("Sin recomendaciones registradas todavía.")
+            else:
+                st.dataframe(
+                    df_reco,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=dataframe_auto_height(df_reco, max_px=380),
+                )
+                _ids = df_reco["id"].tolist()
+                _id_sel = st.selectbox(
+                    "Ver payload del evento (motivos y trazabilidad)",
+                    ["—"] + [str(i) for i in _ids],
+                    key="adm_reco_payload_id",
+                )
+                if _id_sel != "—":
+                    _payload = obtener_payload_recomendacion(int(_id_sel))
+                    if _payload:
+                        st.json(_payload, expanded=False)
+                    else:
+                        st.caption("Evento sin payload.")
+        except Exception as _e_reco:
+            st.warning(f"No se pudo leer la auditoría de recomendaciones: {_e_reco}")
+
     with tab_uso:
         st.markdown("#### Estado del sistema")
 

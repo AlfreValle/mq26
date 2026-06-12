@@ -217,3 +217,37 @@ class TestAuditoria:
         monkeypatch.setattr(at, "registrar_recomendacion_evento", _boom)
         plan = rx.construir_plan_accion(perfil="Moderado")
         assert rx.auditar_plan(plan) is None
+
+
+# ─── Costos de operación (decision_engine revivido) ──────────────────────────
+
+class TestCostosOperacion:
+    def test_costos_en_trazabilidad(self):
+        recs = rx.explicar_compras(RRFake())
+        d = recs[0].datos
+        assert d.get("costo_operacion_ars", 0) > 0
+        assert 0 < d.get("costo_operacion_pct", 0) < 5  # ~0.74% del modelo
+
+    def test_operacion_chica_advierte(self):
+        item = ItemFake(unidades=1, precio_ars_estimado=8_000.0, monto_ars=8_000.0)
+        recs = rx.explicar_compras(RRFake(compras_recomendadas=[item]))
+        assert any("Operación chica" in a for a in recs[0].advertencias)
+
+    def test_operacion_grande_no_advierte_por_costos(self):
+        recs = rx.explicar_compras(RRFake())  # 150k ARS
+        assert not any("Operación chica" in a for a in recs[0].advertencias)
+
+    def test_monto_cero_no_explota(self):
+        item = ItemFake(unidades=0, precio_ars_estimado=0.0, monto_ars=0.0)
+        recs = rx.explicar_compras(RRFake(compras_recomendadas=[item]))
+        assert "costo_operacion_ars" not in recs[0].datos
+
+    def test_unidades_fraccionarias_no_pierden_costos_ni_advertencia(self):
+        # Hallazgo revisor-quant: int(unidades) truncaba el nocional y el
+        # early-return mataba la advertencia justo en operaciones chicas.
+        item = ItemFake(unidades=0.8, precio_ars_estimado=10_000.0, monto_ars=8_000.0)
+        recs = rx.explicar_compras(RRFake(compras_recomendadas=[item]))
+        d = recs[0].datos
+        assert d.get("costo_operacion_ars", 0) > 0
+        assert abs(d["costo_operacion_pct"] - 0.74) < 0.05  # % sobre el monto real
+        assert any("Operación chica" in a for a in recs[0].advertencias)

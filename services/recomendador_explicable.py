@@ -117,6 +117,53 @@ def _tiene_ficha(ticker: str) -> bool:
         return False
 
 
+# Debajo de este monto, la fricción del broker (comisión + derechos + spread,
+# ~1.5% ida y vuelta) pesa proporcionalmente más que el beneficio de rebalanceo
+# que aporta una compra tan chica.
+UMBRAL_MONTO_CHICO_ARS = 20_000.0
+
+
+def _costos_operacion(
+    ticker: str,
+    unidades: float,
+    precio_ars: float,
+    monto_ars: float,
+) -> tuple[dict[str, Any], list[str]]:
+    """
+    (trazabilidad de costos, advertencias) usando el modelo de decision_engine.
+
+    El nocional se calcula sobre ``monto_ars`` directamente (nominales=1,
+    precio=monto): evita el truncado de unidades fraccionarias y garantiza
+    que el % de costo refiera al mismo monto que ve el usuario.
+    """
+    if not monto_ars or monto_ars <= 0:
+        return {}, []
+    traz: dict[str, Any] = {}
+    try:
+        from services.decision_engine import calcular_costos_operacion
+
+        c = calcular_costos_operacion(ticker, "COMPRA", 1, float(monto_ars))
+        costo = float(c.get("costo_total", 0) or 0)
+        if costo > 0:
+            traz = {
+                "costo_operacion_ars": round(costo, 2),
+                "costo_operacion_pct": round(100.0 * costo / monto_ars, 2),
+            }
+    except Exception:
+        costo = 0.0
+    advert: list[str] = []
+    # La advertencia de monto chico no depende del modelo de costos: aun si
+    # falla, los mínimos fijos por boleto del broker castigan montos chicos.
+    if monto_ars < UMBRAL_MONTO_CHICO_ARS:
+        detalle_costo = f" (fricción ida y vuelta ~ARS {2.0 * costo:,.0f} +" if costo > 0 else " ("
+        advert.append(
+            f"Operación chica (ARS {monto_ars:,.0f}):{detalle_costo} comisión mínima "
+            "fija por boleto del broker, que en montos chicos pesa más) — evaluá "
+            "agruparla con la próxima inyección."
+        )
+    return traz, advert
+
+
 # ─── Compras: envuelve RecomendacionResult (recomendacion_capital) ────────────
 
 def explicar_compras(
@@ -149,6 +196,15 @@ def explicar_compras(
                 "categoria": getattr(getattr(it, "categoria", None), "value", str(getattr(it, "categoria", ""))),
             }
         )
+        # decision_engine: costos de operación como trazabilidad + advertencia
+        traz_costos, advert_costos = _costos_operacion(
+            tk,
+            float(getattr(it, "unidades", 0) or 0),
+            float(getattr(it, "precio_ars_estimado", 0) or 0),
+            float(getattr(it, "monto_ars", 0) or 0),
+        )
+        traz.update(traz_costos)
+        advert = advert + advert_costos
         out.append(
             RecomendacionExplicada(
                 accion="COMPRAR",

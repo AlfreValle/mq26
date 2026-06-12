@@ -350,6 +350,7 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
         from services.motor_salida import estimar_prob_exito, evaluar_salida, kelly_sizing
         targets, progresos, senales = [], [], []
         kelly_rows = []
+        senales_full: list[dict] = []  # dicts completos para el plan explicado (Pilar 3)
 
         for _, row in df_pos.iterrows():
             ticker  = str(row.get("TICKER", ""))
@@ -383,6 +384,7 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
                 targets.append(round(res["precio_target"], 2))
                 progresos.append(round(res["progreso_pct"], 1))
                 senales.append(res["senal"])
+                senales_full.append(res)
 
                 # Kelly para esta posición
                 prob = estimar_prob_exito(score_v, rsi_val)
@@ -602,6 +604,26 @@ def _render_posicion_neta(ctx, df_ag, tickers_cartera, coverage, sin_precio,
             column_config=col_cfg_final,
             height=dataframe_auto_height(df_display, min_px=180, max_px=520),
         )
+
+        # ── Plan explicado (Pilar 3) — posiciones que piden atención ────────
+        try:
+            from services.recomendador_explicable import construir_plan_accion
+
+            _plan_asesor = construir_plan_accion(
+                perfil=str(cliente_perfil or "Moderado"),
+                senales=senales_full,
+                precio_records=ctx.get("precio_records"),
+            )
+            if _plan_asesor.vender_revisar:
+                with st.expander(
+                    f"🧭 Plan explicado — {len(_plan_asesor.vender_revisar)} posición(es) piden atención",
+                    expanded=False,
+                ):
+                    from ui.components.plan_accion_view import render_plan_accion
+
+                    render_plan_accion(_plan_asesor, key_prefix="asesor_plan")
+        except Exception as _e_plan:
+            log_degradacion(__name__, "plan_explicado_asesor_fallo", _e_plan)
 
         # ── Ficha RF unificada (P2-RF-01) — posición en cartera ────────────
         try:

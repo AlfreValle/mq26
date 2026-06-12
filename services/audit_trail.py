@@ -145,6 +145,61 @@ def listar_ordenes(
     return pd.DataFrame(rows, columns=["id","tipo","ticker","cantidad","precio_ars","cartera","modelo","timestamp"])
 
 
+_COLS_RECO = [
+    "id", "evento", "origen", "cliente_nombre", "cartera", "perfil",
+    "capital_ars", "filas", "actor", "timestamp",
+]
+
+
+def listar_recomendaciones(
+    cliente_id: int | None = None,
+    evento:     str | None = None,
+    limit:      int = 50,
+) -> pd.DataFrame:
+    """
+    Historial de eventos de recomendación (sin payload — usar
+    ``obtener_payload_recomendacion`` para el detalle de un evento).
+    """
+    _ensure_table()
+    from sqlalchemy import text
+    engine = _get_engine()
+    filtros = []
+    params: dict = {"limit": limit}
+    if cliente_id:
+        filtros.append("cliente_id = :cli")
+        params["cli"] = cliente_id
+    if evento:
+        filtros.append("evento = :ev")
+        params["ev"] = evento
+    where = "WHERE " + " AND ".join(filtros) if filtros else ""
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            f"SELECT {', '.join(_COLS_RECO)} "
+            f"FROM recomendaciones_auditoria {where} ORDER BY id DESC LIMIT :limit"
+        ), params).fetchall()
+    if not rows:
+        return pd.DataFrame(columns=_COLS_RECO)
+    return pd.DataFrame(rows, columns=_COLS_RECO)
+
+
+def obtener_payload_recomendacion(evento_id: int) -> dict | None:
+    """Payload completo (motivos y trazabilidad) de un evento de recomendación."""
+    _ensure_table()
+    from sqlalchemy import text
+    engine = _get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT payload_json FROM recomendaciones_auditoria WHERE id = :i"),
+            {"i": int(evento_id)},
+        ).fetchone()
+    if not row or not row[0]:
+        return None
+    try:
+        return json.loads(row[0])
+    except Exception:
+        return None
+
+
 def registrar_recomendacion_evento(
     evento: str,
     origen: str,
