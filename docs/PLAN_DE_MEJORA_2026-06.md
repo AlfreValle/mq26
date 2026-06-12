@@ -140,7 +140,7 @@ para que el lint nunca vuelva a acumularse.
 
 | Módulo | Líneas | Propuesta |
 |---|---|---|
-| `ui/tab_inversor.py` | 3.381 | Partir en `ui/inversor/` — un archivo por sección (resumen, posiciones, perlas, alta) |
+| `ui/tab_inversor.py` | ~~3.381~~ → **891** ✅ | COMPLETADO (6 slices): paquete `ui/inversor/` con _helpers, proyeccion, paneles_kpi, plata_nueva, posiciones, primera_cartera — todos < 800 líneas |
 | `core/renta_fija_ar.py` | 2.343 | Separar curvas, cálculo de TIR y catálogo de instrumentos |
 | `ui/tab_cartera.py` | 1.673 | Extraer libro mayor y P&L a componentes |
 | `ui/tab_optimizacion.py` | 1.510 | Extraer cada modelo de optimización a su panel |
