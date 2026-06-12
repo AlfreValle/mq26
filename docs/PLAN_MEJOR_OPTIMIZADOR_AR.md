@@ -106,15 +106,23 @@ backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
   que estaba huérfano (payload completo con motivos).
 - 19 tests con dobles, sin red.
 
-### Sprint 2 (pendiente)
+### Sprint 2 (2026-06-12) ✅ — commit `8a4bf25`
 
-- **UI del plan de acción**: panel "Qué hago con mi plata" en tab_inversor
-  que muestre el PlanAccion (compras + revisiones con motivos expandibles,
-  badge de confianza, link a ficha) en lugar de las listas crudas actuales.
-- Cablear `auditar_plan()` en los flujos reales (plata nueva, primera
-  cartera, panel asesor).
-- Evaluar: filtro alpha-neto de decision_engine como advertencia por
-  sugerencia ("la operación chica no paga sus costos").
+- `ui/components/plan_accion_view.py`: render del plan — motivos atómicos,
+  badge de confianza por frescura (🟢/🟡/🔴), link lazy a la ficha Pilar 2.
+- Integrado en plata nueva ("🧭 Por qué estas sugerencias") y primera
+  cartera ("🧭 Por qué esta cartera"); `auditar_plan()` cableado en ambos
+  cálculos con payload completo. La auditoría nunca bloquea el flujo.
+
+### Sprint 3 (pendiente)
+
+- Plan explicado en el flujo del asesor (tab_optimizacion / tab_cartera):
+  mismas explicaciones para recomendar a clientes.
+- Filtro alpha-neto de decision_engine como advertencia por sugerencia
+  ("la operación chica no paga sus costos") — revive el motor huérfano.
+- Vista de auditoría: historial de planes explicados por cliente (lee
+  recomendaciones_auditoria) para el asesor/admin.
+- Luego → **Pilar 4: Admin SaaS completo**.
 
 ## Criterio de éxito del plan
 
