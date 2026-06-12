@@ -40,6 +40,13 @@ def _render_seccion(s, titulo: str, *, expanded: bool = False) -> None:
 
 def _render_velas_opcional(ticker: str) -> None:
     """Gráfico de velas 6 meses (empresa_ficha) — sección opcional best-effort."""
+    try:
+        from core.feature_flags import get_flag
+
+        if not get_flag("ficha_velas"):
+            return
+    except Exception:
+        pass
     if not st.toggle("Ver gráfico de velas (6 meses)", key=f"ficha_velas_{ticker}"):
         return
     try:

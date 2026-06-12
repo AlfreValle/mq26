@@ -1004,7 +1004,7 @@ def _render_primera_cartera_inversor(ctx: dict) -> None:
 
     # Pilar 3: cada sugerencia con su porqué, confianza de datos y link a ficha
     _plan_pci_exp = st.session_state.get("pci_plan_explicado")
-    if _plan_pci_exp is not None:
+    if _plan_pci_exp is not None and _flag_plan_explicado(ctx):
         with st.expander("🧭 Por qué esta cartera — plan explicado", expanded=False):
             from ui.components.plan_accion_view import render_plan_accion
 
@@ -1605,6 +1605,16 @@ def _render_posiciones_con_targets(ctx: dict, _diag: object) -> None:
             "margin:0.4rem 0 0.6rem 0;'>",
             unsafe_allow_html=True,
         )
+
+
+def _flag_plan_explicado(ctx: dict) -> bool:
+    """Feature flag A08: plan explicado activable por tenant sin deploy."""
+    try:
+        from core.feature_flags import get_flag
+
+        return get_flag("plan_explicado", ctx.get("tenant_id"))
+    except Exception:
+        return True
 
 
 def _render_ficha_posicion(ctx: dict, df_ag) -> None:
@@ -2652,7 +2662,7 @@ def _render_bloque_plata_nueva(ctx: dict, df_ag, _diag, ccl: float) -> None:
 
     # Pilar 3: cada sugerencia con su porqué, confianza de datos y link a ficha
     _plan_exp = st.session_state.get("inv_plan_explicado")
-    if _plan_exp is not None:
+    if _plan_exp is not None and _flag_plan_explicado(ctx):
         with st.expander("🧭 Por qué estas sugerencias — plan explicado", expanded=False):
             from ui.components.plan_accion_view import render_plan_accion
 

@@ -177,10 +177,10 @@ def resolver_precios(
 
     byma_px: dict[str, float] = {}
     try:
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
         from services.byma_provider import fetch_precios_ars_batch
 
-        if BYMA_FIRST and tickers:
+        if byma_first_activo() and tickers:
             byma_px = fetch_precios_ars_batch([str(x) for x in tickers if x])
     except Exception:
         byma_px = {}
@@ -239,10 +239,10 @@ def resolver_precios_con_origen(
     resultado: dict[str, tuple[float, str]] = {}
     byma_px: dict[str, float] = {}
     try:
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
         from services.byma_provider import fetch_precios_ars_batch
 
-        if BYMA_FIRST and tickers:
+        if byma_first_activo() and tickers:
             byma_px = fetch_precios_ars_batch([str(x) for x in tickers if x])
     except Exception:
         byma_px = {}

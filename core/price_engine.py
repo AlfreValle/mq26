@@ -311,10 +311,10 @@ class PriceEngine:
         if not self._yfinance_habilitado():
             self._reload_fallback_bd()
 
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
 
         chain: list = []
-        if BYMA_FIRST:
+        if byma_first_activo():
             chain.append(self._try_byma)
         chain.extend([
             self._try_live,
@@ -354,11 +354,11 @@ class PriceEngine:
         override = {k.upper(): v for k, v in (precios_live_override or {}).items()}
         result: dict[str, PriceRecord] = {}
 
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
         from services.byma_provider import fetch_precios_ars_batch
 
         byma_batch: dict[str, float] = {}
-        if BYMA_FIRST:
+        if byma_first_activo():
             try:
                 byma_batch = fetch_precios_ars_batch([x.upper().strip() for x in tickers if x])
             except Exception:
@@ -447,9 +447,9 @@ class PriceEngine:
 
     def _try_byma(self, ticker: str, ccl: float, ratio: float) -> PriceRecord | None:
         """Precio vía API BYMA / tercero (MQ26_BYMA_API_URL)."""
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
 
-        if not BYMA_FIRST:
+        if not byma_first_activo():
             return None
         try:
             from services.byma_provider import fetch_precios_ars_batch
