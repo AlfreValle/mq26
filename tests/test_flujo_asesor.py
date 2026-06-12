@@ -280,12 +280,14 @@ def test_tab_inversor_contexto_minimo_j93():
     from importlib import reload
 
     import ui.inversor._helpers as h_mod
+    import ui.inversor.paneles_kpi as pk_mod
     import ui.inversor.plata_nueva as pn_mod
+    import ui.inversor.posiciones as pos_mod
     import ui.inversor.primera_cartera as pc_mod
     import ui.inversor.proyeccion as pr_mod
     import ui.tab_inversor as ti_mod
 
-    _submods = (h_mod, pr_mod, pn_mod, pc_mod)
+    _submods = (h_mod, pr_mod, pk_mod, pos_mod, pn_mod, pc_mod)
     try:
         # Fase 2.1: el paquete ui.inversor captura `st` al importar — recargar
         # los submódulos ANTES que el orquestador para que tomen el mock.
