@@ -94,14 +94,27 @@ backlog: A21 (secrets), A37 (PII), A44 (✓ previo), A50 (✓ runbook).
 - Ficha accesible desde el detalle de cada perla (lazy, botón) y desde la
   tabla de posiciones del inversor (selector de activos RV).
 
-## Siguiente → **Pilar 3: recomendador explicable end-to-end**
+## Pilar 3 — estado
 
-Unificar perlas + recomendación de capital + decision engine en un solo
-flujo "qué hago con mi plata" con justificación auditable por sugerencia,
-para los 3 roles. Piezas: services/perlas_service.py,
-services/recomendacion_capital.py, services/decision_engine.py,
-services/primera_cartera.py. La ficha del Pilar 2 es el "por qué" de cada
-sugerencia (link ficha ←→ recomendación).
+### Sprint 1 (2026-06-12) ✅ — commit `e7a4592`
+
+- `services/recomendador_explicable.py`: contrato PlanAccion →
+  RecomendacionExplicada → Motivo. Unifica compras (recomendacion_capital)
+  y ventas/revisiones (motor_salida) sin re-decidir.
+- Confianza ALTA/MEDIA/BAJA por frescura del precio (Pilar 1);
+  `tiene_ficha` enlaza al Pilar 2; `auditar_plan()` cablea el audit trail
+  que estaba huérfano (payload completo con motivos).
+- 19 tests con dobles, sin red.
+
+### Sprint 2 (pendiente)
+
+- **UI del plan de acción**: panel "Qué hago con mi plata" en tab_inversor
+  que muestre el PlanAccion (compras + revisiones con motivos expandibles,
+  badge de confianza, link a ficha) en lugar de las listas crudas actuales.
+- Cablear `auditar_plan()` en los flujos reales (plata nueva, primera
+  cartera, panel asesor).
+- Evaluar: filtro alpha-neto de decision_engine como advertencia por
+  sugerencia ("la operación chica no paga sus costos").
 
 ## Criterio de éxito del plan
 
