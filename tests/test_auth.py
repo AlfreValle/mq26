@@ -259,12 +259,12 @@ class TestGetUserRole:
         with patch.object(auth_mod, "st", mock_st):
             assert auth_mod.get_user_role("mq26") == "inversor"
 
-    def test_asesor_passthrough(self):
+    def test_estudio_passthrough(self):
         from core import auth as auth_mod
         mock_st = MagicMock()
-        mock_st.session_state = {"mq26_user_role": "asesor"}
+        mock_st.session_state = {"mq26_user_role": "estudio"}
         with patch.object(auth_mod, "st", mock_st):
-            assert auth_mod.get_user_role("mq26") == "asesor"
+            assert auth_mod.get_user_role("mq26") == "estudio"
 
 
 class TestHasFeature:
@@ -278,8 +278,8 @@ class TestHasFeature:
 
         assert has_feature("inversor", "tab_admin") is False
 
-    def test_asesor_lab_quant_sin_tab_admin(self):
+    def test_estudio_lab_quant_sin_tab_admin(self):
         from core.auth import has_feature
 
-        assert has_feature("asesor", "lab_quant") is True
-        assert has_feature("asesor", "tab_admin") is False
+        assert has_feature("estudio", "lab_quant") is True
+        assert has_feature("estudio", "tab_admin") is False

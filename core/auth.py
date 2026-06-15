@@ -75,11 +75,9 @@ def _login_user_table(
     password_env: str,
     viewer_password_env: str,
     investor_password_env: str,
-    advisor_password_env: str,
     user_admin: str,
     user_estudio: str,
     user_inversor: str,
-    user_asesor: str,
 ) -> dict[str, tuple[str, str]]:
     """username normalizado -> (clave_rol_sesión, contraseña_env). Primera definición gana si hay duplicados."""
     out: dict[str, tuple[str, str]] = {}
@@ -87,7 +85,6 @@ def _login_user_table(
         (user_admin, "admin", password_env),
         (user_estudio, "viewer", viewer_password_env),
         (user_inversor, "inversor", investor_password_env),
-        (user_asesor, "asesor", advisor_password_env),
     ]
     for u_raw, role_key, secret in rows:
         u = (u_raw or "").strip().lower()
@@ -105,11 +102,9 @@ def check_password(
     password_env: str = "",
     viewer_password_env: str = "",
     investor_password_env: str = "",
-    advisor_password_env: str = "",
     user_admin: str = "admin",
     user_estudio: str = "estudio",
     user_inversor: str = "inversor",
-    user_asesor: str = "asesor",
     username_login: bool = False,
     try_database_users: bool = True,
     db_tenant_id: str | None = None,
@@ -122,7 +117,7 @@ def check_password(
     - Timeout de sesión configurable
     - Log de accesos en alertas_log
     - Token de sesión único por login exitoso
-    - Por defecto: usuario + contraseña para distinguir admin / estudio / inversor / asesor
+    - Por defecto: usuario + contraseña para distinguir admin / estudio / inversor
 
     Uso:
         from core.auth import check_password
@@ -212,7 +207,7 @@ def check_password(
                     user_field = st.text_input(
                         "Usuario:",
                         key=user_input_key,
-                        placeholder="admin, estudio, inversor, asesor…",
+                        placeholder="admin, estudio, inversor…",
                     )
                 pwd_field = st.text_input(
                     "Contraseña:",
@@ -228,14 +223,13 @@ def check_password(
                             (user_admin or "").strip().lower(),
                             (user_estudio or "").strip().lower(),
                             (user_inversor or "").strip().lower(),
-                            (user_asesor or "").strip().lower(),
                         }
                         - {""},
                     )
                 )
                 st.caption(
-                    f"**admin**: acceso total · **asesor**: profesional sin pestaña Admin · "
-                    f"**estudio** · **inversor** — usuarios configurables: {hint_users}"
+                    f"**admin**: acceso total · **estudio**: profesional · "
+                    f"**inversor** — usuarios configurables: {hint_users}"
                 )
             st.caption(LOGIN_LEGAL_DISCLAIMER_ES)
             if st.session_state.get(f"{app_id}_degraded_auth"):
@@ -276,11 +270,9 @@ def check_password(
                                 password_env=password_env,
                                 viewer_password_env=viewer_password_env,
                                 investor_password_env=investor_password_env,
-                                advisor_password_env=advisor_password_env,
                                 user_admin=user_admin,
                                 user_estudio=user_estudio,
                                 user_inversor=user_inversor,
-                                user_asesor=user_asesor,
                             )
                             pair = table.get(u)
                             if pair:
@@ -296,18 +288,12 @@ def check_password(
                         ok_investor = bool(investor_password_env) and verificar_password(
                             pwd, investor_password_env
                         )
-                        ok_advisor = bool(advisor_password_env) and verificar_password(
-                            pwd, advisor_password_env
-                        )
                         if ok_investor:
                             ok_login = True
                             assigned_role = "inversor"
                         elif ok_viewer:
                             ok_login = True
                             assigned_role = "viewer"
-                        elif ok_advisor:
-                            ok_login = True
-                            assigned_role = "asesor"
                         elif ok_admin:
                             ok_login = True
                             assigned_role = "admin"
@@ -400,20 +386,12 @@ FEATURE_DEFAULTS = {
         "backtest_avanzado": True,
     },
     "estudio": {
-        "lab_quant": False,
+        "lab_quant": True,
         "estudio_dashboard": True,
         "tab_admin": False,
         "exportar_rrss": False,
         "analisis_empresa": True,
         "backtest_avanzado": False,
-    },
-    "asesor": {
-        "lab_quant": True,
-        "estudio_dashboard": True,
-        "tab_admin": False,
-        "exportar_rrss": True,
-        "analisis_empresa": True,
-        "backtest_avanzado": True,
     },
     "inversor": {
         "lab_quant": False,

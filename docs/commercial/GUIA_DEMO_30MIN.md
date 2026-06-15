@@ -1,4 +1,4 @@
-# Guía de demo 30 minutos — MQ26 (tier ES / asesor)
+# Guía de demo 30 minutos — MQ26 (tier ES / estudio)
 
 Objetivo: responder en orden: **¿Entiende la cartera argentina?** · **¿Ahorra trabajo?** · **¿Lo entiende el cliente?**
 
@@ -6,7 +6,7 @@ Objetivo: responder en orden: **¿Entiende la cartera argentina?** · **¿Ahorra
 
 - Pantalla de login (nota legal visible bajo el formulario).
 - Seleccionar cliente demo (ej. datos generados con `python scripts/demo_launcher.py` o `DEMO_MODE=true` en Railway).
-- Mencionar roles: admin / asesor / estudio / inversor.
+- Mencionar roles: admin / estudio / inversor.
 
 ## Minuto 5–12 — Carga / import
 

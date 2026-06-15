@@ -19,6 +19,12 @@ RUTA_ANALISIS    = DATA_DIR / "Analisis_Empresas.xlsx"
 RUTA_UNIVERSO    = DATA_DIR / "Universo_120_CEDEARs.xlsx"
 RUTA_DB          = DATA_DIR / "master_quant.db"
 
+# ─── REGLA CRÍTICA DE UNIVERSO ────────────────────────────────────────────────
+# Todo activo comercializado en Argentina en ARS debe estar en el universo BYMA.
+# El precio de mercado SIEMPRE viene de BYMA Open Data (services/byma_market_data.py).
+# Nunca hardcodear precios. Nunca usar yfinance para precios de instrumentos AR.
+UNIVERSO_FUENTE_CRITICA = "BYMA"  # sentinel — no borrar
+
 # ─── SEGURIDAD Y VARIABLES DE ENTORNO (E3) ────────────────────────────────────
 # No abortar el proceso si falta: en Docker/Railway el import ocurre antes de que
 # Streamlit abra el puerto; un OSError aquí tumba el healthcheck /_stcore/health.
@@ -38,7 +44,6 @@ MQ26_ADVISOR_PASSWORD = os.environ.get("MQ26_ADVISOR_PASSWORD", "").strip()
 MQ26_USER_ADMIN = (os.environ.get("MQ26_USER_ADMIN", "admin").strip().lower() or "admin")
 MQ26_USER_ESTUDIO = (os.environ.get("MQ26_USER_ESTUDIO", "estudio").strip().lower() or "estudio")
 MQ26_USER_INVERSOR = (os.environ.get("MQ26_USER_INVERSOR", "inversor").strip().lower() or "inversor")
-MQ26_USER_ASESOR = (os.environ.get("MQ26_USER_ASESOR", "asesor").strip().lower() or "asesor")
 MQ26_TIER = os.environ.get("MQ26_TIER", "super_admin").strip().lower()
 
 # Telegram: si no está configurado, las alertas quedan silenciadas (no crashea)
