@@ -65,3 +65,6 @@ commercial/landing/site.config.js
 # Basura en raíz (typos en terminal; no commitear)
 /git
 /it
+
+# Herramientas de IA / Entornos de trabajo
+.claude/
