@@ -34,7 +34,7 @@ UNIVERSO_PRIMERA_CARTERA: list[dict[str, str]] = [
     {"ticker": "MSFT", "tipo": "CEDEAR", "categoria": "tech"},
     {"ticker": "KO", "tipo": "CEDEAR", "categoria": "consumo"},
     {"ticker": "PEP", "tipo": "CEDEAR", "categoria": "consumo"},
-    {"ticker": "GLD", "tipo": "CEDEAR", "categoria": "cobertura"},
+    {"ticker": "BRKB", "tipo": "CEDEAR", "categoria": "valor"},
     {"ticker": "SPY", "tipo": "CEDEAR", "categoria": "indice"},
     {"ticker": "QQQ", "tipo": "CEDEAR", "categoria": "indice"},
     {"ticker": "VALE", "tipo": "CEDEAR", "categoria": "materiales"},
@@ -223,16 +223,29 @@ def generar_narrativa_semana(
         rsi_txt = _rsi_texto(rsi)
         senal = str(sc.get("Senal") or "")
         nombre = str(it.get("ticker") or "")
+
+        # Fundamentals + objetivo de salida + tesis
+        fund: dict[str, Any] = {}
+        tesis = ""
+        try:
+            fund = _ficha_fundamentals(nombre, it.get("tipo", "CEDEAR"), ccl)
+            tesis = _tesis_inversion(nombre, it.get("tipo", "CEDEAR"), sc, fund)
+        except Exception as e:
+            logger.debug("fundamentals %s: %s", nombre, e)
+
         narr_items.append({
             **it,
-            "var_txt": var_txt,
-            "rsi_txt": rsi_txt,
-            "senal": senal,
+            "var_txt":       var_txt,
+            "rsi_txt":       rsi_txt,
+            "senal":         senal,
             "nombre_display": nombre,
+            "fundamentals":  fund,
+            "tesis":         tesis,
         })
         bloques.append(
-            f"{nombre} ({it.get('tipo')}): puntuación {it.get('score_total')}, {var_txt} {rsi_txt}"
+            f"{nombre} ({it.get('tipo')}): puntuación {it.get('score_total'):.0f}, {var_txt} {rsi_txt}"
         )
+
     intro = (
         f"Semana {sem} de {anio}: presupuesto orientativo ${presupuesto_ars:,.0f} ARS "
         f"(CCL referencia ${float(ccl):,.0f}). "
@@ -252,6 +265,219 @@ def generar_narrativa_semana(
         "resumen_ejecutivo": resumen,
         "disclaimer": DISCLAIMER,
     }
+
+
+# ─── Fundamentales y objetivo de salida ──────────────────────────────────────
+
+def _ficha_fundamentals(
+    ticker: str,
+    tipo: str,
+    ccl: float,
+) -> dict[str, Any]:
+    """
+    Trae métricas fundamentales vía yfinance y calcula precio objetivo ARS.
+
+    Retorna dict con todas las métricas (None si no disponibles) más:
+      objetivo_salida_usd, objetivo_salida_ars, upside_pct, horizonte_meses,
+      fuente_objetivo ("consenso_analistas" | "proyeccion_eps" | "n/a").
+    """
+    import yfinance as yf  # noqa: PLC0415
+
+    sym = _ticker_yahoo_symbol(ticker, tipo)
+    ratio = float(RATIOS_CEDEAR.get(ticker.upper(), 1) or 1)
+    info: dict[str, Any] = {}
+    try:
+        info = yf.Ticker(sym).info or {}
+    except Exception as e:
+        logger.debug("_ficha_fundamentals %s: %s", ticker, e)
+
+    def _f(key: str, mult: float = 1.0) -> float | None:
+        v = info.get(key)
+        if v is None or (isinstance(v, float) and (v != v)):  # NaN guard
+            return None
+        try:
+            return round(float(v) * mult, 4)
+        except Exception:
+            return None
+
+    pe       = _f("trailingPE") or _f("forwardPE")
+    roe      = _f("returnOnEquity", 100)       # → %
+    dce      = _f("debtToEquity")              # 0–∞, ya en %
+    div_y    = _f("dividendYield", 100)        # → %
+    eps_g    = _f("earningsGrowth", 100)       # → %
+    rev_g    = _f("revenueGrowth", 100)        # → %
+    margin   = _f("profitMargins", 100)        # → %
+    beta     = _f("beta")
+    mkt_cap  = info.get("marketCap")           # USD
+    target_c = info.get("targetMeanPrice")     # USD — consenso analistas
+    n_anal   = info.get("numberOfAnalystOpinions") or 0
+    curr_usd = info.get("regularMarketPrice") or info.get("currentPrice")
+    sector_yf = info.get("sector") or info.get("industry") or ""
+
+    # ── Precio objetivo ARS ───────────────────────────────────────────────────
+    obj_usd: float | None = None
+    fuente_obj = "n/a"
+    horizonte = 12  # meses default
+
+    if target_c and curr_usd and float(target_c) > 0 and int(n_anal) >= 3:
+        obj_usd = round(float(target_c), 2)
+        fuente_obj = f"consenso {n_anal} analistas"
+        horizonte = 12
+    elif curr_usd and eps_g is not None:
+        # Proyección simple: precio crece con EPS un año, ajustado por calidad
+        growth = max(float(eps_g) / 100, 0.03)  # floor 3%
+        quality_mult = 1.0
+        if roe is not None and float(roe) > 20:
+            quality_mult += 0.04
+        if pe is not None and float(pe) < 18:
+            quality_mult += 0.03  # re-rating potencial
+        obj_usd = round(float(curr_usd) * (1 + growth) * quality_mult, 2)
+        fuente_obj = "proyeccion_eps"
+        horizonte = 12
+    elif curr_usd:
+        # Mínimo: precio flat + rendimiento histórico mercado 8%
+        obj_usd = round(float(curr_usd) * 1.08, 2)
+        fuente_obj = "flat+8pct"
+        horizonte = 12
+
+    # Convertir a ARS
+    obj_ars: float | None = None
+    if obj_usd is not None and tipo not in ("Acción Local", "Merval"):
+        obj_ars = round(obj_usd * ratio * max(float(ccl), 1.0), 2)
+    elif obj_usd is not None:
+        obj_ars = round(obj_usd, 2)  # ya en ARS
+
+    # Upside
+    precio_ars_now = _precio_ars_actual(ticker, tipo, ccl)
+    upside: float | None = None
+    if obj_ars and precio_ars_now and precio_ars_now > 0:
+        upside = round((obj_ars / precio_ars_now - 1) * 100, 1)
+
+    return {
+        "pe_ratio":          pe,
+        "roe_pct":           roe,
+        "deuda_capital_pct": dce,
+        "div_yield_pct":     div_y,
+        "eps_growth_pct":    eps_g,
+        "rev_growth_pct":    rev_g,
+        "profit_margin_pct": margin,
+        "beta":              beta,
+        "mkt_cap_usd_b":     round(float(mkt_cap) / 1e9, 1) if mkt_cap else None,
+        "sector_yf":         sector_yf,
+        "n_analistas":       int(n_anal),
+        "objetivo_salida_usd":  obj_usd,
+        "objetivo_salida_ars":  obj_ars,
+        "upside_pct":           upside,
+        "horizonte_meses":      horizonte,
+        "fuente_objetivo":      fuente_obj,
+    }
+
+
+def _tesis_inversion(
+    ticker: str,
+    tipo: str,
+    score_dict: dict[str, Any],
+    fund: dict[str, Any],
+) -> str:
+    """
+    Genera párrafo profesional de tesis de inversión con datos reales.
+    Cubre: valuación, rentabilidad, deuda, crecimiento, contexto técnico y objetivo.
+    """
+    bloques: list[str] = []
+
+    # ── Valuación ─────────────────────────────────────────────────────────────
+    pe = fund.get("pe_ratio")
+    if pe is not None:
+        if pe < 12:
+            val_txt = f"valuación atractiva (P/E {pe:.1f}x) que sugiere descuento frente al mercado"
+        elif pe < 22:
+            val_txt = f"valuación razonable (P/E {pe:.1f}x), consistente con el sector"
+        elif pe < 35:
+            val_txt = f"múltiplo moderadamente elevado (P/E {pe:.1f}x); justificado si el crecimiento se sostiene"
+        else:
+            val_txt = f"P/E de {pe:.1f}x refleja expectativas de crecimiento alto — seguir de cerca la ejecución"
+        bloques.append(val_txt.capitalize() + ".")
+
+    # ── Rentabilidad ─────────────────────────────────────────────────────────
+    roe = fund.get("roe_pct")
+    margin = fund.get("profit_margin_pct")
+    ren_parts: list[str] = []
+    if roe is not None:
+        if roe > 25:
+            ren_parts.append(f"ROE del {roe:.1f}% — excepcional, señal de ventaja competitiva sostenida")
+        elif roe > 15:
+            ren_parts.append(f"ROE del {roe:.1f}% — sólido")
+        elif roe > 8:
+            ren_parts.append(f"ROE del {roe:.1f}% — aceptable")
+        else:
+            ren_parts.append(f"ROE del {roe:.1f}% — por debajo del promedio; vigilar tendencia")
+    if margin is not None:
+        if margin > 20:
+            ren_parts.append(f"margen neto del {margin:.1f}% (amplio)")
+        elif margin > 8:
+            ren_parts.append(f"margen neto del {margin:.1f}%")
+        else:
+            ren_parts.append(f"margen neto ajustado del {margin:.1f}%")
+    if ren_parts:
+        bloques.append("Rentabilidad: " + "; ".join(ren_parts) + ".")
+
+    # ── Deuda ─────────────────────────────────────────────────────────────────
+    dce = fund.get("deuda_capital_pct")
+    if dce is not None:
+        if dce < 30:
+            bloques.append(f"Balance sólido: deuda/capital del {dce:.0f}%, sin presión financiera significativa.")
+        elif dce < 80:
+            bloques.append(f"Deuda/capital del {dce:.0f}% — manejable en entorno de tasas actuales.")
+        else:
+            bloques.append(f"Deuda/capital del {dce:.0f}% — nivel a monitorear ante suba de tasas.")
+
+    # ── Crecimiento ───────────────────────────────────────────────────────────
+    eps_g = fund.get("eps_growth_pct")
+    rev_g = fund.get("rev_growth_pct")
+    crec_parts: list[str] = []
+    if eps_g is not None:
+        crec_parts.append(f"EPS {'creciendo' if eps_g >= 0 else 'contrayendo'} {abs(eps_g):.1f}% anual")
+    if rev_g is not None:
+        crec_parts.append(f"ingresos {'al alza' if rev_g >= 0 else 'a la baja'} {abs(rev_g):.1f}%")
+    if crec_parts:
+        bloques.append("Crecimiento: " + ", ".join(crec_parts) + ".")
+
+    # ── Dividendo ─────────────────────────────────────────────────────────────
+    div_y = fund.get("div_yield_pct")
+    if div_y and div_y > 0.5:
+        bloques.append(f"Dividend yield del {div_y:.2f}% — componente de retorno total.")
+
+    # ── Contexto técnico ─────────────────────────────────────────────────────
+    rsi = float(score_dict.get("RSI") or 50)
+    st  = float(score_dict.get("Score_Total") or 0)
+    senal = str(score_dict.get("Senal") or "")
+    if rsi < 35:
+        tec_txt = f"técnicamente sobrevendido (RSI {rsi:.0f}), zona de posible reversión"
+    elif rsi > 65:
+        tec_txt = f"momentum alcista (RSI {rsi:.0f}); confirmar antes de agregar posición"
+    else:
+        tec_txt = f"RSI neutral ({rsi:.0f}), sin señales de sobrecompra/sobreventa"
+    bloques.append(f"Contexto técnico: {tec_txt}. Score MQ26: {st:.0f}/100.")
+
+    # ── Objetivo de salida ────────────────────────────────────────────────────
+    obj_ars = fund.get("objetivo_salida_ars")
+    upside  = fund.get("upside_pct")
+    horiz   = fund.get("horizonte_meses", 12)
+    fuente  = fund.get("fuente_objetivo", "n/a")
+    if obj_ars and upside is not None:
+        fuente_lbl = f"({fuente})" if fuente not in ("n/a", "") else ""
+        if upside > 0:
+            bloques.append(
+                f"Objetivo de salida: ${obj_ars:,.0f} ARS en {horiz} meses "
+                f"{fuente_lbl} — potencial de apreciación del {upside:.1f}%."
+            )
+        else:
+            bloques.append(
+                f"Precio objetivo referencial: ${obj_ars:,.0f} ARS {fuente_lbl}. "
+                f"Posición defensiva; evaluar en el horizonte de {horiz} meses."
+            )
+
+    return " ".join(bloques) if bloques else f"Activo seleccionado por score MQ26 de {st:.0f}/100."
 
 
 def guardar_recomendacion(payload: dict[str, Any], *, audit_user: str = "") -> None:

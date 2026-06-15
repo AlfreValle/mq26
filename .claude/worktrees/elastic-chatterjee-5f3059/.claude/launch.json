@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "storytelling",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "C:\\Users\\alfredo.vallejos\\Documents\\Alfredo\\PROYECTOS\\MQ_VERSION FINAL\\MQ26_final_v4\\MQ26_V11"],
+      "port": 8765
+    }
+  ]
+}

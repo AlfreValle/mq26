@@ -61,6 +61,7 @@ except ImportError:
     pass
 
 from core.logging_config import get_logger
+from core.structured_logging import log_degradacion
 
 _log = get_logger(__name__)
 
@@ -148,6 +149,65 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
+def _mq26_logged_in() -> bool:
+    return bool(
+        st.session_state.get("mq26_auth")
+        or (st.session_state.get("authentication_status") is True)
+    )
+
+
+def _inject_css_markdown(_extra_css: str, _light_css: str) -> None:
+    st.markdown(
+        f"<style>{_extra_css}{_light_css}</style>",
+        unsafe_allow_html=True,
+    )
+
+
+def _build_theme_css(*, use_light: bool) -> tuple[str, str]:
+    """Devuelve (extra_css, light_css) para un solo bloque <style>."""
+    from ui.mq26_theme import build_theme_css_bundle
+
+    return build_theme_css_bundle(BASE_DIR, use_light=use_light)
+
+
+def _inject_css_pre_login():
+    # Pantalla de login: sin sesión aún o credencial no validada en esta corrida.
+    # Siempre tema claro retail aquí: contraste legible (texto/placeholders) como el resto de la app.
+    if _mq26_logged_in():
+        return
+    _extra, _light = _build_theme_css(use_light=True)
+    _inject_css_markdown(_extra, _light)
+
+
+def _sync_mq_light_session_post_auth() -> None:
+    """v11: todos los roles usan dark blue por defecto (mq_light_mode=False)."""
+    if "mq_light_mode" not in st.session_state:
+        st.session_state["mq_light_mode"] = False
+
+
+def _inject_css_after_auth():
+    # MQ-S9: Meta tags de seguridad removidas — no funcionan inyectadas via Streamlit.
+    # Tema sólo después de auth: mq_light_mode y rol están alineados (evita default False del toggle).
+    if not _mq26_logged_in():
+        return
+    _sync_mq_light_session_post_auth()
+    try:
+        from core.auth import get_user_role as _get_user_role_css
+
+        if "mq_light_mode" not in st.session_state:
+            st.session_state["mq_light_mode"] = bool(
+                _get_user_role_css("mq26") == "inversor"
+            )
+        _use_light = bool(st.session_state["mq_light_mode"])
+    except Exception:
+        _use_light = True
+    _extra, _light = _build_theme_css(use_light=_use_light)
+    _inject_css_markdown(_extra, _light)
+
+
+_inject_css_pre_login()
+
 if _DEPLOY_MARKER or _GIT_SHA:
     _sha_short = _GIT_SHA[:7] if _GIT_SHA else ""
     st.sidebar.caption(
@@ -214,49 +274,6 @@ def _boton_exportar(df: pd.DataFrame, nombre: str, label: str = "📥 Exportar E
     st.download_button(label, data=data, file_name=f"{nombre}.{ext}", mime=mime)
 
 
-def _inject_css():
-    # MQ-S9: Meta tags de seguridad removidas — no funcionan inyectadas via Streamlit.
-    # Configurar en el reverse proxy (nginx/Railway) para producción.
-    #
-    # Sprint 18: una sola inyección de <style> por rerun. Inyect CSS del modo claro aquí
-    # (según toggle en session_state o rol/env), NUNCA con otro st.markdown(<style>) más
-    # abajo — duplicar bloques de estilo rompe la reconciliación de React (removeChild).
-
-    _css_path = BASE_DIR / "assets" / "style.css"
-    _extra_css = _css_path.read_text(encoding="utf-8") if _css_path.exists() else ""
-    _light_path = BASE_DIR / "assets" / "style_retail_light.css"
-    _light_css = ""
-    try:
-        from core.auth import get_user_role as _get_user_role_css
-        from ui.mq26_theme import inject_theme_css_fragments, use_retail_light_theme
-
-        _extra_css += inject_theme_css_fragments()
-        _logged = bool(
-            st.session_state.get("mq26_auth")
-            or (st.session_state.get("authentication_status") is True)
-        )
-        if _logged:
-            if "mq_light_mode" not in st.session_state:
-                st.session_state["mq_light_mode"] = bool(
-                    _get_user_role_css("mq26") == "inversor"
-                )
-            _use_light = bool(st.session_state["mq_light_mode"])
-        else:
-            _use_light = use_retail_light_theme()
-        if _use_light and _light_path.exists():
-            _light_css = _light_path.read_text(encoding="utf-8")
-    except Exception:
-        pass
-    # Consolidar en UNA sola llamada para evitar conflictos de reconciliación React.
-    # El watermark se maneja exclusivamente via CSS (.stApp::after) en style.css.
-    st.markdown(
-        f"<style>{_extra_css}{_light_css}</style>",
-        unsafe_allow_html=True,
-    )
-
-_inject_css()
-
-
 # ─── AUTENTICACIÓN ────────────────────────────────────────────────────────────
 # ─── AUTENTICACIÓN SEGURA (core/auth.py — rate limiting, SHA-256, token de sesión) ──
 from core.auth import check_password, get_user_role
@@ -277,7 +294,7 @@ if _auth is not None:
     # Modo SaaS: login individual por asesor
     st.caption(LOGIN_LEGAL_DISCLAIMER_ES)
     st.markdown(
-        "<p style='color:#94a3b8;font-size:0.95rem;margin:0.25rem 0 0.75rem 0;text-align:center;'>"
+        '<p class="mq-auth-login-subtitle" style="text-align:center;margin:0.25rem 0 0.75rem 0;">'
         "Tu cartera de inversiones, ordenada.</p>",
         unsafe_allow_html=True,
     )
@@ -320,6 +337,10 @@ else:
         st.stop()
     TENANT_ID = 'default'
 
+_inject_css_after_auth()
+
+# Header cartera / métricas (se usa antes del bloque de imports de tabs).
+from ui.mq26_ux import metric_card_html, topline_html
 
 # ─── INICIALIZACIÓN ───────────────────────────────────────────────────────────
 @st.cache_resource
@@ -330,8 +351,8 @@ def init_sistema():
     try:
         from services.universo_service import set_universo_df
         set_universo_df(engine.universo_df)
-    except Exception:
-        pass
+    except Exception as _e_univ:
+        log_degradacion("run_mq26", "universo_service_set_fallo", _e_univ)
     # MQ2-S2: limpiar tokens de reporte expirados (> 24h)
     try:
         from datetime import datetime as _dt
@@ -345,8 +366,8 @@ def init_sistema():
                 "CAST(strftime('%s', created_at) AS INTEGER) > 86400"
             ))
             _sess.commit()
-    except Exception:
-        pass
+    except Exception as _e_tokens:
+        log_degradacion("run_mq26", "limpieza_tokens_reporte_fallo", _e_tokens)
     return engine
 
 # MQ2-A7: error handler global — muestra mensaje amigable si el motor falla
@@ -368,18 +389,21 @@ def cached_clientes_df(tenant_id: str) -> pd.DataFrame:
     """Lista de clientes del tenant (ingreso + sidebar). tenant_id en la firma = clave de caché por tenant."""
     try:
         return dbm.obtener_clientes_df(tenant_id=tenant_id)
-    except Exception:
+    except Exception as _e_cli:
+        log_degradacion(
+            "run_mq26",
+            "cached_clientes_df_fallo",
+            _e_cli,
+            tenant_id=str(tenant_id)[:64],
+        )
         return pd.DataFrame()
 
 
 def _scope_clientes_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Filtra por mq26_allowed_cliente_ids si el login vino de BD (o deja todo si es None)."""
-    allowed = st.session_state.get("mq26_allowed_cliente_ids")
-    if allowed is None:
-        return df
-    if not allowed:
-        return df.iloc[0:0].copy()
-    return df[df["ID"].isin(allowed)].copy()
+    """Delega en core.cliente_scope_ui (misma regla que app_main con app_id='app')."""
+    from core.cliente_scope_ui import scope_clientes_df_por_sesion
+
+    return scope_clientes_df_por_sesion(df, app_id="mq26")
 
 
 def _df_clientes_scoped(tenant_id: str) -> pd.DataFrame:
@@ -389,6 +413,41 @@ def _df_clientes_scoped(tenant_id: str) -> pd.DataFrame:
 
 # Alias explícito: si algún deploy antiguo aún llama _cached_clientes_ingreso(), existe en globals.
 _cached_clientes_ingreso = cached_clientes_df
+
+
+def _vincular_cliente_al_usuario_actual(nuevo_cliente_id: int) -> None:
+    """
+    Tras crear un cliente desde la UI, vincularlo al usuario logueado
+    (si vino de BD) para que aparezca en sus carteras y respete el scope RBAC.
+
+    También actualiza ``mq26_allowed_cliente_ids`` en sesión para verlo de inmediato.
+    """
+    db_user_id = st.session_state.get("mq26_db_user_id")
+    if not db_user_id:
+        return   # login vía .env, sin vínculo por BD
+    try:
+        # Obtener vínculos existentes y agregar el nuevo
+        actuales = st.session_state.get("mq26_allowed_cliente_ids") or []
+        if not isinstance(actuales, list):
+            actuales = []
+        nuevos_ids = list({int(x) for x in actuales} | {int(nuevo_cliente_id)})
+        dbm.set_app_usuario_clientes(
+            usuario_id=int(db_user_id),
+            cliente_ids=nuevos_ids,
+            cliente_default_id=int(nuevo_cliente_id),
+        )
+        # Actualizar sesión para que aparezca de inmediato
+        st.session_state["mq26_allowed_cliente_ids"] = nuevos_ids
+        st.session_state["mq26_cliente_default_id"] = int(nuevo_cliente_id)
+        _log.info(
+            "Cliente id=%s vinculado a usuario id=%s (allowed=%s)",
+            nuevo_cliente_id, db_user_id, nuevos_ids,
+        )
+    except Exception as _e:
+        log_degradacion(
+            "run_mq26", "vincular_cliente_usuario_fallo", _e,
+            usuario_id=int(db_user_id), cliente_id=int(nuevo_cliente_id),
+        )
 
 # ─── PANTALLA DE INGRESO (v9 Quant Dark — tenant + RBAC) ─────────────────────
 def _pantalla_ingreso():
@@ -406,16 +465,10 @@ def _pantalla_ingreso():
 
     st.markdown(
         """
-    <div style="text-align:center;padding:3rem 0 2rem 0;">
-        <div style="display:inline-flex;align-items:center;justify-content:center;
-            width:52px;height:52px;background:rgba(59,130,246,0.12);
-            border:1px solid rgba(59,130,246,0.25);border-radius:14px;
-            font-size:1.5rem;margin-bottom:1.25rem;">📈</div>
-        <h1 style="font-family:'DM Sans',sans-serif;font-size:1.5rem;font-weight:600;
-            letter-spacing:-0.03em;color:#f1f5f9;margin:0 0 0.4rem 0;">
-            Master Quant</h1>
-        <p style="font-size:0.8125rem;color:#4b5563;margin:0;letter-spacing:0.01em;">
-            ¿Con qué cartera trabajamos hoy?</p>
+    <div class="mq-motion-page-fade mq-login-hero">
+        <div class="mq-login-hero-icon" aria-hidden="true">📈</div>
+        <h1>Master Quant</h1>
+        <p>¿Con qué cartera trabajamos hoy?</p>
     </div>
     """,
         unsafe_allow_html=True,
@@ -425,10 +478,7 @@ def _pantalla_ingreso():
 
     with col_sel:
         st.markdown(
-            """
-        <p style="font-size:0.72rem;font-weight:600;color:#4b5563;
-            text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.75rem;">
-            Cliente existente</p>""",
+            '<p class="mq-login-col-label">Cliente existente</p>',
             unsafe_allow_html=True,
         )
         try:
@@ -444,10 +494,8 @@ def _pantalla_ingreso():
             if _puede_alta_cliente:
                 st.markdown(
                     """
-                <div style="background:#0f1117;border:1px dashed rgba(255,255,255,0.08);
-                    border-radius:12px;padding:2rem;text-align:center;">
-                    <p style="color:#4b5563;font-size:0.8125rem;margin:0;">
-                        Sin clientes aún.<br>Creá el primero a la derecha →</p>
+                <div class="mq-login-empty">
+                    <p>Sin clientes aún.<br>Creá el primero a la derecha →</p>
                 </div>""",
                     unsafe_allow_html=True,
                 )
@@ -457,14 +505,20 @@ def _pantalla_ingreso():
                     "y la contraseña correspondiente, y creá al menos un cliente."
                 )
         else:
-            opciones_cli = ["Elegí tu cartera..."] + df_cli["Nombre"].tolist()
-            sel = st.selectbox(
-                "Cliente",
-                opciones_cli,
-                key="ing_sel_cliente",
-                label_visibility="collapsed",
-            )
-            if sel != "Elegí tu cartera...":
+            # Inversor: si hay un solo cliente en alcance, entra directo; si hay varios, selector como el resto de roles.
+            if _ing_role == "inversor" and len(df_cli) == 1:
+                sel = str(df_cli.iloc[0]["Nombre"])
+            else:
+                opciones_cli = ["Elegí tu cartera..."] + df_cli["Nombre"].tolist()
+                sel = st.selectbox(
+                    "Cliente",
+                    opciones_cli,
+                    key="ing_sel_cliente",
+                    label_visibility="collapsed",
+                )
+            if sel == "Elegí tu cartera...":
+                pass
+            elif sel:
                 row = df_cli[df_cli["Nombre"] == sel].iloc[0]
                 sel_esc = html.escape(sel)
                 perfil_raw = str(row.get("Perfil", ""))
@@ -483,38 +537,33 @@ def _pantalla_ingreso():
                 cap_usd = float(row.get("Capital_USD", 0) or 0)
                 st.markdown(
                     f"""
-                <div style="background:#161b27;border:1px solid rgba(255,255,255,0.08);
-                    border-radius:12px;padding:1.25rem 1.5rem;margin-top:0.75rem;">
-                    <div style="display:flex;justify-content:space-between;
-                        align-items:flex-start;margin-bottom:0.75rem;">
+                <div class="mq-login-client-card">
+                    <div class="mq-login-client-head">
                         <div>
-                            <div style="font-weight:600;font-size:0.9375rem;
-                                color:#f1f5f9;letter-spacing:-0.01em;">{sel_esc}</div>
+                            <div class="mq-login-client-title">{sel_esc}</div>
                         </div>
-                        <span style="background:rgba({rgb},0.15);color:{perfil_color};
-                            font-size:0.65rem;font-weight:600;padding:2px 8px;
-                            border-radius:999px;text-transform:uppercase;
-                            letter-spacing:0.05em;">{perfil_esc}</span>
+                        <span class="mq-login-badge-perfil"
+                            style="background:rgba({rgb},0.15);color:{perfil_color};">{perfil_esc}</span>
                     </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+                    <div class="mq-login-grid-2">
                         <div>
-                            <div style="font-size:0.65rem;color:#4b5563;
-                                text-transform:uppercase;letter-spacing:0.06em;">Horizonte</div>
-                            <div style="font-size:0.8125rem;color:#94a3b8;margin-top:2px;">
-                                {horiz_esc}</div>
+                            <div class="mq-inv-kpi-label">Horizonte</div>
+                            <div class="mq-login-kpi-val">{horiz_esc}</div>
                         </div>
                         <div>
-                            <div style="font-size:0.65rem;color:#4b5563;
-                                text-transform:uppercase;letter-spacing:0.06em;">Capital inicial</div>
-                            <div style="font-family:'DM Mono',monospace;font-size:0.8125rem;
-                                color:#94a3b8;margin-top:2px;">USD {cap_usd:,.0f}</div>
+                            <div class="mq-inv-kpi-label">Capital inicial</div>
+                            <div class="mq-login-kpi-val-mono">USD {cap_usd:,.0f}</div>
                         </div>
                     </div>
                 </div>
                 """,
                     unsafe_allow_html=True,
                 )
-                st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+                if _ing_role == "inversor" and len(df_cli) > 1:
+                    st.caption(
+                        "Elegí con qué perfil ingresar. Podés cambiar después con **Cambiar cliente** en el menú lateral."
+                    )
+                st.markdown('<div class="mq-login-spacer-md"></div>', unsafe_allow_html=True)
                 if st.button(
                     "Ingresar →",
                     type="primary",
@@ -530,12 +579,10 @@ def _pantalla_ingreso():
     with col_sep:
         st.markdown(
             """
-        <div style="display:flex;flex-direction:column;align-items:center;height:100%;
-            padding-top:2rem;">
-            <div style="flex:1;width:1px;background:rgba(255,255,255,0.06);"></div>
-            <span style="font-size:0.65rem;color:#4b5563;padding:0.5rem 0;
-                letter-spacing:0.05em;">o</span>
-            <div style="flex:1;width:1px;background:rgba(255,255,255,0.06);"></div>
+        <div class="mq-login-vsep">
+            <div class="mq-login-vsep-line"></div>
+            <span class="mq-login-vsep-mid">o</span>
+            <div class="mq-login-vsep-line"></div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -543,10 +590,7 @@ def _pantalla_ingreso():
 
     with col_nuevo:
         st.markdown(
-            f"""
-        <p style="font-size:0.72rem;font-weight:600;color:#4b5563;
-            text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.75rem;">
-            {html.escape(_lbl_nuevo)}</p>""",
+            f'<p class="mq-login-col-label">{html.escape(_lbl_nuevo)}</p>',
             unsafe_allow_html=True,
         )
         if not _puede_alta_cliente:
@@ -557,6 +601,71 @@ def _pantalla_ingreso():
                 )
             else:
                 st.info("Tu rol actual no puede registrar clientes nuevos.")
+        elif _ing_role == "inversor":
+            try:
+                _df_chk = _scope_clientes_df(cached_clientes_df(TENANT_ID))
+            except Exception:
+                _df_chk = pd.DataFrame()
+            if not _df_chk.empty:
+                st.info(
+                    "Tu cuenta ya tiene **al menos un perfil** vinculado: ingresá desde la columna izquierda. "
+                    "Más perfiles los asocia el estudio o el administrador a tu usuario."
+                )
+            else:
+                with st.form("form_nuevo_cliente_ingreso_inv", clear_on_submit=True):
+                    nc_nombre = st.text_input(
+                        "Nombre completo",
+                        placeholder="Ej: María Fernández",
+                        key="nc_nombre_ingreso_inv",
+                    )
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        nc_perfil = st.selectbox(
+                            "Perfil de riesgo",
+                            ["Conservador", "Moderado", "Arriesgado", "Muy arriesgado"],
+                            help="Conservador: preserva capital. Moderado: balance. "
+                            "Arriesgado/Muy arriesgado: maximiza retorno.",
+                            key="nc_perfil_ing_inv",
+                        )
+                    with col_b:
+                        nc_horiz = st.selectbox(
+                            "Horizonte",
+                            ["1 mes", "3 meses", "6 meses", "1 año", "3 años", "+5 años"],
+                            index=3,
+                            key="nc_horiz_ing_inv",
+                        )
+                    st.caption(_PERFIL_AYUDA.get(nc_perfil, ""))
+                    nc_tipo = "Persona"
+                    nc_capital = 0.0
+                    submitted = st.form_submit_button(
+                        "Crear mi perfil",
+                        type="primary",
+                        use_container_width=True,
+                    )
+                    if submitted:
+                        if not nc_nombre.strip():
+                            st.error("El nombre es obligatorio.")
+                        else:
+                            nuevo_id = dbm.registrar_cliente(
+                                nc_nombre.strip(),
+                                nc_perfil,
+                                nc_capital,
+                                nc_tipo,
+                                nc_horiz,
+                                tenant_id=TENANT_ID,
+                            )
+                            # Vincular cliente recién creado al usuario logueado
+                            _vincular_cliente_al_usuario_actual(nuevo_id)
+                            st.session_state["cliente_id"] = nuevo_id
+                            st.session_state["cliente_nombre"] = nc_nombre.strip()
+                            st.session_state["cliente_perfil"] = nc_perfil
+                            st.session_state["cliente_horizonte_label"] = nc_horiz
+                            try:
+                                cached_clientes_df.clear()
+                            except Exception:
+                                pass
+                            st.success(f"✓ {nc_nombre.strip()} creado")
+                            st.rerun()
         else:
             with st.form("form_nuevo_cliente_ingreso", clear_on_submit=True):
                 nc_nombre = st.text_input(
@@ -579,24 +688,19 @@ def _pantalla_ingreso():
                         index=3,
                     )
                 st.caption(_PERFIL_AYUDA.get(nc_perfil, ""))
-                if _ing_role != "inversor":
-                    col_c, col_d = st.columns(2)
-                    with col_c:
-                        nc_tipo = st.selectbox("Tipo", ["Persona", "Empresa"])
-                    with col_d:
-                        nc_capital = st.number_input(
-                            "Capital inicial (USD)",
-                            min_value=0.0,
-                            value=10_000.0,
-                            step=1_000.0,
-                            format="%.0f",
-                        )
-                else:
-                    nc_tipo = "Persona"
-                    nc_capital = 0.0
-                _btn_crear = "Crear mi perfil" if _ing_role == "inversor" else "Crear cliente"
+                col_c, col_d = st.columns(2)
+                with col_c:
+                    nc_tipo = st.selectbox("Tipo", ["Persona", "Empresa"])
+                with col_d:
+                    nc_capital = st.number_input(
+                        "Capital inicial (USD)",
+                        min_value=0.0,
+                        value=10_000.0,
+                        step=1_000.0,
+                        format="%.0f",
+                    )
                 submitted = st.form_submit_button(
-                    _btn_crear,
+                    "Crear cliente",
                     type="primary",
                     use_container_width=True,
                 )
@@ -612,6 +716,8 @@ def _pantalla_ingreso():
                             nc_horiz,
                             tenant_id=TENANT_ID,
                         )
+                        # Vincular cliente recién creado al usuario logueado
+                        _vincular_cliente_al_usuario_actual(nuevo_id)
                         st.session_state["cliente_id"] = nuevo_id
                         st.session_state["cliente_nombre"] = nc_nombre.strip()
                         st.session_state["cliente_perfil"] = nc_perfil
@@ -631,9 +737,8 @@ def _pantalla_ingreso():
     _yfooter = _dt_footer.now().year
     st.markdown(
         f"""
-    <div style="text-align:center;padding-top:2rem;padding-bottom:1rem;">
-        <span style="font-size:0.65rem;color:#1f2937;letter-spacing:0.08em;">
-            Master Quant · {_yfooter}</span>
+    <div class="mq-login-footer">
+        <span>Master Quant · {_yfooter}</span>
     </div>
     """,
         unsafe_allow_html=True,
@@ -683,335 +788,121 @@ def cached_metricas_resumen(df_serialized: str, ccl: float, cartera_key: str) ->
 
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-st.sidebar.markdown("## 📈 MQ26 — Inversiones")
-# Modo claro arriba (inversor: default claro vía session_state en _inject_css)
-st.sidebar.toggle("☀️ Modo claro", key="mq_light_mode")
-
+# Contexto de rol y permisos (disponibles también en el cuerpo de la app)
 _mq26_role = get_user_role("mq26")
-_login_u = st.session_state.get("mq26_login_user", "")
-if _login_u and _mq26_role == "super_admin":
-    st.sidebar.caption(f"Sesión: **{_login_u}** · rol {_mq26_role}")
 _mq26_viewer = _mq26_role in ("estudio", "inversor")
-if _mq26_viewer:
-    st.sidebar.info(
-        "👁️ **Solo lectura**: sincronización, credenciales y escrituras a BD están deshabilitadas."
-    )
+from ui.rbac import can_action as _can_action_rbac
+_mq26_can_sensitive_utils = _can_action_rbac({"user_role": _mq26_role}, "sensitive_utils")
 
-# MQ2-A9: badge de estado del circuit breaker de yfinance
-try:
-    from services.precio_cache_service import estado_circuit_breaker as _cb_estado
-    _cb = _cb_estado()
-    if _cb["degradado"]:
-        st.sidebar.error(
-            f"🔴 **Precios offline** — yfinance bloqueado por {_cb['segundos_restantes']}s. "
-            "Usando precios fallback."
-        )
-except Exception:
-    pass
-
-# MQ2-S7: botón de cierre de sesión explícito
-if st.sidebar.button("🔒 Cerrar sesión", key="btn_cerrar_sesion_mq", use_container_width=True):
-    st.session_state.clear()
-    st.rerun()
-
-st.sidebar.divider()
-
-info_bd = dbm.info_backend()
-backend_label = "🟢 PostgreSQL" if info_bd["backend"] == "postgresql" else "🟡 SQLite Local"
-st.sidebar.caption(f"BD: {backend_label}")
-
-ccl = cached_ccl()
-st.sidebar.markdown(
-    f"""
-<div style="padding:0.5rem 0;">
-    <div style="font-size:0.65rem;color:var(--c-text-3, #94a3b8);text-transform:uppercase;
-                letter-spacing:0.06em;">Dólar hoy (CCL)</div>
-    <div style="font-family:'DM Mono',monospace;font-size:1.2rem;font-weight:600;
-                color:var(--c-text, #f1f5f9);">${ccl:,.0f}</div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
-
+# ── Contexto del cliente (disponible también fuera del sidebar) ─────────────
 _cliente_id     = st.session_state.get("cliente_id")
 _cliente_nombre = st.session_state.get("cliente_nombre", "")
 _cliente_perfil = st.session_state.get("cliente_perfil", "Moderado")
 _horiz_label    = st.session_state.get("cliente_horizonte_label", "1 año")
 
-if _mq26_role == "estudio":
-    _n_rojos_sb = int(st.session_state.get("dashboard_n_rojos", 0) or 0)
-    if _n_rojos_sb > 0:
-        st.sidebar.error(f"🔴 {_n_rojos_sb} cliente(s) necesitan atención")
-    st.sidebar.divider()
-
-_nombre_corto_sb = _cliente_nombre.split("|")[0].strip() if _cliente_nombre else ""
-st.sidebar.markdown(
-    f"""
-<div style="padding:0.25rem 0 0.5rem 0;">
-    <div style="font-size:0.875rem;font-weight:600;color:var(--c-text, #f1f5f9);">
-        👤 {html.escape(_nombre_corto_sb or "—")}
-    </div>
-    <div style="font-size:0.72rem;color:var(--c-text-3, #94a3b8);margin-top:2px;">
-        {html.escape(str(_cliente_perfil))} · {html.escape(str(_horiz_label))}
-    </div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
-if _mq26_role != "inversor":
-    if st.sidebar.button("🔄 Cambiar cliente", key="btn_cambiar_cliente", use_container_width=True):
-        for k in ["cliente_id", "cliente_nombre", "cliente_perfil", "cliente_horizonte_label"]:
-            st.session_state.pop(k, None)
-        st.rerun()
-
-st.sidebar.divider()
-
-horizonte_dias = dbm.HORIZONTE_DIAS.get(_horiz_label, 365)
-_mc_niveles = [1000, 3000, 5000, 10000]
-st.session_state.setdefault("mc_n_escenarios_select", 3000)
-st.session_state.setdefault("mc_n_escenarios_select", 3000)
-if _mq26_role != "inversor":
-    _mc_cur = st.session_state.get("mc_n_escenarios_select", 3000)
-    if _mc_cur not in _mc_niveles:
-        _mc_cur = 3000
-    _mc_idx = _mc_niveles.index(_mc_cur)
-    n_escenarios = st.sidebar.selectbox(
-        "Simulaciones MC:", _mc_niveles, index=_mc_idx, key="mc_n_escenarios_select"
-    )
-else:
-    n_escenarios = int(st.session_state.get("mc_n_escenarios_select", 3000) or 3000)
-
-capital_nuevo = float(st.session_state.get("capital_inyectado_mq26", 0.0))
-st.sidebar.divider()
-
 df_clientes = _df_clientes_scoped(TENANT_ID)
+
+# ── Transaccional — se calcula ANTES del sidebar para pasarlo como param ────
+# (también lo necesita el cuerpo de la app, por eso vive aquí)
+horizonte_dias = dbm.HORIZONTE_DIAS.get(_horiz_label, 365)
 _ruta_transac_main = BASE_DIR / "0_Data_Maestra" / "Maestra_Transaccional.csv"
 _mtime_transac_main = _ruta_transac_main.stat().st_mtime if _ruta_transac_main.exists() else 0.0
 trans = cached_transaccional(_mtime_transac_main)
 trans = filtrar_transaccional_por_rol(trans, _mq26_role, _cliente_nombre, df_clientes)
-
-carteras_csv: list[str] = []
-if not trans.empty and "CARTERA" in trans.columns:
-    carteras_csv = sorted(trans["CARTERA"].dropna().unique().tolist())
-
 if _mq26_role == "inversor":
-    if len(carteras_csv) <= 1:
-        carteras_opciones = list(carteras_csv)
-        if not carteras_opciones and _cliente_nombre.strip():
-            carteras_opciones = [f"{_cliente_nombre.strip()} | (sin datos)"]
+    from core.cartera_scope import normalizar_transacciones_inversor_una_cartera
+    trans, _ = normalizar_transacciones_inversor_una_cartera(trans, _cliente_nombre)
+
+# ── Render sidebar desacoplado (B10 + C3) ────────────────────────────────────
+from ui.sidebar import render_sidebar as _render_sidebar
+
+_sb = _render_sidebar(
+    role=_mq26_role,
+    tenant_id=TENANT_ID,
+    cliente_id=_cliente_id,
+    cliente_nombre=_cliente_nombre,
+    cliente_perfil=_cliente_perfil,
+    horiz_label=_horiz_label,
+    df_clientes=df_clientes,
+    trans=trans,
+    ccl=cached_ccl(),
+    can_sensitive=_mq26_can_sensitive_utils,
+    dbm=dbm,
+    cs=cs,
+    ab=ab,
+    base_dir=BASE_DIR,
+)
+cartera_activa = _sb.cartera_activa
+ccl            = _sb.ccl
+n_escenarios   = _sb.n_escenarios
+capital_nuevo  = float(st.session_state.get("capital_inyectado_mq26", 0.0))
+
+# ── Vaciar cartera (siempre visible en sidebar) ───────────────────────────────
+st.sidebar.divider()
+_carteras_con_datos_vac = [
+    c for c in (
+        sorted(trans["CARTERA"].dropna().unique().tolist())
+        if not trans.empty and "CARTERA" in trans.columns else []
+    )
+    if c and "(sin datos)" not in c and c != "-- Todas las carteras --"
+]
+with st.sidebar.expander("🧹 Vaciar cartera"):
+    if not _carteras_con_datos_vac:
+        st.caption("No hay operaciones cargadas aún.")
     else:
-        carteras_opciones = ["-- Todas las carteras --"] + list(carteras_csv)
-else:
-    carteras_opciones = ["-- Todas las carteras --"] + list(carteras_csv)
-    if not df_clientes.empty:
-        propietarios_csv = {c.split("|")[0].strip() for c in carteras_csv}
-        for _nombre_cli in sorted(df_clientes["Nombre"].dropna().tolist()):
-            if _nombre_cli.strip() not in propietarios_csv:
-                carteras_opciones.append(f"{_nombre_cli.strip()} | (sin datos)")
-
-_default_cartera_idx = 0
-if _mq26_role == "inversor":
-    for _i, _opt in enumerate(carteras_opciones):
-        if _opt.endswith("| (sin datos)"):
-            _default_cartera_idx = _i
-            break
-        if "|" in _opt:
-            _pref = _opt.split("|")[0].strip()
-            if _cliente_nombre and _pref == _cliente_nombre.strip():
-                _default_cartera_idx = _i
-                break
-else:
-    for _i, _opt in enumerate(carteras_opciones):
-        if _opt in ("-- Todas las carteras --",) or _opt.endswith("| (sin datos)"):
-            continue
-        if "|" in _opt:
-            _pref = _opt.split("|")[0].strip()
-            if _cliente_nombre and _pref == _cliente_nombre.strip():
-                _default_cartera_idx = _i
-                break
-
-if carteras_opciones:
-    _default_cartera_idx = min(_default_cartera_idx, max(0, len(carteras_opciones) - 1))
-else:
-    _default_cartera_idx = 0
-
-if not carteras_opciones:
-    cartera_activa = ""
-elif _mq26_role == "inversor":
-    cartera_activa = carteras_opciones[_default_cartera_idx]
-else:
-    cartera_activa = st.sidebar.selectbox(
-        "📁 Cartera activa:", carteras_opciones, index=_default_cartera_idx
-    )
-
-try:
-    from core.logging_config import set_log_context
-
-    _cshort = ""
-    if cartera_activa:
-        _cshort = (
-            cartera_activa.split("|")[-1].strip()[:20]
-            if "|" in cartera_activa
-            else cartera_activa[:20]
-        )
-    set_log_context(
-        tenant=TENANT_ID,
-        cartera=_cshort,
-        env=os.environ.get("RAILWAY_ENVIRONMENT", "dev"),
-    )
-except Exception:
-    pass
-
-if _mq26_role == "inversor":
-    st.session_state["modo_ppc_fifo"] = False
-else:
-    st.session_state.setdefault("modo_ppc_fifo", False)
-
-if _mq26_role != "inversor":
-    st.sidebar.divider()
-
-    with st.sidebar.expander("🔄 Sincronización de datos"):
-        _ruta_transac_sb = BASE_DIR / "0_Data_Maestra" / "Maestra_Transaccional.csv"
-        _ruta_maestra_sb = BASE_DIR / "0_Data_Maestra" / "Maestra_Inversiones.xlsx"
-        _ruta_sqlite_sb = BASE_DIR / "0_Data_Maestra" / "master_quant.db"
-        if _ruta_transac_sb.exists():
-            _mtime = datetime.fromtimestamp(_ruta_transac_sb.stat().st_mtime).strftime("%d/%m %H:%M")
-            st.caption(f"CSV: {_mtime}")
-
-        import time as _time_rl
-
-        _sync_times = st.session_state.get("_sync_timestamps", [])
-        _ahora_rl = _time_rl.monotonic()
-        _sync_times = [t for t in _sync_times if _ahora_rl - t < 60]
-        _bloqueado = len(_sync_times) >= 3
-        _espera_rl = max(0, int(60 - (_ahora_rl - _sync_times[0]))) if _bloqueado else 0
-
-        if _bloqueado:
-            st.warning(f"⏳ Rate limit — esperá {_espera_rl}s antes de sincronizar de nuevo.")
+        if len(_carteras_con_datos_vac) == 1:
+            _cartera_vac = _carteras_con_datos_vac[0]
+            st.caption(
+                f"Borra **todo** el historial de *{_cartera_vac.split('|')[-1].strip()}*. "
+                "No se puede deshacer."
+            )
         else:
-            if st.button("🔄 Regenerar desde Excel", key="btn_regen_csv", disabled=_bloqueado or _mq26_viewer):
-                _sync_times.append(_ahora_rl)
-                st.session_state["_sync_timestamps"] = _sync_times
-                if _ruta_transac_sb.exists():
-                    _ruta_transac_sb.unlink()
-                st.cache_data.clear()
-                st.rerun()
-        st.session_state["_sync_timestamps"] = _sync_times
-
-
-    with st.sidebar.expander("💰 Precios fallback"):
-        _fb = cs.PRECIOS_FALLBACK_ARS.copy()
-        _df_fb = pd.DataFrame([{"Ticker": t, "Precio ARS": p} for t, p in sorted(_fb.items())])
-        _df_fb_edit = st.data_editor(
-            _df_fb.reset_index(drop=True), num_rows="dynamic", use_container_width=True,
-            column_config={
-                "Ticker":     st.column_config.TextColumn("Ticker", width="small"),
-                "Precio ARS": st.column_config.NumberColumn("Precio ARS", min_value=0, format="$%d"),
-            },
-            key="editor_fallback_sb", hide_index=True, disabled=_mq26_viewer,
-        )
-        if st.button("💾 Aplicar precios", key="btn_aplicar_fb", disabled=_mq26_viewer):
-            _nuevos = {t: float(p) for t, p in zip(_df_fb_edit["Ticker"], _df_fb_edit["Precio ARS"])
-                       if t and p and float(p) > 0}
-            # MQ2-S3: validar rango — diff > 50% requiere confirmación
-            _precios_sospechosos = []
-            for _t_fb, _p_fb in _nuevos.items():
-                _p_ant = _fb.get(_t_fb, _p_fb)
-                if _p_ant > 0 and abs(_p_fb / _p_ant - 1) > 0.50:
-                    _precios_sospechosos.append(f"{_t_fb}: {_p_ant:,.0f} → {_p_fb:,.0f} ({(_p_fb/_p_ant-1):+.0%})")
-            if _precios_sospechosos:
-                st.warning(
-                    "⚠️ **Cambio > 50% detectado** en:\n" + "\n".join(_precios_sospechosos) +
-                    "\n\nPresioná nuevamente para confirmar."
+            _def_vac = cartera_activa if cartera_activa in _carteras_con_datos_vac else _carteras_con_datos_vac[0]
+            _cartera_vac = st.selectbox(
+                "Cartera:", _carteras_con_datos_vac,
+                index=_carteras_con_datos_vac.index(_def_vac),
+                key="sb_vaciar_sel",
+            )
+            st.caption("Borra **todo** el historial. No se puede deshacer.")
+        st.checkbox("Entiendo, confirmo el borrado", key="sb_vaciar_chk")
+        if st.button(
+            "🗑️ Vaciar y empezar de cero",
+            key="sb_vaciar_btn",
+            type="primary",
+            use_container_width=True,
+            disabled=not st.session_state.get("sb_vaciar_chk"),
+        ):
+            from ui.carga_activos import aplicar_vaciar_cartera
+            try:
+                _n_vac = aplicar_vaciar_cartera(
+                    {"engine_data": engine_data, "cartera_activa": _cartera_vac},
+                    _cartera_vac,
                 )
-                if not st.session_state.get("_fb_confirm"):
-                    st.session_state["_fb_confirm"] = True
-                    st.stop()
-            st.session_state.pop("_fb_confirm", None)
-            # MQ2-S4: log de cambios en alertas_log
-            for _t_fb, _p_fb in _nuevos.items():
-                _p_ant = _fb.get(_t_fb, _p_fb)
-                if _p_ant != _p_fb:
-                    try:
-                        dbm.registrar_alerta(
-                            tipo_alerta="PRECIO_MANUAL",
-                            mensaje=f"Fallback {_t_fb}: {_p_ant:,.0f} → {_p_fb:,.0f}",
-                            ticker=_t_fb
-                        )
-                    except Exception:
-                        pass
-            cs.actualizar_fallback(_nuevos)
-            st.cache_data.clear()
-            st.rerun()
+            except RuntimeError as _e_vac:
+                st.sidebar.error(str(_e_vac))
+            else:
+                if _n_vac == 0:
+                    st.sidebar.warning("No había operaciones registradas.")
+                else:
+                    st.sidebar.success(f"✅ {_n_vac} operaciones eliminadas.")
+                for _k_vac in ("inv_diagnostico", "diagnostico_cache", "pci_resultado",
+                               "inv_plata_resultado", "inv_recomendacion", "inv_mix_plan",
+                               "sb_vaciar_chk"):
+                    st.session_state.pop(_k_vac, None)
+                st.rerun()
 
-        # MQ2-S1: verificar integridad HMAC de backups
-        st.divider()
-        st.caption("🔒 Integridad de backups")
-        _bak_files = sorted((BASE_DIR / "0_Data_Maestra").glob("*.bak_*.xlsx")) if (BASE_DIR / "0_Data_Maestra").exists() else []
-        if _bak_files:
-            st.caption(f"{len(_bak_files)} backups disponibles")
-        else:
-            st.caption("Sin backups locales")
-
-    with st.sidebar.expander("🚀 Motor de Salida — Config"):
-        # MQ2-D6: capital_disponible configurable desde sidebar
-        _cap_default = float(dbm.obtener_config("capital_disponible_mq", "500000") or 500000)
-        _capital_disp = st.number_input(
-            "Capital disponible (ARS):",
-            min_value=0.0, value=_cap_default, step=10_000.0, format="%.0f",
-            key="capital_disponible_input", help="Capital para calcular órdenes de compra",
-            disabled=_mq26_viewer,
+# Procesar alertas de precio manual emitidas por el sidebar (P1-OBS-01)
+_sb_precios_alerts = st.session_state.pop("_sb_precios_manuales_alerts", None) or []
+for _alerta_item in _sb_precios_alerts:
+    try:
+        dbm.registrar_alerta(**_alerta_item)
+    except Exception as _e_alerta_run:
+        log_degradacion(
+            "run_mq26",
+            "registrar_alerta_precio_manual_fallo",
+            _e_alerta_run,
+            ticker=str(_alerta_item.get("ticker", ""))[:32],
         )
-        if st.button("💾 Guardar capital", key="btn_guardar_cap", disabled=_mq26_viewer):
-            dbm.guardar_config("capital_disponible_mq", str(_capital_disp))
-            st.success("✅ Capital guardado")
-        # Hacer disponible para el Motor de Salida
-        st.session_state["capital_disponible_mq"] = _capital_disp
-
-    with st.sidebar.expander("⚙️ Salud del sistema"):
-        import datetime as _dt_sys
-        st.markdown(f"**Última sync:** {_dt_sys.datetime.now().strftime('%H:%M:%S')}")
-        st.markdown(f"**BD:** {dbm.info_backend()['backend'].upper()}")
-        st.markdown(f"**CCL:** ${ccl:,.0f}")
-        st.checkbox(
-            "Usar FIFO para PPC (detalle contable)",
-            key="modo_ppc_fifo",
-            help="Afecta cómo se calcula el precio promedio de compra con múltiples operaciones.",
-        )
-
-    with st.sidebar.expander("📱 Alertas Telegram"):
-        # MQ-S1: Las credenciales Telegram se persisten en la BD, NO en os.environ
-        _tg_token_bd = dbm.obtener_config("telegram_token", "")
-        _tg_chat_bd  = dbm.obtener_config("telegram_chat_id", "")
-        tg_token = st.text_input(
-            "Bot Token", type="password",
-            value=_tg_token_bd or os.environ.get("TELEGRAM_TOKEN", ""),
-            disabled=_mq26_viewer,
-        )
-        tg_chat = st.text_input(
-            "Chat ID",
-            value=_tg_chat_bd or os.environ.get("TELEGRAM_CHAT_ID", ""),
-            disabled=_mq26_viewer,
-        )
-        if st.button("💾 Guardar credenciales", key="btn_tg_guardar", disabled=_mq26_viewer):
-            if tg_token:
-                dbm.guardar_config("telegram_token", tg_token)
-            if tg_chat:
-                dbm.guardar_config("telegram_chat_id", tg_chat)
-            st.success("✅ Guardadas en BD")
-        if st.button("🔔 Probar conexión", key="btn_tg_probar", disabled=_mq26_viewer):
-            if tg_token and tg_chat:
-                # Solo poner en env para la prueba (en-memoria, no persiste entre procesos)
-                os.environ["TELEGRAM_TOKEN"]   = tg_token
-                os.environ["TELEGRAM_CHAT_ID"] = tg_chat
-                ok = ab.test_conexion()
-                st.success("✅ Telegram OK") if ok else st.error("❌ Sin respuesta")
-
-else:
-    st.session_state.setdefault(
-        "capital_disponible_mq",
-        float(dbm.obtener_config("capital_disponible_mq", "500000") or 500000),
-    )
 
 _HEADER_POR_ROL = {
     "inversor": "Master Quant · Tu cartera",
@@ -1089,10 +980,18 @@ valoracion_audit: dict = {}
 st.session_state.pop("_mq26_audit_ctx", None)
 
 _cartera_sin_datos = cartera_activa.endswith("| (sin datos)") if cartera_activa else False
+_trans_tiene_filas_cartera = (
+    not trans.empty
+    and "CARTERA" in trans.columns
+    and bool(cartera_activa)
+    and (trans["CARTERA"].astype(str).str.strip() == str(cartera_activa).strip()).any()
+)
+# Placeholder «(sin datos)»: no armar posiciones solo si aún no hay filas en el transaccional.
+_cartera_placeholder_vacia = _cartera_sin_datos and not _trans_tiene_filas_cartera
 if (
     cartera_activa
     and cartera_activa != "-- Todas las carteras --"
-    and not _cartera_sin_datos
+    and not _cartera_placeholder_vacia
     and not trans.empty
 ):
     # MQ2-D5: hash robusto SHA-256 del DataFrame — detecta ediciones de precio/fecha
@@ -1145,7 +1044,13 @@ if (
             for _tk, _rec in list(_records.items())[:12]:
                 _sources[str(_tk)] = getattr(_rec.source, "value", str(_rec.source))
         except Exception as _e_pe:
-            _log.debug("PriceEngine: %s", _e_pe)
+            log_degradacion(
+                "run_mq26",
+                "price_engine_portfolio_fallo",
+                _e_pe,
+                n_tickers=len(tickers_cartera),
+                cartera=str(cartera_activa)[:80],
+            )
             precios_dict = cs.resolver_precios(
                 tickers_cartera, precios_dict_live, ccl,
                 universo_df=engine_data.universo_df,
@@ -1188,7 +1093,7 @@ if (
             "precios_final": dict(precios_dict),
         }
 
-if _cartera_sin_datos:
+if _cartera_placeholder_vacia:
     prop_nombre = cartera_activa.replace("| (sin datos)", "").strip()
     st.info(f"**{prop_nombre}** no tiene posiciones cargadas aún. "
             "Ir al **Tab Cartera & Libro Mayor** para cargarlas.")
@@ -1323,8 +1228,8 @@ if not df_ag.empty and precios_dict:
                     f"MOD-23: {_alertas_m.get('mod23', 0)} · "
                     f"Venc.: {_alertas_m.get('vencimientos', 0)}"
                 )
-        except Exception:
-            pass
+        except Exception as _e_side_al:
+            log_degradacion("run_mq26", "alertas_sidebar_monitor_fallo", _e_side_al)
 
     # ── CCL/MEP — últimos 30 días (S14-04); no inversor ───────────────────────
     if _mq26_role != "inversor":
@@ -1367,7 +1272,8 @@ if not df_ag.empty and precios_dict:
                             f"mín ${ccl_min:,.0f} · máx ${ccl_max:,.0f} · "
                             f"hoy ${float(ccl_hist.iloc[-1]):,.0f}"
                         )
-            except Exception:
+            except Exception as _e_ccl_hist:
+                log_degradacion("run_mq26", "sidebar_ccl_hist_30d_fallo", _e_ccl_hist)
                 st.caption("Sin datos históricos disponibles.")
 
 # Alerta objetivos
@@ -1378,8 +1284,13 @@ if _cliente_id and not st.session_state.get("_objetivos_alertas_verificados"):
             _n = ab.verificar_objetivos_por_vencer(_df_obj, _cliente_nombre)
             if _n > 0:
                 st.toast(f"⏰ {_n} objetivo(s) próximos a vencer", icon="⏰")
-    except Exception:
-        pass
+    except Exception as _e_obj:
+        log_degradacion(
+            "run_mq26",
+            "objetivos_por_vencer_toast_fallo",
+            _e_obj,
+            cliente_id=_cliente_id,
+        )
     st.session_state["_objetivos_alertas_verificados"] = True
 
 
@@ -1389,19 +1300,10 @@ def _n_alertas_concentracion(df_ag: pd.DataFrame) -> int:
         return 0
     return int((df_ag["PESO_PCT"] > 30.0).sum())
 
-# ─── IMPORTS TABS ─────────────────────────────────────────────────────────────
-from ui.tab_cartera import render_tab_cartera
-from ui.tab_ejecucion import render_tab_ejecucion
-from ui.tab_inversor import render_tab_inversor
+# ─── IMPORTS TABS (render por pestaña vía ui/navigation.py — P1-NAV-01 SSOT) ──
 from ui.carga_activos import render_carga_activos
-from ui.tab_estudio import render_tab_estudio
-from ui.tab_admin import render_tab_admin
-from ui.tab_optimizacion import render_tab_optimizacion
-from ui.tab_reporte import render_tab_reporte
-from ui.tab_riesgo import render_tab_riesgo
-from ui.tab_universo import render_tab_universo
+from ui.navigation import render_main_tabs
 from ui.workflow_header import render_workflow_header
-from ui.mq26_ux import metric_card_html, topline_html
 
 # ─── CONTEXTO ─────────────────────────────────────────────────────────────────
 ctx = {
@@ -1415,6 +1317,7 @@ ctx = {
     "df_analisis":      df_analisis,
     "metricas":         metricas if not df_ag.empty and precios_dict else {},
     "tenant_id":        TENANT_ID,
+    "login_user":       st.session_state.get("mq26_login_user", ""),
     "cliente_id":       _cliente_id,
     "cliente_nombre":   _cliente_nombre,
     "cliente_perfil":   _cliente_perfil,
@@ -1450,6 +1353,7 @@ ctx = {
     "tickers_sin_precio": tickers_sin_precio,
     "valoracion_audit": st.session_state.get("valoracion_audit") or {},
     "precio_records": (st.session_state.get("_mq26_audit_ctx") or {}).get("records") or {},
+    "session_correlation_id": st.session_state.get("mq26_auth_token", ""),
 }
 
 
@@ -1462,13 +1366,13 @@ try:
     _n_vencimientos = contar_vencimientos_proximos(
         ctx.get("cliente_id") if isinstance(ctx, dict) else None, dias=7
     )
-except Exception:
-    pass
+except Exception as _e_venc:
+    log_degradacion("run_mq26", "contar_vencimientos_flow_ctx_fallo", _e_venc)
 try:
     if not df_analisis.empty and tickers_cartera:
         _n_mod23_alertas = len(m23svc.detectar_alertas_venta(df_analisis, tickers_cartera))
-except Exception:
-    pass
+except Exception as _e_m23_flow:
+    log_degradacion("run_mq26", "mod23_alertas_flow_ctx_fallo", _e_m23_flow)
 
 _flow_ctx = {
     "price_coverage_pct":     price_coverage_pct,
@@ -1489,75 +1393,8 @@ ctx["flow_resumen"] = _flow_resumen
 if _mq26_role != "inversor":
     render_workflow_header(_flow_resumen, compact=False)
 
-# ─── TABS por rol (tiers SA/ES/IN) ───────────────────────────────────────────
-_role = _mq26_role
-if _role == "inversor":
-    (t1,) = st.tabs(["📊 Mi Cartera"])
-    with t1:
-        render_tab_inversor(ctx)
-elif _role == "estudio":
-    t1, t2, t3, t4 = st.tabs([
-        "👥 Mis Clientes",
-        "📂 Cartera Activa",
-        "📄 Informes",
-        "🔍 Señales de Mercado",
-    ])
-    with t1:
-        render_tab_estudio(ctx)
-    with t2:
-        render_tab_cartera(ctx)
-    with t3:
-        render_tab_reporte(ctx)
-    with t4:
-        render_tab_universo(ctx)
-elif _role == "asesor":
-    from ui.asesor_suite import render_asesor_suite_banner
-
-    render_asesor_suite_banner()
-    t1, t2, t3, t4, t5, t6 = st.tabs([
-        "📂 Cartera",
-        "🔍 Señales",
-        "⚙️ Optimizar",
-        "📉 Riesgo",
-        "✅ Ejecutar",
-        "📄 Informe",
-    ])
-    with t1:
-        render_tab_cartera(ctx)
-    with t2:
-        render_tab_universo(ctx)
-    with t3:
-        render_tab_optimizacion(ctx)
-    with t4:
-        render_tab_riesgo(ctx)
-    with t5:
-        render_tab_ejecucion(ctx)
-    with t6:
-        render_tab_reporte(ctx)
-else:
-    t1, t2, t3, t4, t5, t6, t7 = st.tabs([
-        "📂 Cartera",
-        "🔍 Señales",
-        "⚙️ Optimizar",
-        "📉 Riesgo",
-        "✅ Ejecutar",
-        "📄 Informe",
-        "🛠 Admin",
-    ])
-    with t1:
-        render_tab_cartera(ctx)
-    with t2:
-        render_tab_universo(ctx)
-    with t3:
-        render_tab_optimizacion(ctx)
-    with t4:
-        render_tab_riesgo(ctx)
-    with t5:
-        render_tab_ejecucion(ctx)
-    with t6:
-        render_tab_reporte(ctx)
-    with t7:
-        render_tab_admin(ctx)
+# ─── TABS por rol (SSOT: ui/navigation.get_main_tabs + render_main_tabs) ─────
+render_main_tabs(ctx, app_kind="mq26", role=_mq26_role)
 
 # Motor de Salida
 if _mq26_role != "inversor" and st.sidebar.button(
@@ -1587,7 +1424,14 @@ if st.session_state.get("tab_activo") == "motor_salida":
 
 # ─── FOOTER ───────────────────────────────────────────────────────────────────
 st.divider()
+try:
+    _bd_backend = info_bd['backend'].upper()
+except Exception:
+    try:
+        _bd_backend = dbm.info_backend().get('backend', 'sqlite').upper()
+    except Exception:
+        _bd_backend = "SQLITE"
 st.caption(
-    f"Master Quant · {datetime.now().year} · BD: {info_bd['backend'].upper()} · "
+    f"Master Quant · {datetime.now().year} · BD: {_bd_backend} · "
     f"CCL: ${ccl:,.0f}"
 )

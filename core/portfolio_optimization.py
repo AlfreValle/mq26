@@ -8,6 +8,12 @@ Contrato:
 Invariantes:
 - Pesos de salida en R^n, sum(w)=1, long-only opcional.
 - Σ se regulariza con ridge numérico si hace falta para estabilidad.
+
+CVaR como restricción (A13):
+- OptimizationProblem.cvar_max: límite diario de CVaR (ej. 0.03 = 3 % diario al 95 %).
+- OptimizationProblem.returns_history: matriz (T×n) de retornos diarios para simulación histórica.
+- Si ambos están presentes, solve_min_variance y solve_max_sharpe añaden un constraint SLSQP:
+    CVaR_α(w) = E[-r_p | r_p ≤ VaR_α] ≤ cvar_max
 """
 from __future__ import annotations
 
@@ -22,12 +28,23 @@ from scipy.optimize import minimize
 
 @dataclass
 class OptimizationProblem:
-    """Problema listo para optimizar: μ anual o por el mismo paso que Σ."""
+    """
+    Problema listo para optimizar: μ anual o por el mismo paso que Σ.
+
+    cvar_max         : CVaR diario máximo permitido (fracción, ej. 0.03 = 3 %).
+                       None = sin restricción de CVaR.
+    returns_history  : retornos diarios históricos (T×n) para cálculo de CVaR.
+                       Requerido si cvar_max is not None.
+    cvar_alpha       : nivel de confianza para CVaR (default 0.05 = 95 %).
+    """
     mu: np.ndarray
     Sigma: np.ndarray
     rf: float = 0.0
     long_only: bool = True
     ridge: float = 1e-8
+    cvar_max: float | None = None
+    returns_history: np.ndarray | None = field(default=None, repr=False)
+    cvar_alpha: float = 0.05
 
     def __post_init__(self) -> None:
         self.mu = np.asarray(self.mu, dtype=float).ravel()
@@ -35,6 +52,10 @@ class OptimizationProblem:
         n = self.mu.shape[0]
         if self.Sigma.shape != (n, n):
             raise ValueError("Sigma debe ser (n,n) y mu (n,)")
+        if self.returns_history is not None:
+            self.returns_history = np.asarray(self.returns_history, dtype=float)
+            if self.returns_history.ndim != 2 or self.returns_history.shape[1] != n:
+                raise ValueError("returns_history debe ser (T, n)")
 
 
 @dataclass
@@ -50,6 +71,57 @@ def regularize_sigma(Sigma: np.ndarray, ridge: float) -> np.ndarray:
     s = np.asarray(Sigma, dtype=float)
     n = s.shape[0]
     return s + ridge * np.eye(n)
+
+
+# ─── CVaR (A13) ───────────────────────────────────────────────────────────────
+
+def calcular_cvar(
+    r_portafolio: np.ndarray,
+    alpha: float = 0.05,
+) -> float:
+    """
+    CVaR histórico (Expected Shortfall) al nivel alpha.
+
+    CVaR_α = -E[r | r ≤ VaR_α]
+
+    Parámetros
+    ----------
+    r_portafolio : retornos diarios del portafolio (T,)
+    alpha        : nivel de confianza de la cola izquierda (default 0.05 = 5 %)
+
+    Retorna
+    -------
+    CVaR como número positivo (pérdida esperada en la cola).
+    """
+    r = np.asarray(r_portafolio, dtype=float).ravel()
+    if len(r) < 2:
+        return 0.0
+    var = float(np.percentile(r, alpha * 100.0))
+    tail = r[r <= var]
+    if len(tail) == 0:
+        return -var
+    return float(-np.mean(tail))
+
+
+def _cvar_slsqp_constraint(
+    R: np.ndarray,
+    cvar_max: float,
+    alpha: float = 0.05,
+) -> dict:
+    """
+    Retorna un dict de constraint SLSQP: CVaR(w) ≤ cvar_max.
+    R : retornos históricos (T×n).
+    """
+    def cvar_slack(w: np.ndarray) -> float:
+        w_n = np.maximum(w, 0.0)
+        s = w_n.sum()
+        if s > 0:
+            w_n = w_n / s
+        r_p = R @ w_n
+        cvar = calcular_cvar(r_p, alpha)
+        return float(cvar_max) - cvar  # ≥ 0 si CVaR ≤ límite
+
+    return {"type": "ineq", "fun": cvar_slack}
 
 
 def estimate_mu_sigma_mle(
@@ -82,7 +154,7 @@ def estimate_mu_sigma_mle(
 def solve_minimum_variance(
     problem: OptimizationProblem,
 ) -> OptimizationResult:
-    """Mínima varianza con sum(w)=1 y caja [0,1] (A3)."""
+    """Mínima varianza con sum(w)=1 y caja [0,1] (A3). Soporta CVaR constraint (A13)."""
     n = problem.mu.shape[0]
     S = regularize_sigma(problem.Sigma, problem.ridge)
 
@@ -90,7 +162,11 @@ def solve_minimum_variance(
         return float(w @ S @ w)
 
     w0 = np.ones(n) / n
-    cons = {"type": "eq", "fun": lambda w: float(np.sum(w) - 1.0)}
+    cons: list = [{"type": "eq", "fun": lambda w: float(np.sum(w) - 1.0)}]
+    if problem.cvar_max is not None and problem.returns_history is not None:
+        cons.append(_cvar_slsqp_constraint(
+            problem.returns_history, problem.cvar_max, problem.cvar_alpha,
+        ))
     bounds = [(0.0, 1.0) for _ in range(n)] if problem.long_only else None
 
     res = minimize(
@@ -98,18 +174,22 @@ def solve_minimum_variance(
         w0,
         method="SLSQP",
         bounds=bounds,
-        constraints=cons,
+        constraints=tuple(cons),
         options={"maxiter": 500, "ftol": 1e-10},
     )
     w = np.asarray(res.x, dtype=float)
     if w.sum() > 0:
         w = w / w.sum()
+    meta: dict[str, Any] = {"fun": float(res.fun)}
+    if problem.cvar_max is not None and problem.returns_history is not None:
+        meta["cvar_achieved"] = calcular_cvar(problem.returns_history @ w, problem.cvar_alpha)
+        meta["cvar_max"] = problem.cvar_max
     return OptimizationResult(
         weights=w,
         method="minimum_variance_slsqp",
         success=bool(res.success),
         message=str(res.message),
-        metadata={"fun": float(res.fun)},
+        metadata=meta,
     )
 
 
@@ -154,6 +234,10 @@ def solve_max_sharpe(
     if wp is not None and max_turnover_l1 is not None:
         mt = float(max_turnover_l1)
         cons.append({"type": "ineq", "fun": lambda w, _wp=wp, _mt=mt: _mt - float(np.sum(np.abs(w - _wp)))})
+    if problem.cvar_max is not None and problem.returns_history is not None:
+        cons.append(_cvar_slsqp_constraint(
+            problem.returns_history, problem.cvar_max, problem.cvar_alpha,
+        ))
     bounds = [(0.0, 1.0) for _ in range(n)] if problem.long_only else None
 
     res = minimize(
@@ -170,12 +254,16 @@ def solve_max_sharpe(
     vol = float(np.sqrt(max(w @ S @ w, 1e-18)))
     ret = float((problem.mu @ w) - problem.rf * np.sum(w))
     sharpe = (ret / vol * np.sqrt(252)) if vol > 0 else 0.0
+    meta: dict[str, Any] = {"vol_annual_est": vol, "sharpe_ann_hint": sharpe}
+    if problem.cvar_max is not None and problem.returns_history is not None:
+        meta["cvar_achieved"] = calcular_cvar(problem.returns_history @ w, problem.cvar_alpha)
+        meta["cvar_max"] = problem.cvar_max
     return OptimizationResult(
         weights=w,
         method="max_sharpe_slsqp",
         success=bool(res.success),
         message=str(res.message),
-        metadata={"vol_annual_est": vol, "sharpe_ann_hint": sharpe},
+        metadata=meta,
     )
 
 

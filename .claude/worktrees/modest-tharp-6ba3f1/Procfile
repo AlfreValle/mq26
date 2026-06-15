@@ -1,0 +1,1 @@
+web: sh -c 'unset STREAMLIT_SERVER_PORT; _p="${PORT:-8080}"; case "$_p" in *[!0-9]*) _p=8080;; esac; export STREAMLIT_SERVER_PORT="$_p"; exec env STREAMLIT_SERVER_PORT="$_p" streamlit run run_mq26.py --server.port="$_p" --server.address=0.0.0.0 --server.headless true --server.fileWatcherType none'

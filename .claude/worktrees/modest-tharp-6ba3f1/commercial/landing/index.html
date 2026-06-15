@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Master Quant — Optimizador de carteras | Argentina</title>
+  <meta name="description" content="Software para armado, diagnóstico y seguimiento de cartera BYMA, CEDEARs y renta fija local. Importación desde brokers. Herramienta de análisis, no asesoría automatizada." />
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --accent: #1565c0;
+      --accent2: #27ae60;
+      --text: #e8eaed;
+      --muted: #9aa0a6;
+      --warn: #f9a825;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      padding: 4rem 1.5rem 3rem;
+      text-align: center;
+      background: linear-gradient(180deg, #132238 0%, var(--bg) 100%);
+    }
+    h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 700; margin: 0 0 0.75rem; }
+    .sub { color: var(--muted); max-width: 36rem; margin: 0 auto 1.5rem; font-size: 1.05rem; }
+    .banner {
+      background: rgba(249, 168, 37, 0.12);
+      border: 1px solid rgba(249, 168, 37, 0.35);
+      color: #ffe082;
+      padding: 0.75rem 1rem;
+      max-width: 40rem;
+      margin: 0 auto 2rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .cta {
+      display: inline-flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    a.btn {
+      display: inline-block;
+      padding: 0.85rem 1.4rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    a.btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(21, 101, 192, 0.35); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--card); color: var(--text); border: 1px solid #334; }
+    main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    section { margin-bottom: 2.5rem; }
+    h2 { font-size: 1.25rem; color: #90caf9; margin-bottom: 0.75rem; }
+    .grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+    .card {
+      background: var(--card);
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 1px solid #2a3444;
+    }
+    ul { margin: 0; padding-left: 1.2rem; color: var(--muted); }
+    footer {
+      padding: 2rem 1.5rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid #2a3444;
+    }
+    footer a { color: #90caf9; }
+  </style>
+  <script src="site.config.js"></script>
+  <script defer src="apply-config.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Master Quant</h1>
+    <p class="sub">Optimizador y cockpit de cartera para el inversor y el estudio profesional en Argentina.</p>
+    <div class="banner">
+      Aviso: Master Quant es una <strong>herramienta de software</strong>. No sustituye asesoramiento de inversiones ni garantiza resultados. Las decisiones son del usuario o de su asesor habilitado.
+    </div>
+    <div class="cta">
+      <!-- Sustituir CALENDLY_O_DEMO_URL por tu enlace Cal.com / Calendly -->
+      <a class="btn btn-primary" href="https://CALENDLY_O_DEMO_URL" target="_blank" rel="noopener">Agendar demo 30 min</a>
+      <!-- mailto: comercial -->
+      <a class="btn btn-secondary" href="mailto:comercial@TU-DOMINIO.com?subject=Consulta%20Master%20Quant">Escribinos</a>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Para estudios y asesores (B2B)</h2>
+      <div class="grid">
+        <div class="card">
+          <strong>Multi-cliente</strong>
+          <p>Organizá carteras, importación de operaciones y libro mayor sin depender solo de planillas dispersas.</p>
+        </div>
+        <div class="card">
+          <strong>Ecosistema local</strong>
+          <p>CEDEARs, BYMA, renta fija AR, flujos pensados para brokers argentinos.</p>
+        </div>
+        <div class="card">
+          <strong>Transparencia</strong>
+          <p>Diagnósticos y supuestos visibles; informes exportables para reuniones con cliente.</p>
+        </div>
+      </div>
+    </section>
+    <section>
+      <h2>Inversores (B2C)</h2>
+      <p class="sub" style="margin:0 0 1rem; text-align:left">Entendé tu cartera, cargá operaciones y recibí una vista clara de concentración y perfil.</p>
+      <ul>
+        <li>Importación desde comprobantes (Balanz, Bull Market y similares)</li>
+        <li>Seguimiento y diagnóstico en lenguaje claro</li>
+      </ul>
+    </section>
+    <section>
+      <h2>Próximo paso</h2>
+      <p>Solicitá una demo o pedí la tabla de precios para firmas. Material de referencia: casos anonimizados y propuestas de alianza disponibles para partners.</p>
+      <div class="cta" style="margin-top:1rem">
+        <a class="btn btn-primary" data-mq26-demo-2 href="#">Quiero una demo</a>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <p>© <span id="mq26-company-year"></span> · Argentina</p>
+    <p><a data-mq26-legal-link href="#">Privacidad y términos</a></p>
+  </footer>
+</body>
+</html>

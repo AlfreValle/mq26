@@ -1,0 +1,12 @@
+Backtest comunidad (60 dias)
+Capital base: ARS 100,000
+Ranking: Ticker | Mejor estrategia | PnL 60d | Rend%
+
+1) ABNB | rsi_mr_14_30_70 | ARS 10,570 | +10.57%
+2) AAPL | rsi_mr_14_30_70 | ARS 5,931 | +5.93%
+3) ABT | ma_cross_5_20 | ARS -495 | -0.49%
+4) ADBE | breakout_close_20 | ARS -642 | -0.64%
+5) ABBV | breakout_close_20 | ARS -1,075 | -1.07%
+
+Actualizado: 2026-04-22 10:56
+Aviso: simulacion historica, no garantiza resultados futuros.

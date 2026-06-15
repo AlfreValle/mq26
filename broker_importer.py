@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core.logging_config import get_logger
 from core.pricing_utils import (
     es_accion_local,
+    es_ticker_admitido_byma,
 )
 from core.pricing_utils import (
     parsear_precio_ars as limpiar_precio_ars,
@@ -146,8 +147,139 @@ def parsear_iol(df_raw: pd.DataFrame, ccl: float = 1450.0) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def _es_formato_bmb(df: pd.DataFrame) -> bool:
+    """
+    BMB 'Cuenta Corriente PESOS' exporta con columnas:
+    Liquida, Operado, Comprobante, Numero, Cantidad, Especie, Precio, Importe, Saldo, Referencia
+    """
+    cols_lower = {str(c).strip().lower() for c in df.columns}
+    # Juego de columnas exclusivo del extracto BMB
+    return (
+        "liquida" in cols_lower
+        and "operado" in cols_lower
+        and "comprobante" in cols_lower
+        and "especie" in cols_lower
+        and "importe" in cols_lower
+    )
+
+
+def parsear_bmb(
+    df_raw: pd.DataFrame,
+    ccl: float = 1450.0,
+    warnings_out: list[str] | None = None,
+    filas_omitidas_acc: list[int] | None = None,
+) -> pd.DataFrame:
+    """
+    Parsea el extracto 'Cuenta Corriente PESOS' de Bull Market Brokers (BMB).
+
+    Columnas esperadas:
+        Liquida | Operado | Comprobante | Numero | Cantidad | Especie |
+        Precio | Importe | Saldo | Referencia
+
+    - Filtra solo filas donde Comprobante contiene 'COMPRA' o 'VENTA'.
+    - Ignora RECIBO DE COBRO y otras operaciones (Especie vacío → skip).
+    - Cantidad negativa en el Excel → VENTA.
+    """
+    rows: list[dict] = []
+    df = df_raw.copy()
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Mapear columnas de forma insensible a mayúsculas
+    col_map: dict[str, str] = {}
+    for col in df.columns:
+        cl = col.lower()
+        if cl == "operado":
+            col_map["fecha"] = col
+        elif cl == "comprobante":
+            col_map["comprobante"] = col
+        elif cl == "cantidad":
+            col_map["cantidad"] = col
+        elif cl == "especie":
+            col_map["especie"] = col
+        elif cl == "precio":
+            col_map["precio"] = col
+        elif cl == "importe":
+            col_map["importe"] = col
+
+    requeridas = ("fecha", "comprobante", "cantidad", "especie", "precio")
+    if not all(k in col_map for k in requeridas):
+        if warnings_out is not None:
+            warnings_out.append(
+                "BMB: no se encontraron todas las columnas requeridas "
+                f"(buscadas: {requeridas}, encontradas: {list(col_map)})."
+            )
+        return pd.DataFrame()
+
+    for row_idx, row in df.iterrows():
+        comprobante = str(row.get(col_map["comprobante"], "") or "").strip().upper()
+
+        # Solo operaciones de compra o venta
+        if "COMPRA" not in comprobante and "VENTA" not in comprobante:
+            continue
+
+        especie = str(row.get(col_map["especie"], "") or "").strip().upper()
+        if not especie or especie in ("NAN", ""):
+            # Fila sin ticker → movimiento de efectivo, ignorar
+            if filas_omitidas_acc is not None:
+                filas_omitidas_acc[0] += 1
+            continue
+
+        try:
+            cantidad_raw = pd.to_numeric(row.get(col_map["cantidad"], 0), errors="coerce")
+            if cantidad_raw is None or (hasattr(cantidad_raw, "__class__") and str(cantidad_raw) == "nan"):
+                cantidad_raw = 0.0
+            cantidad_raw = float(cantidad_raw)
+
+            precio_ars = float(
+                pd.to_numeric(row.get(col_map["precio"], 0), errors="coerce") or 0.0
+            )
+            importe_ars = float(
+                pd.to_numeric(row.get(col_map.get("importe", ""), 0), errors="coerce") or 0.0
+            )
+
+            # BMB pone cantidad negativa en VENTA
+            tipo = "VENTA" if cantidad_raw < 0 else "COMPRA"
+            cantidad_abs = abs(int(round(cantidad_raw))) or 1
+
+            fecha_raw = row.get(col_map["fecha"], None)
+            fecha = pd.to_datetime(fecha_raw, errors="coerce")
+            fecha_str = fecha.strftime("%Y-%m-%d") if not pd.isna(fecha) else str(date.today())
+
+            ppc_usd = precio_ars_to_ppc_usd(precio_ars, especie, ccl)
+            tipo_activo = "Acción" if es_accion_local(especie) else "Cedears"
+
+            rows.append({
+                "Tipo": tipo,
+                "Ticker": especie,
+                "Cantidad": cantidad_abs,
+                "Precio_ARS": round(precio_ars, 2),
+                "Neto_ARS": round(abs(importe_ars), 2),
+                "PPC_USD": round(float(ppc_usd), 4),
+                "Fecha": fecha_str,
+                "Broker": "BMB",
+                "Tipo_Activo": tipo_activo,
+            })
+
+        except Exception as ex:
+            if filas_omitidas_acc is not None:
+                filas_omitidas_acc[0] += 1
+            msg = (
+                f"BMB: fila {row_idx + 1} omitida ({especie!r}): {ex}. "
+                "Verificá tipos de dato en el Excel."
+            )
+            logger.warning(msg)
+            if warnings_out is not None:
+                warnings_out.append(msg)
+
+    return pd.DataFrame(rows)
+
+
 def detectar_formato(df: pd.DataFrame) -> str:
-    """Detecta si el DataFrame es formato Balanz, Bull Market o IOL."""
+    """Detecta si el DataFrame es formato Balanz, Bull Market, BMB o IOL."""
+    # BMB "Cuenta Corriente PESOS" — detectar PRIMERO porque tiene columna "especie"
+    # que también matchea el detector IOL si se chequea en otro orden.
+    if _es_formato_bmb(df):
+        return "bmb"
     if _es_formato_iol(df):
         return "iol"
     cols = [str(c).strip().lower() for c in df.columns]
@@ -273,6 +405,59 @@ def parsear_bullmarket(
     return pd.DataFrame(rows)
 
 
+def _filtrar_instrumentos_byma(
+    df: pd.DataFrame,
+    warnings_out: list[str] | None = None,
+    filas_omitidas_acc: list[int] | None = None,
+) -> pd.DataFrame:
+    """
+    Post-filtro de validación: elimina filas con tickers no admitidos en BYMA.
+
+    Instrumentos admitidos: CEDEARs (RATIOS_CEDEAR), acciones argentinas
+    (ACCIONES_LOCALES), bonos soberanos/provinciales, letras del tesoro y ONs.
+
+    Los rechazados se registran en warnings_out y se cuentan en filas_omitidas_acc.
+    """
+    if df is None or df.empty:
+        return df
+
+    ticker_col = next((c for c in ("Ticker", "TICKER") if c in df.columns), None)
+    tipo_col   = next((c for c in ("Tipo_Activo", "TIPO") if c in df.columns), None)
+    if ticker_col is None:
+        return df
+
+    mask_valido = df[ticker_col].apply(
+        lambda t: es_ticker_admitido_byma(
+            str(t),
+            str(df.loc[df[ticker_col] == t, tipo_col].iloc[0]) if tipo_col else "",
+        )
+    )
+    # Usa apply por fila para acceder al tipo de cada fila individualmente
+    def _es_valido(row):
+        t  = str(row[ticker_col])
+        tp = str(row[tipo_col]) if tipo_col and tipo_col in row.index else ""
+        return es_ticker_admitido_byma(t, tp)
+
+    mask_valido = df.apply(_es_valido, axis=1)
+    rechazados  = df[~mask_valido]
+
+    if not rechazados.empty:
+        tickers_rechazados = rechazados[ticker_col].unique().tolist()
+        msg = (
+            f"Instrumento(s) no admitido(s) en BYMA (no son CEDEAR, acción AR, "
+            f"bono, letra ni ON): {', '.join(str(t) for t in tickers_rechazados)}. "
+            "Solo se importan CEDEARs, acciones argentinas, obligaciones negociables, "
+            "bonos y letras / títulos públicos."
+        )
+        logger.warning(msg)
+        if warnings_out is not None:
+            warnings_out.append(msg)
+        if filas_omitidas_acc is not None:
+            filas_omitidas_acc[0] += len(rechazados)
+
+    return df[mask_valido].reset_index(drop=True)
+
+
 def normalizar_hoja_comprobante(
     df_raw: pd.DataFrame,
     ccl: float = 1450.0,
@@ -284,17 +469,19 @@ def normalizar_hoja_comprobante(
     if df_raw is None or df_raw.empty:
         return pd.DataFrame()
     fmt = detectar_formato(df_raw)
+    _kw = dict(warnings_out=warnings_out, filas_omitidas_acc=filas_omitidas_acc)
     if fmt == "iol":
-        return parsear_iol(df_raw, ccl=ccl)
+        df_p = parsear_iol(df_raw, ccl=ccl)
+        return _filtrar_instrumentos_byma(df_p, **_kw)
+    if fmt == "bmb":
+        df_p = parsear_bmb(df_raw, ccl=ccl, **_kw)
+        return _filtrar_instrumentos_byma(df_p, **_kw)
     if fmt == "balanz":
-        return parsear_balanz(df_raw, ccl=ccl)
+        df_p = parsear_balanz(df_raw, ccl=ccl)
+        return _filtrar_instrumentos_byma(df_p, **_kw)
     if fmt == "bullmarket":
-        return parsear_bullmarket(
-            df_raw,
-            ccl=ccl,
-            warnings_out=warnings_out,
-            filas_omitidas_acc=filas_omitidas_acc,
-        )
+        df_p = parsear_bullmarket(df_raw, ccl=ccl, **_kw)
+        return _filtrar_instrumentos_byma(df_p, **_kw)
     df_p = parsear_iol(df_raw, ccl=ccl)
     if df_p.empty:
         df_p = parsear_balanz(df_raw, ccl=ccl)
@@ -305,7 +492,8 @@ def normalizar_hoja_comprobante(
             warnings_out=warnings_out,
             filas_omitidas_acc=filas_omitidas_acc,
         )
-    return df_p
+    return _filtrar_instrumentos_byma(df_p, warnings_out=warnings_out,
+                                      filas_omitidas_acc=filas_omitidas_acc)
 
 
 def _ensure_comprobante_interno(df: pd.DataFrame) -> pd.DataFrame:
@@ -486,6 +674,13 @@ def importar_archivo_broker(
         fmt = detectar_formato(df_raw)
         if fmt == "iol":
             df_parsed = parsear_iol(df_raw, ccl=ccl)
+        elif fmt == "bmb":
+            df_parsed = parsear_bmb(
+                df_raw,
+                ccl=ccl,
+                warnings_out=warnings,
+                filas_omitidas_acc=filas_omitidas_acc,
+            )
         elif fmt == "balanz":
             df_parsed = parsear_balanz(df_raw, ccl=ccl)
         elif fmt == "bullmarket":
@@ -559,6 +754,8 @@ def importar_comprobante(
 
         if fmt == "iol":
             df_parsed = parsear_iol(df_raw, ccl=ccl)
+        elif fmt == "bmb":
+            df_parsed = parsear_bmb(df_raw, ccl=ccl)
         elif fmt == "balanz":
             df_parsed = parsear_balanz(df_raw, ccl=ccl)
         elif fmt == "bullmarket":

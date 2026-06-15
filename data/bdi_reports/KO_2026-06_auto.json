@@ -1,0 +1,125 @@
+{
+  "ticker": "KO",
+  "exchange": "AUTO",
+  "fecha_publicacion": "2026-06-03",
+  "autor": "MQ26 Auto-Generator (pipeline 3 capas)",
+  "auto_generated": true,
+  "fuentes": [
+    "yfinance fundamentales",
+    "scoring_engine MOD-23 60/20/20"
+  ],
+  "recomendacion": "COMPRAR",
+  "precio_actual_usd": 78.71,
+  "precio_objetivo_usd": 106.06,
+  "potencial_pct": 34.8,
+  "horizonte_meses": 12,
+  "calificacion_total": 3.2,
+  "cal_fundamental": 3.0,
+  "cal_tecnico": 3.0,
+  "cal_sectorial": 4.0,
+  "pesos_calificacion": {
+    "fundamental": 0.6,
+    "tecnico": 0.2,
+    "sectorial": 0.2
+  },
+  "perfil_minimo": "Moderado",
+  "peso_cartera_pct_min": 0.02,
+  "peso_cartera_pct_max": 0.08,
+  "tipo_cartera_sugerida": "Según perfil y constraints del motor de cartera",
+  "tramos_entrada": [
+    {
+      "tramo": 1,
+      "proporcion": 0.4,
+      "precio_min_usd": 77.13,
+      "precio_max_usd": 80.28,
+      "comentario": "A mercado / zona actual"
+    },
+    {
+      "tramo": 2,
+      "proporcion": 0.35,
+      "precio_min_usd": 73.95,
+      "precio_max_usd": 75.45,
+      "comentario": "En soporte inmediato"
+    },
+    {
+      "tramo": 3,
+      "proporcion": 0.25,
+      "precio_min_usd": 69.28,
+      "precio_max_usd": 72.1,
+      "comentario": "En soporte fuerte (sobrerreacción)"
+    }
+  ],
+  "niveles_seguimiento": {
+    "stop_loss_usd": 65.03,
+    "stop_tipo": "Cierre semanal por debajo del soporte fuerte (-25% del precio actual aprox)",
+    "primer_objetivo_usd": 92.38,
+    "primer_objetivo_accion": "Toma de ganancia parcial",
+    "objetivo_final_usd": 106.06
+  },
+  "datos_clave": {
+    "precio_usd": 78.705002,
+    "rango_52sem_min_usd": 65.349998,
+    "rango_52sem_max_usd": 82.660004,
+    "market_cap_usd": 338626886586.7706,
+    "pe_ttm": 24.75,
+    "pe_forward": 22.592813,
+    "pb_ratio": 10.069729,
+    "ps_ratio": 6.87093,
+    "roe_pct": 43.372,
+    "roa_pct": 9.51,
+    "margen_neto_pct": 27.800000000000004,
+    "margen_operativo_pct": 35.055,
+    "margen_bruto_pct": 61.744,
+    "deuda_equity": 124.943,
+    "current_ratio": 1.358,
+    "crecimiento_ingresos_pct": 12.1,
+    "crecimiento_ganancias_pct": 17.8,
+    "dividendo_yield_pct": 270.0,
+    "dividendo_anual_usd": 2.12,
+    "payout_pct": 64.78,
+    "beta": 0.356,
+    "proximo_earnings": null,
+    "ex_dividend_date": "2026-06-14"
+  },
+  "tesis_resumen": "KO tiene un score MOD-23 de 71/100. Opera en Beverages - Non-Alcoholic con ROE 43.4% y margen neto 27.8%. Crecimiento de ingresos +12.1% i.a. Cotiza a P/E forward de 22.6x.",
+  "razones_compra": [
+    "Score MOD-23 alto: 71/100 — fundamentales y técnico sólidos",
+    "ROE elevado: 43.4% — uso eficiente del capital de los accionistas",
+    "Margen neto fuerte: 27.8% — empresa muy rentable",
+    "Crecimiento de ingresos: +12.1% i.a.",
+    "Crecimiento de ganancias: +17.8% i.a.",
+    "Dividendo 270.00% — flujo de caja predecible",
+    "Beta 0.36 — menos volátil que el mercado (defensivo)"
+  ],
+  "riesgos": [
+    "Sin riesgos cuantitativos relevantes detectados — revisar contexto cualitativo del sector"
+  ],
+  "consenso_analistas": [
+    {
+      "fuente": "MQ26 Scoring MOD-23",
+      "recomendacion": "COMPRAR",
+      "target_usd": 106.06
+    }
+  ],
+  "niveles_tecnicos": {
+    "precio_actual_usd": 78.705002,
+    "soporte_inmediato_usd": 74.7,
+    "soporte_fuerte_usd": 70.69,
+    "soporte_largo_plazo_usd": 60.09,
+    "resistencia_intermedia_usd": 80.68,
+    "resistencia_mayor_usd": 82.660004,
+    "stop_loss_usd": 65.03,
+    "primer_objetivo_usd": 92.38,
+    "target_usd": 106.06
+  },
+  "segmentos_negocio": [],
+  "split_negocio": {},
+  "sector": "Consumer Defensive",
+  "industry": "Beverages - Non-Alcoholic",
+  "country": "United States",
+  "currency": "USD",
+  "business_summary": "The Coca-Cola Company, a beverage company, manufactures and sells various nonalcoholic beverages in the United States and internationally. The company provides Trademark Coca-Cola, sparkling soft drinks and flavors; water, sports, coffee, and tea; juice, value-added dairy, and plant-based beverages; and emerging beverages. It also offers beverage concentrates and syrups, as well as fountain syrups to fountain retailers comprising restaurants and convenience stores. The company sells its products under the Coca-Cola, Diet Coke/Coca-Cola Light, Coca-Cola Zero Sugar, caffeine free Diet Coke, Cherry Coke, Fanta, Sprite, Simply, Fanta Orange, Fanta Zero Orange, Fanta Zero Sugar, Fanta Apple, Sprite Zero Sugar, Simply Orange, Simply Apple, Simply Grapefruit, Fresca, Schweppes, Thums Up, Aquarius, Ayataka, BODYARMOR, Ciel, Costa, Crystal, Dasani, Fuze Tea, Georgia, glacéau smartwater, glacéau vitaminwater, Gold Peak, I LOHAS, Powerade, Topo Chico, Core Power, Del Valle, fairlife, innocent, Maaza, Minute Maid, Minute Maid Pulpy, Santa Clara, and dogadan brands. It operates through a network of independent bottling partners, distributors, wholesalers, and retailers, as well as through bottling and distribution operators. The Coca-Cola Company was founded in 1886 and is headquartered in Atlanta, Georgia.",
+  "pdf_path": null,
+  "calidad_fundamentales": "cache",
+  "errores_fundamentales": []
+}

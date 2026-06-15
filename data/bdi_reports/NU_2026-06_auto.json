@@ -1,0 +1,258 @@
+{
+  "ticker": "NU",
+  "exchange": "AUTO",
+  "fecha_publicacion": "2026-06-04",
+  "autor": "MQ26 Motor Multifactor v2 (Capas 1+2+3)",
+  "auto_generated": true,
+  "fuentes": [
+    "yfinance fundamentales (Capa 1)",
+    "Scoring Multifactor 35/30/20/15 (Capa 2)",
+    "BDI Generator volatilidad-adaptativa (Capa 3)"
+  ],
+  "recomendacion": "MANTENER",
+  "precio_actual_usd": 11.64,
+  "precio_objetivo_usd": 19.79,
+  "potencial_pct": 70.0,
+  "horizonte_meses": 12,
+  "calificacion_total": 3.44,
+  "cal_fundamental": 4.0,
+  "cal_tecnico": 0.8,
+  "cal_sectorial": 4.4,
+  "scoring_multifactor": {
+    "score_total": 68.0,
+    "score_valor": 78.0,
+    "score_calidad": 80.3,
+    "score_momentum": 17.0,
+    "score_sectorial": 88.1,
+    "pesos": {
+      "valor": 0.35,
+      "calidad": 0.3,
+      "momentum": 0.2,
+      "sectorial": 0.15
+    }
+  },
+  "perfil_minimo": "Muy arriesgado",
+  "peso_cartera_pct_min": 0.02,
+  "peso_cartera_pct_max": 0.08,
+  "tipo_cartera_sugerida": "Según perfil + constraints del motor de cartera",
+  "tramos_entrada": [
+    {
+      "tramo": 1,
+      "proporcion": 0.4,
+      "precio_min_usd": 11.41,
+      "precio_max_usd": 11.87,
+      "comentario": "A mercado / zona actual"
+    },
+    {
+      "tramo": 2,
+      "proporcion": 0.35,
+      "precio_min_usd": 9.5,
+      "precio_max_usd": 9.7,
+      "comentario": "Soporte intermedio (≈-18%)"
+    },
+    {
+      "tramo": 3,
+      "proporcion": 0.25,
+      "precio_min_usd": 8.02,
+      "precio_max_usd": 8.34,
+      "comentario": "Soporte fuerte (sobrerreacción, ≈-30%)"
+    }
+  ],
+  "niveles_seguimiento": {
+    "stop_loss_usd": 10.64,
+    "stop_tipo": "Cierre semanal por debajo de USD 10.64 (-35% — ajustado a HV 4750%)",
+    "primer_objetivo_usd": 15.71,
+    "primer_objetivo_accion": "Toma de ganancia parcial (50% posición)",
+    "objetivo_final_usd": 19.79,
+    "factor_riesgo": 0.35,
+    "hv20d_usado": 47.5
+  },
+  "datos_clave": {
+    "precio_usd": 11.64,
+    "rango_52sem_min_usd": 11.2,
+    "rango_52sem_max_usd": 18.98,
+    "market_cap_usd": 56590669830.78639,
+    "pe_ttm": 17.907694,
+    "pe_forward": 10.115846,
+    "pb_ratio": 4.495945,
+    "ps_ratio": 7.452012,
+    "peg_ratio": 0.69,
+    "roe_pct": 30.055,
+    "roa_pct": 4.84,
+    "margen_neto_pct": 41.924,
+    "margen_operativo_pct": 48.231,
+    "margen_bruto_pct": null,
+    "deuda_equity": null,
+    "current_ratio": null,
+    "crecimiento_ingresos_pct": 43.7,
+    "crecimiento_ganancias_pct": 56.49999999999999,
+    "dividendo_yield_pct": null,
+    "dividendo_anual_usd": null,
+    "payout_pct": null,
+    "beta": 1.008,
+    "hv20d": 47.5,
+    "proximo_earnings": null,
+    "ex_dividend_date": null
+  },
+  "tesis_resumen": "📊 NU muestra señales sólidas. La empresa es de altísima calidad (ROE, márgenes y solvencia top), cotiza barata respecto a sus ganancias futuras, el técnico todavía no acompaña — esperar mejor punto de entrada, y supera ampliamente a la mediana de Banks - Regional. Recomendación: MANTENER si ya está en cartera, esperar mejor precio si no.",
+  "razones_compra": [
+    "💰 P/E forward 10.1x — valuación atractiva",
+    "🏆 ROE 30.1% — uso muy eficiente del capital",
+    "💼 Margen neto 41.9% — empresa muy rentable",
+    "⚙️ Margen operativo 48.2% — operación eficiente",
+    "🌟 Outperformer en Financial Services — barato + más rentable que la mediana",
+    "📊 Crecimiento de ingresos +43.7% i.a."
+  ],
+  "riesgos": [
+    "Momentum técnico débil — esperar mejor punto de entrada",
+    "Técnico débil — no hay señales de momentum favorable"
+  ],
+  "flags_alerta": [
+    "🟢 P/E forward 10.1x — posible subvaluación",
+    "🟢 ROE 30.1% — calidad excepcional",
+    "🟢 Ganancias +56% i.a. — crecimiento fuerte",
+    "🟢 39% bajo el máximo 52 sem — oportunidad de reversión",
+    "🔴 Momentum técnico débil — esperar mejor punto de entrada",
+    "🟢 Outperformer sectorial — mejor que la mediana del sector"
+  ],
+  "consenso_analistas": [
+    {
+      "fuente": "MQ26 Multifactor",
+      "recomendacion": "MANTENER",
+      "target_usd": 19.79,
+      "score_total": 68.0
+    }
+  ],
+  "breakdown_dimensiones": {
+    "valor": {
+      "score": 78.0,
+      "peso": "35%",
+      "detalle": {
+        "pe_forward": {
+          "valor": 10.115846,
+          "score": 100.0
+        },
+        "pb_ratio": {
+          "valor": 4.495945,
+          "score": 58.4
+        },
+        "ps_ratio": {
+          "valor": 7.452012,
+          "score": 31.8
+        },
+        "peg_ratio": {
+          "valor": 0.69,
+          "score": 100.0
+        }
+      }
+    },
+    "calidad": {
+      "score": 80.3,
+      "peso": "30%",
+      "detalle": {
+        "roe": {
+          "valor": 0.30055,
+          "score": 100.0
+        },
+        "roa": {
+          "valor": 0.0484,
+          "score": 35.5
+        },
+        "profit_margin": {
+          "valor": 0.41924,
+          "score": 100.0
+        },
+        "operating_margin": {
+          "valor": 0.48231,
+          "score": 100.0
+        },
+        "debt_to_equity": {
+          "valor": null,
+          "score": 50.0
+        },
+        "current_ratio": {
+          "valor": null,
+          "score": 50.0
+        }
+      }
+    },
+    "momentum": {
+      "score": 17.0,
+      "peso": "20%",
+      "detalle": {
+        "score_tecnico": 17.0,
+        "rsi": 29.2,
+        "macd": -0.4923,
+        "bb_pos": "lower_half",
+        "max_dd_1y": 38.0,
+        "hv20d": 47.5,
+        "senal": "⚪ MANTENER"
+      }
+    },
+    "sectorial": {
+      "score": 88.1,
+      "peso": "15%",
+      "detalle": {
+        "fuente": "sector",
+        "benchmark": {
+          "pe_med": 12.0,
+          "roe_med": 0.12
+        },
+        "industria": "Banks - Regional",
+        "pe_vs": {
+          "empresa": 10.115846,
+          "industria": 12.0,
+          "score": 76.3
+        },
+        "roe_vs": {
+          "empresa": 0.30055,
+          "industria": 0.12,
+          "score": 100
+        },
+        "score_final": 88.1
+      }
+    }
+  },
+  "comparativa_industria": {
+    "fuente": "sector",
+    "industria": "Financial Services",
+    "metricas": {
+      "P/E TTM": {
+        "empresa": 17.9077,
+        "industria": 12.0,
+        "ratio": 1.49,
+        "mejor_que_industria": false,
+        "interpretacion": "🔴 peor (más alto)"
+      },
+      "P/E Forward": {
+        "empresa": 10.1158,
+        "industria": 12.0,
+        "ratio": 0.84,
+        "mejor_que_industria": true,
+        "interpretacion": "🟢 mejor (más bajo)"
+      },
+      "ROE": {
+        "empresa": 0.3005,
+        "industria": 0.12,
+        "ratio": 2.5,
+        "mejor_que_industria": true,
+        "interpretacion": "🟢 supera industria"
+      }
+    },
+    "summary": {
+      "n_mejor": 2,
+      "n_peor": 1,
+      "n_neutral": 0,
+      "total": 3,
+      "score_pct": 66.7
+    }
+  },
+  "sector": "Financial Services",
+  "industry": "Banks - Regional",
+  "country": "Brazil",
+  "currency": "USD",
+  "business_summary": "Nu Holdings Ltd. provides digital banking platform in Brazil, Mexico, Colombia, the Cayman Islands, and the United States. The company provides spending solutions comprising Nu credit and prepaid card, a digitally enabled card that acts as a credit and a prepaid card; Nubank+ Tier, an evolution of the Nu experience; Ultraviolet credit and prepaid card, a premium metal credit card; mobile payment solutions for NuAccount customers to make and receive transfers, pay bills, and make everyday purchases through their mobile phones; and Nu Shopping, an integrated marketplace that enables customers to purchase goods and services from various ecommerce retailers. It also offers transactional solutions, such as Nu Personal Accounts, a digital account solution for personal financial activities; Nu business accounts for entrepreneur customers and their businesses; and Nu business prepaid and credit card. In addition, it offers savings and investing solutions, including Money Boxes, a solution for goal-based investing; investing solutions, an attractive investment product with customized and conflict-free guidance; and NuCrypto, a solution for buying and selling cryptocurrencies through the Nu app. Further, the company provides borrowing solutions comprising personal unsecured and secured loans; Pix financing that enables credit card and digital account customers to make free and instant peer-to-peer transfers; Boleto financing, which enables credit card and digital account customers to make payments; purchase financing; cash-in financing; and NuPay to make online purchases and pay for services through Nu app. Additionally, it offers protection solutions, such as NuInsurance protection solutions, including life, mobile, auto, home, and financial protection insurance policies; and beyond financial services solutions, including NuTravel, a travel portal; and NuCel, a mobile phone service. Nu Holdings Ltd. was founded in 2013 and is headquartered in São Paulo, Brazil.",
+  "pdf_path": null,
+  "calidad_fundamentales": "cache",
+  "errores_fundamentales": []
+}

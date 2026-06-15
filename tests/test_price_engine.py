@@ -117,6 +117,15 @@ class TestPriceEnginePortfolio:
         assert rec.source == PriceSource.FALLBACK_HARD
         assert rec.precio_cedear_ars == pytest.approx(9_999.0)
 
+    def test_fallback_bd_tiene_prioridad_sobre_hard(self):
+        engine = self._engine()
+        engine._fallback_bd["TESTBD"] = 8_888.0
+        engine._fallback_hard["TESTBD"] = 9_999.0
+        with patch.object(engine, "_try_live", return_value=None):
+            rec = engine.get("TESTBD", ccl=1500.0)
+        assert rec.source == PriceSource.FALLBACK_BD
+        assert rec.precio_cedear_ars == pytest.approx(8_888.0)
+
     def test_cobertura_cien_pct_cuando_todos_validos(self):
         engine = self._engine()
         records = engine.get_portfolio(
@@ -163,6 +172,23 @@ class TestPriceEnginePortfolio:
         engine.refresh_fallback({"NEWTKR": 5_000.0})
         assert engine._fallback_hard.get("NEWTKR") == pytest.approx(5_000.0)
 
+    def test_yfinance_circuit_off_usa_fallback_bd(self):
+        """Si el circuit breaker bloquea yfinance, _try_live sale al instante y sigue la cadena hacia BD."""
+        engine = self._engine()
+        engine._fallback_bd["CBTEST"] = 6_543.0
+        engine._ratios["CBTEST"] = 10.0
+        with patch.object(PriceEngine, "_yfinance_habilitado", staticmethod(lambda: False)):
+            with patch.object(engine, "_try_byma", return_value=None):
+                rec = engine.get("CBTEST", ccl=1500.0)
+        assert rec.source == PriceSource.FALLBACK_BD
+        assert rec.precio_cedear_ars == pytest.approx(6_543.0)
+
+    def test_reload_fallback_bd_actualiza_mapa(self):
+        engine = self._engine()
+        with patch("core.db_manager.obtener_precios_fallback", return_value={"REL1": 111.0}):
+            engine._reload_fallback_bd()
+        assert engine._fallback_bd.get("REL1") == pytest.approx(111.0)
+
 
 class TestRecordsTrasPPC:
     def test_marca_fallback_ppc(self):
@@ -178,3 +204,80 @@ class TestRecordsTrasPPC:
         )
         assert out["BONO"].source == PriceSource.FALLBACK_PPC
         assert out["BONO"].precio_cedear_ars == pytest.approx(123.45)
+
+
+# ─── ONs USD: _try_on_usd ─────────────────────────────────────────────────────
+
+class TestTryOnUsd:
+    """
+    El PriceEngine debe resolver ONs USD desde el catálogo interno usando
+    paridad_ref × CCL live, evitando MISSING cuando yfinance falla.
+    """
+
+    def _engine(self) -> PriceEngine:
+        with patch("services.cartera_service.PRECIOS_FALLBACK_ARS", {}), \
+             patch("core.db_manager.obtener_precios_fallback", return_value={}):
+            return PriceEngine()
+
+    def test_tlcto_resuelve_con_catalogo(self):
+        """TLCTO (paridad_ref=102.5%) × CCL 1429 → 1464.72 ARS por VN USD."""
+        engine = self._engine()
+        rec = engine._try_on_usd("TLCTO", ccl=1429.0, ratio=1.0)
+        assert rec is not None
+        assert rec.source == PriceSource.FALLBACK_CATALOGO_RF
+        assert rec.precio_cedear_ars == pytest.approx(102.5 / 100 * 1429, rel=1e-4)
+
+    def test_ym34o_resuelve_con_catalogo(self):
+        engine = self._engine()
+        rec = engine._try_on_usd("YM34O", ccl=1429.0, ratio=1.0)
+        assert rec is not None
+        assert rec.source == PriceSource.FALLBACK_CATALOGO_RF
+        assert rec.precio_cedear_ars > 0
+
+    def test_ticker_inexistente_devuelve_none(self):
+        engine = self._engine()
+        assert engine._try_on_usd("ZZZZZ", ccl=1429.0, ratio=1.0) is None
+
+    def test_ticker_cedear_no_es_on_usd(self):
+        engine = self._engine()
+        assert engine._try_on_usd("AAPL", ccl=1429.0, ratio=20.0) is None
+
+    def test_ccl_cero_devuelve_none(self):
+        engine = self._engine()
+        assert engine._try_on_usd("TLCTO", ccl=0.0, ratio=1.0) is None
+
+    def test_precio_escala_con_ccl(self):
+        """Si el CCL sube 10%, el precio ARS de la ON sube 10%."""
+        engine = self._engine()
+        r1 = engine._try_on_usd("TLCTO", ccl=1000.0, ratio=1.0)
+        r2 = engine._try_on_usd("TLCTO", ccl=1100.0, ratio=1.0)
+        assert r2.precio_cedear_ars == pytest.approx(r1.precio_cedear_ars * 1.1, rel=1e-4)
+
+    def test_get_portfolio_ons_cobertura_total(self):
+        """get_portfolio para las ONs del catálogo debe dar 100% cobertura."""
+        engine = self._engine()
+        ons = ["TLCTO", "YM34O", "PN43O", "DNC7O", "YCA6O",
+               "MRCAO", "YMCXO", "RCCJO", "IRCPO", "MGCHO"]
+        with patch.object(engine, "_try_live", return_value=None), \
+             patch.object(engine, "_try_byma", return_value=None):
+            records = engine.get_portfolio(ons, ccl=1429.0, precios_live_override={})
+        missing = engine.tickers_sin_precio(records)
+        assert missing == [], f"ONs sin precio: {missing}"
+        assert engine.cobertura_pct(records) == pytest.approx(100.0)
+
+    def test_source_es_catalogo_rf(self):
+        """La fuente debe ser FALLBACK_CATALOGO_RF, no FALLBACK_HARD ni MISSING."""
+        engine = self._engine()
+        with patch.object(engine, "_try_live", return_value=None), \
+             patch.object(engine, "_try_byma", return_value=None):
+            rec = engine.get("TLCTO", ccl=1429.0)
+        assert rec.source == PriceSource.FALLBACK_CATALOGO_RF
+
+    def test_price_source_label(self):
+        assert PriceSource.FALLBACK_CATALOGO_RF.label == "CATÁLOGO-RF"
+
+    def test_price_source_not_live(self):
+        assert not PriceSource.FALLBACK_CATALOGO_RF.is_live
+
+    def test_price_source_is_valid(self):
+        assert PriceSource.FALLBACK_CATALOGO_RF.is_valid

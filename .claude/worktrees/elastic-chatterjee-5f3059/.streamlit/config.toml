@@ -1,0 +1,9 @@
+[server]
+headless = true
+port = 8502
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"

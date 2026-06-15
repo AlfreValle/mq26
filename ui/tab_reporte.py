@@ -8,6 +8,8 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 from core.auth import has_feature
+from ui.mq26_ux import dataframe_auto_height
+from ui.rbac import can_action as _can_action_rbac
 
 
 
@@ -31,7 +33,12 @@ def _render_historial_snapshots(ctx: dict) -> None:
     st.caption("Compará los pesos recomendados en distintas fechas.")
     tabla = snaps[["id", "modelo", "timestamp"]].copy()
     tabla.columns = ["ID", "Modelo", "Fecha"]
-    st.dataframe(tabla, use_container_width=True, hide_index=True)
+    st.dataframe(
+        tabla,
+        use_container_width=True,
+        hide_index=True,
+        height=dataframe_auto_height(tabla, min_px=120, max_px=280),
+    )
 
     ids_disp = snaps["id"].tolist()
     if len(ids_disp) >= 2:
@@ -67,6 +74,163 @@ def _render_historial_snapshots(ctx: dict) -> None:
 
 
 
+def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
+    """
+    Sección de Reporte MQ26 que incluye:
+      - Perlas del Mes detectadas dinámicamente por el motor MOD-23
+      - Reportes profesionales BDI disponibles (análisis fundamental + técnico)
+    Para incluir en el informe que se entrega al cliente.
+    """
+    st.markdown("### 💎 Perlas del Mes + Análisis MQ26 de Empresas")
+    st.caption(
+        "Oportunidades tácticas detectadas por nuestro motor MOD-23 (Score+RSI+Drawdown) "
+        "y análisis fundamentales propios MQ26 (más informes externos cuando corresponda)."
+    )
+
+    # ── 1) ANÁLISIS DISPONIBLES (MQ26 auto + externos) ───────────────────────
+    try:
+        from services.bdi_reports import (
+            listar_tickers_con_bdi,
+            obtener_reporte_bdi,
+            reporte_bdi_html,
+        )
+        from config import RATIOS_CEDEAR
+
+        bdi_tickers = listar_tickers_con_bdi()
+        if bdi_tickers:
+            st.markdown(f"#### 📊 Análisis MQ26 + Externos ({len(bdi_tickers)})")
+            # Tabla resumen
+            filas = []
+            for t in bdi_tickers:
+                r = obtener_reporte_bdi(t)
+                if r is None:
+                    continue
+                ratio = float(RATIOS_CEDEAR.get(t.upper(), 1) or 1)
+                px_ars = r.precio_actual_usd * ccl / ratio if ratio > 0 else 0
+                target_ars = r.precio_objetivo_usd * ccl / ratio if ratio > 0 else 0
+                filas.append({
+                    "Ticker":      r.ticker,
+                    "Recomend.":   r.recomendacion,
+                    "Cal. BDI":    f"{r.calificacion_total:.1f}/5",
+                    "Precio USD":  r.precio_actual_usd,
+                    "Target USD":  r.precio_objetivo_usd,
+                    "Upside":      f"+{r.upside_pct:.1f}%",
+                    "Stop USD":    r.stop_loss_usd,
+                    "Precio ARS":  round(px_ars, 0),
+                    "Target ARS":  round(target_ars, 0),
+                    "Horizonte":   f"{r.horizonte_meses}m",
+                    "Perfil mín.": r.perfil_minimo,
+                    "Peso sug.":   f"{r.peso_cartera_pct_min*100:.0f}-{r.peso_cartera_pct_max*100:.0f}%",
+                })
+            if filas:
+                df_bdi = pd.DataFrame(filas)
+                st.dataframe(
+                    df_bdi.style.format({
+                        "Precio USD": "${:.2f}",
+                        "Target USD": "${:.2f}",
+                        "Stop USD":   "${:.2f}",
+                        "Precio ARS": "${:,.0f}",
+                        "Target ARS": "${:,.0f}",
+                    }),
+                    use_container_width=True,
+                    hide_index=True,
+                    height=dataframe_auto_height(df_bdi, min_px=120, max_px=320),
+                )
+                # Expandir análisis completo de cualquier reporte
+                sel_bdi = st.selectbox(
+                    "Ver análisis completo (para incluir como anexo al informe):",
+                    options=["—"] + bdi_tickers,
+                    key="reporte_bdi_select",
+                )
+                if sel_bdi != "—":
+                    r_sel = obtener_reporte_bdi(sel_bdi)
+                    if r_sel:
+                        ratio_sel = float(RATIOS_CEDEAR.get(sel_bdi.upper(), 1) or 1)
+                        st.markdown(
+                            reporte_bdi_html(r_sel, ccl=ccl, ratio_cedear=ratio_sel),
+                            unsafe_allow_html=True,
+                        )
+        else:
+            st.info(
+                "📊 Aún no hay análisis disponibles. "
+                "Generá uno desde el tab 💎 Perlas → \"🚀 Generar análisis\", "
+                "o cargá un informe externo manualmente en `data/bdi_reports/`."
+            )
+    except Exception as _e_bdi:
+        st.caption(f"BDI: sección no disponible ({_e_bdi})")
+
+    # ── 2) PERLAS DINÁMICAS DEL SCORING ──────────────────────────────────────
+    try:
+        from services.perlas_service import (
+            detectar_perlas_desde_scoring,
+            seleccionar_perlas,
+            construir_tesis_html,
+        )
+
+        df_scores = st.session_state.get("df_scores")
+        perlas: list = []
+        if df_scores is not None and hasattr(df_scores, "empty") and not df_scores.empty:
+            perlas = detectar_perlas_desde_scoring(
+                df_scores=df_scores,
+                perfil=perfil,
+                n_max=6,
+                ccl=ccl,
+            )
+
+        st.markdown(f"#### 💎 Perlas dinámicas MQ26 ({len(perlas)})")
+        if not perlas:
+            st.info(
+                "ℹ️ Sin perlas dinámicas del escaneo de scoring. "
+                "Ejecutá el escaneo desde el tab Universo & Señales o desde el tab Perlas."
+            )
+        else:
+            # Tabla resumen
+            filas_p = []
+            for p in perlas:
+                d = p.to_dict() if hasattr(p, "to_dict") else p
+                filas_p.append({
+                    "Ticker":   d.get("ticker"),
+                    "Sector":   d.get("sector", "—"),
+                    "Score":    f"{d.get('score_total', 0):.0f}",
+                    "RSI":      f"{d.get('rsi', 50):.0f}",
+                    "Entrada ARS":  d.get("precio_entrada", 0),
+                    "Target ARS":   d.get("precio_objetivo", 0),
+                    "Stop ARS":     d.get("stop_loss", 0),
+                    "Entrada USD":  round(d.get("precio_entrada", 0) / ccl if ccl > 0 else 0, 2),
+                    "Upside":   f"+{d.get('upside_pct', 0):.0f}%",
+                    "R/R":      f"{d.get('riesgo_recompensa', 0):.1f}:1",
+                    "Horizonte":f"{d.get('horizonte_meses', 6)}m",
+                })
+            df_p = pd.DataFrame(filas_p)
+            st.dataframe(
+                df_p.style.format({
+                    "Entrada ARS": "${:,.0f}",
+                    "Target ARS":  "${:,.0f}",
+                    "Stop ARS":    "${:,.0f}",
+                    "Entrada USD": "${:.2f}",
+                }),
+                use_container_width=True,
+                hide_index=True,
+                height=dataframe_auto_height(df_p, min_px=120, max_px=320),
+            )
+            # Tesis expandible por perla
+            sel_perla = st.selectbox(
+                "Ver tesis completa de una perla (para incluir en informe al cliente):",
+                options=["—"] + [p.ticker if hasattr(p, "ticker") else p.get("ticker") for p in perlas],
+                key="reporte_perla_select",
+            )
+            if sel_perla != "—":
+                perla_sel = next(
+                    (p for p in perlas
+                     if (p.ticker if hasattr(p, "ticker") else p.get("ticker")) == sel_perla),
+                    None,
+                )
+                if perla_sel is not None:
+                    st.markdown(construir_tesis_html(perla_sel), unsafe_allow_html=True)
+    except Exception as _e_p:
+        st.caption(f"Perlas: sección no disponible ({_e_p})")
+
+
 def render_tab_reporte(ctx: dict) -> None:
     df_ag            = ctx["df_ag"]
     metricas         = ctx.get("metricas", {})
@@ -84,6 +248,32 @@ def render_tab_reporte(ctx: dict) -> None:
     cliente_nombre   = ctx.get("cliente_nombre", prop_nombre)
     horizonte_label  = ctx.get("horizonte_label", "1 año")
     cliente_perfil   = ctx.get("cliente_perfil", "Moderado")
+    _can_write       = _can_action_rbac(ctx, "write")
+
+    # Enriquecer reporte/export con trazabilidad de fuente de precio por ticker.
+    rec_px = ctx.get("precio_records") or {}
+    if isinstance(df_ag, pd.DataFrame) and not df_ag.empty and "TICKER" in df_ag.columns:
+        def _label_fuente_precio(tk) -> str:
+            from core.price_engine import PriceSource
+
+            r = rec_px.get(str(tk).upper().strip())
+            if r is None:
+                return "—"
+            src = getattr(r, "source", None)
+            if src in (PriceSource.LIVE_YFINANCE, PriceSource.LIVE_BYMA):
+                return "LIVE"
+            if src == PriceSource.FALLBACK_BD:
+                return "FALLBACK_BD"
+            if src == PriceSource.FALLBACK_HARD:
+                return "FALLBACK_HARD"
+            if src == PriceSource.FALLBACK_PPC:
+                return "FALLBACK_PPC"
+            if src == PriceSource.MISSING:
+                return "MISSING"
+            return getattr(src, "label", str(src)) if src else "—"
+
+        df_ag = df_ag.copy()
+        df_ag["FUENTE_PRECIO"] = df_ag["TICKER"].astype(str).map(_label_fuente_precio)
 
     # ── MODO PRESENTACIÓN (H12) ───────────────────────────────────────────────
     modo_pres = st.session_state.get("modo_presentacion", False)
@@ -164,7 +354,10 @@ def render_tab_reporte(ctx: dict) -> None:
         st.dataframe(
             df_obj.style
             .format({"Monto ARS": "${:,.0f}"}, na_rep="—")
-            .map(_color_est, subset=["Estado"]), use_container_width=True, hide_index=True,
+            .map(_color_est, subset=["Estado"]),
+            use_container_width=True,
+            hide_index=True,
+            height=dataframe_auto_height(df_obj, min_px=140, max_px=360),
         )
 
         # Acciones sobre objetivos
@@ -178,7 +371,7 @@ def render_tab_reporte(ctx: dict) -> None:
                     format_func=lambda oid: f"#{oid} — {df_obj[df_obj['ID']==oid]['Motivo'].iloc[0][:40]}",
                     key="rpt_sel_objetivo",
                 )
-                if st.button("✅ Marcar como completado", key="btn_rpt_completar"):
+                if st.button("✅ Marcar como completado", key="btn_rpt_completar", disabled=not _can_write):
                     dbm.marcar_objetivo_completado(int(sel_obj))
                     st.success(f"✅ Objetivo #{sel_obj} marcado como completado.")
                     st.rerun()
@@ -196,7 +389,7 @@ def render_tab_reporte(ctx: dict) -> None:
                                 key=f"rpt_plazo_{ov['ID']}")
                             nuevo_motivo_r = st.text_input("Motivo:", value=str(ov["Motivo"]),
                                                             key=f"rpt_motivo_{ov['ID']}")
-                            if st.form_submit_button("🔄 Renovar"):
+                            if st.form_submit_button("🔄 Renovar", disabled=not _can_write):
                                 dbm.actualizar_objetivo(
                                     int(ov["ID"]), plazo_label=nuevo_plazo_r,
                                     motivo=nuevo_motivo_r, estado="ACTIVO")
@@ -225,7 +418,10 @@ def render_tab_reporte(ctx: dict) -> None:
             st.dataframe(
                 df_c.style.format({
                     "Precio ARS": "${:,.2f}", "Total ARS": "${:,.0f}", "Comisión": "${:,.0f}",
-                }), use_container_width=True, hide_index=True,
+                }),
+                use_container_width=True,
+                hide_index=True,
+                height=dataframe_auto_height(df_c, min_px=120, max_px=320),
             )
 
         if tiene_rebalanceo:
@@ -237,17 +433,23 @@ def render_tab_reporte(ctx: dict) -> None:
                 st.dataframe(df_ventas_reb.style.format({
                     "precio_ars": "${:,.2f}", "valor_nocional": "${:,.0f}",
                     "alpha_neto": "${:,.0f}",
-                }), use_container_width=True, hide_index=True)
+                }), use_container_width=True, hide_index=True,
+                    height=dataframe_auto_height(df_ventas_reb, min_px=120, max_px=300))
 
             if not df_compras_reb.empty:
                 st.markdown("#### 🟢 Compras — Rebalanceo")
                 st.dataframe(df_compras_reb.style.format({
                     "precio_ars": "${:,.2f}", "valor_nocional": "${:,.0f}",
                     "alpha_neto": "${:,.0f}",
-                }), use_container_width=True, hide_index=True)
+                }), use_container_width=True, hide_index=True,
+                    height=dataframe_auto_height(df_compras_reb, min_px=120, max_px=300))
 
         if tiene_inyeccion and tiene_rebalanceo:
             st.success("✅ Sesión combinada: Rebalanceo + Inyección de capital. Ambas recomendaciones incluidas en el reporte.")
+
+    # ── SECCIÓN: 💎 PERLAS MQ26 + REPORTES BDI ───────────────────────────────
+    st.divider()
+    _render_seccion_perlas_reporte(ctx, cliente_perfil, ccl)
 
     # ── CONFIGURACIÓN Y GENERACIÓN DEL REPORTE HTML ──────────────────────────
     st.divider()
@@ -473,11 +675,12 @@ def render_tab_reporte(ctx: dict) -> None:
                             _pdf.cell(0, 10, "Posicion Actual", ln=True)
                             _pdf.line(10, _pdf.get_y(), _pdf.w - 10, _pdf.get_y())
                             _pdf.ln(3)
-                            _cols_pdf = ["TICKER", "CANTIDAD", "VALOR_ARS", "PNL"]
+                            _cols_pdf = ["TICKER", "FUENTE_PRECIO", "CANTIDAD", "VALOR_ARS", "PNL"]
                             _cols_ok  = [c for c in _cols_pdf if c in df_ag.columns]
                             if _cols_ok:
                                 _header_pdf = {"TICKER": "Ticker", "CANTIDAD": "Cant.",
-                                               "VALOR_ARS": "Valor ARS", "PNL": "P&L ARS"}
+                                               "VALOR_ARS": "Valor ARS", "PNL": "P&L ARS",
+                                               "FUENTE_PRECIO": "Fuente px"}
                                 _pdf.set_fill_color(46, 134, 171)
                                 _pdf.set_text_color(255, 255, 255)
                                 _pdf.set_font("Helvetica", "B", 9)
