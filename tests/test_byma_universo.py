@@ -112,9 +112,10 @@ def test_tab_mercado_importa_sin_streamlit():
     assert "BYMA" in src  # La regla crítica debe estar mencionada
 
 
-def test_rbac_asesor_eliminado():
-    """Confirmar que el rol 'asesor' ya no existe en ACTION_POLICY."""
+def test_rbac_asesor_presente_v11():
+    """v11: el rol 'asesor' es parte del modelo RBAC (revierte la eliminación v10)."""
     from ui.rbac import ACTION_POLICY
-    for action, roles in ACTION_POLICY.items():
-        assert "asesor" not in {r.lower() for r in roles}, \
-            f"Rol 'asesor' encontrado en acción '{action}' — debe eliminarse"
+    assert "asesor" in {r.lower() for r in ACTION_POLICY["write"]}, \
+        "v11 mantiene 'asesor' con permiso de escritura"
+    assert "asesor" in {r.lower() for r in ACTION_POLICY["read"]}, \
+        "v11 mantiene 'asesor' con permiso de lectura"

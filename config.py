@@ -44,6 +44,7 @@ MQ26_ADVISOR_PASSWORD = os.environ.get("MQ26_ADVISOR_PASSWORD", "").strip()
 MQ26_USER_ADMIN = (os.environ.get("MQ26_USER_ADMIN", "admin").strip().lower() or "admin")
 MQ26_USER_ESTUDIO = (os.environ.get("MQ26_USER_ESTUDIO", "estudio").strip().lower() or "estudio")
 MQ26_USER_INVERSOR = (os.environ.get("MQ26_USER_INVERSOR", "inversor").strip().lower() or "inversor")
+MQ26_USER_ASESOR = (os.environ.get("MQ26_USER_ASESOR", "asesor").strip().lower() or "asesor")
 MQ26_TIER = os.environ.get("MQ26_TIER", "super_admin").strip().lower()
 
 # Telegram: si no está configurado, las alertas quedan silenciadas (no crashea)

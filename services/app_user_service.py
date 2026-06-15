@@ -11,7 +11,8 @@ from core.password_hashing import hash_password_bcrypt, verify_password
 # Rol en BD → clave interna de sesión (compatible con get_user_role)
 SESSION_ROLE_BY_DB: dict[str, str] = {
     "super_admin": "admin",
-    "estudio": "estudio",
+    "asesor": "asesor",
+    "estudio": "viewer",
     "inversor": "inversor",
 }
 

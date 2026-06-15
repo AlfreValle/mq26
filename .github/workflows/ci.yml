@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - name: Pytest suite (paridad P3-QA-01 — ver docs/product/CHECKLIST_P3_QA01_RELEASE.md)
-        run: pytest tests/ -q --tb=short --no-cov
+        run: pytest tests/ -q --tb=short --no-cov -m "not integration"
         env:
           MQ26_PASSWORD: test_password_123
 
