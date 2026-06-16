@@ -123,6 +123,15 @@ class TestFichaCompleta:
         f = ft.generar_ficha_ticker("AAPL")
         assert json.dumps(f.to_dict())  # no lanza
 
+    def test_dcf_margen_es_upside_no_descuento(self, todo_ok):
+        # Hallazgo revisor-quant: margen_seguridad_pct es el UPSIDE
+        # (intrínseco/precio - 1), no el % de descuento. DCFFake: 240 vs 200 = +20%.
+        f = ft.generar_ficha_ticker("AAPL")
+        e = f.valuacion_dcf.explicacion
+        assert "margen de seguridad ~20%" in e
+        assert "upside" in e
+        assert "20% por debajo" not in e  # el wording viejo, inflado, ya no aparece
+
 
 # ─── Degradación por sección ──────────────────────────────────────────────────
 

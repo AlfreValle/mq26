@@ -8,10 +8,12 @@ usaba el histórico, calcular_posicion_neta el spot, y los motores de riesgo
 no tenían una serie para pasar (P0-02). Este módulo define la semántica una
 sola vez:
 
-- Fechas pasadas → CCL histórico del mes (sin look-ahead: si falta el mes,
-  el último anterior conocido).
-- Mes en curso / futuro → spot si el caller lo tiene; si no, el último
-  histórico publicado.
+- Fechas hasta el último mes publicado (incluido el mes en curso) → CCL
+  histórico del mes (sin look-ahead: si falta el mes, el último anterior
+  conocido). El histórico mensual prima sobre el spot para no introducir
+  drift intra-mes en costos históricos.
+- Meses estrictamente posteriores al último publicado → spot si el caller
+  lo tiene; si no, el último histórico publicado (no extrapola).
 
 Sin Streamlit ni red: la serie es estática y el spot siempre lo trae el caller.
 """

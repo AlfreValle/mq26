@@ -208,11 +208,13 @@ def _seccion_dcf(dcf: Any) -> SeccionFicha:
             ),
         )
     datos = dcf.to_dict()
+    # margen_seguridad_pct = (intrínseco/precio - 1)×100 → upside del precio
+    # hasta el valor intrínseco (NO el % de descuento, que sería 1 - precio/intrínseco).
     margen = float(dcf.margen_seguridad_pct)
     if margen > 0:
-        margen_txt = f"cotiza {margen:.0f}% por debajo de su valor intrínseco estimado"
+        margen_txt = f"margen de seguridad ~{margen:.0f}% (upside del precio hasta el valor intrínseco)"
     else:
-        margen_txt = f"cotiza {abs(margen):.0f}% por encima de su valor intrínseco estimado"
+        margen_txt = f"cotiza ~{abs(margen):.0f}% por encima de su valor intrínseco (sin margen de seguridad)"
     expl = (
         f"DCF 2 etapas: valor intrínseco ≈ USD {dcf.valor_intrinseco_usd:,.2f} vs precio "
         f"USD {dcf.precio_actual_usd:,.2f} → {dcf.recomendacion_dcf} ({margen_txt}). "
