@@ -4,7 +4,7 @@ services/fundamentals_cache.py — Capa 1 del pipeline de análisis.
 Ingesta y caché de fundamentales con TTL 24h. Persiste en db_mercado.fundamentals_cache.
 
 Pipeline:
-    Capa 1 (este módulo) → Capa 2 (scoring_engine) → Capa 3 (bdi_auto_generator)
+    Capa 1 (este módulo) → Capa 2 (scoring_engine) → Capa 3 (reportes BDI)
 
 Datos cacheados por ticker (todo opcional, devuelve None si no disponible):
     Precio:       precio_actual_usd, precio_52w_low, precio_52w_high

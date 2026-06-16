@@ -187,8 +187,8 @@ def listar_tickers_con_bdi(incluir_auto: bool = True) -> list[str]:
     Retorna tickers con reporte BDI.
 
     Args:
-        incluir_auto: si True, incluye reportes auto-generados (`*_auto.json`)
-                      por el pipeline (bdi_auto_generator). Default True.
+        incluir_auto: si True, incluye reportes auto-generados (`*_auto.json`).
+                      Default True.
     """
     if not _BDI_DIR.exists():
         return []
