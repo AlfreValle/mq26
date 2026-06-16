@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 
 import pandas as pd
+from core.structured_logging import log_degradacion
 
 from core.structured_logging import log_degradacion
 
