@@ -10,8 +10,10 @@ Precio siempre de BYMA Open Data. Sin hardcoding.
 """
 from __future__ import annotations
 
-import streamlit as st
 from typing import Any
+
+import streamlit as st
+
 from core.structured_logging import log_degradacion
 from services.byma_watchdog import check_byma_status
 
@@ -51,6 +53,7 @@ def _check_byma_connection() -> dict[str, Any]:
 def _render_rv(ctx: dict) -> None:
     """CEDEARs y Acciones locales con señal MOD-23, score y precio target."""
     import pandas as pd
+
     from services.byma_universo import universo_rv_con_señales
 
     ccl    = _get_ccl(ctx)
@@ -80,7 +83,7 @@ def _render_rv(ctx: dict) -> None:
     # Split CEDEARs vs Acciones
     tab_ced, tab_acc = st.tabs(["🌎 CEDEARs", "🇦🇷 Acciones argentinas"])
 
-    def _render_rv_tabla(df_filt: "pd.DataFrame", key_prefix: str) -> None:
+    def _render_rv_tabla(df_filt: pd.DataFrame, key_prefix: str) -> None:
         if df_filt.empty:
             st.info("Sin instrumentos de este tipo con datos en este momento.")
             return
@@ -149,6 +152,7 @@ def _render_rv(ctx: dict) -> None:
 def _render_rf(ctx: dict) -> None:
     """ONs (TIR), Bonos soberanos (TIR), Letras (tasa mensual)."""
     import pandas as pd
+
     from services.byma_universo import fetch_rf_completo
 
     ccl = _get_ccl(ctx)
@@ -257,8 +261,9 @@ def _render_rf(ctx: dict) -> None:
 def _render_cartera_optima(ctx: dict) -> None:
     """Cartera óptima según perfil, siempre actualizada con precios BYMA."""
     import pandas as pd
-    from services.byma_universo import universo_rv_con_señales, fetch_rf_completo
+
     from core.perfil_allocation import get_mix_rf_rv
+    from services.byma_universo import fetch_rf_completo, universo_rv_con_señales
 
     ccl    = _get_ccl(ctx)
     perfil = _get_perfil(ctx)

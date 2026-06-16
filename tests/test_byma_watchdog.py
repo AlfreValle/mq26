@@ -1,4 +1,3 @@
-import pytest
 
 
 def test_byma_watchdog_retorna_estructura(monkeypatch):
