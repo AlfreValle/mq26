@@ -347,7 +347,7 @@ def calcular_metricas_riesgo_universo(
     # Enriquecer universo_rf con soberanos, CER y cauciones si no están ya
     _universo_rf_ext = dict(universo_rf)
     try:
-        from config import BONOS_SOBERANOS, BONOS_CER, CAUCIONES_BYMA
+        from config import BONOS_CER, BONOS_SOBERANOS, CAUCIONES_BYMA
         for _src in (BONOS_SOBERANOS, BONOS_CER, CAUCIONES_BYMA):
             for _t, _m in _src.items():
                 if _t not in _universo_rf_ext:

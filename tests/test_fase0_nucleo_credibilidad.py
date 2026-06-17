@@ -21,7 +21,11 @@ from core.portfolio_optimization import (
     solve_max_sharpe,
     solve_minimum_variance,
 )
-from core.rbac_audit import audit_param_change, get_effective_role, require_can_edit_optimization_params
+from core.rbac_audit import (
+    audit_param_change,
+    get_effective_role,
+    require_can_edit_optimization_params,
+)
 from core.risk_metrics import (
     factor_betas_ols,
     historical_var_cvar,

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-import pandas as pd
 
 from services.analizador_ticker import (
     AnalizadorResult,
@@ -12,7 +11,6 @@ from services.analizador_ticker import (
     analizar_ticker,
     buscar_perlas_rapido,
 )
-
 
 # ─── Tests unitarios del Gem Score (sin red de) ───────────────────────────────
 

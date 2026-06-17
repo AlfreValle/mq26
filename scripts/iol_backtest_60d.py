@@ -26,7 +26,11 @@ if _load_dotenv and _env_path.is_file():
 
 from services.alert_bot import enviar_telegram
 from services.iol_api.backtest_lab import build_named_strategies, report_capital_window
-from services.iol_api.pearl_scanner_runner import default_yahoo_ticker, ensure_hist_cached, read_symbol_rows
+from services.iol_api.pearl_scanner_runner import (
+    default_yahoo_ticker,
+    ensure_hist_cached,
+    read_symbol_rows,
+)
 
 
 def _series_for_symbol(

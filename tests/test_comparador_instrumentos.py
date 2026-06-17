@@ -1,10 +1,10 @@
 # tests/test_comparador_instrumentos.py
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
-import pytest
-from unittest.mock import patch
 
 
 def _mock_download(tickers, start=None, progress=False, auto_adjust=True):
@@ -40,6 +40,7 @@ def _mock_download(tickers, start=None, progress=False, auto_adjust=True):
 def test_generar_comparador_retorna_figura():
     with patch("services.comparador_instrumentos.yf.download", side_effect=_mock_download):
         import importlib
+
         import services.comparador_instrumentos as m
         importlib.reload(m)
         import plotly.graph_objects as go
@@ -55,6 +56,7 @@ def test_generar_comparador_fallback_sin_yfinance():
         side_effect=Exception("sin red"),
     ):
         import importlib
+
         import services.comparador_instrumentos as m
         importlib.reload(m)
         import plotly.graph_objects as go
@@ -73,6 +75,7 @@ def test_serie_plazo_fijo_crece():
 def test_comparador_capital_se_preserva_en_inicio():
     with patch("services.comparador_instrumentos.yf.download", side_effect=_mock_download):
         import importlib
+
         import services.comparador_instrumentos as m
         importlib.reload(m)
         s = m._serie_spy(start="2020-01-01", capital=5000.0)

@@ -7,20 +7,22 @@ docs/product/PENDIENTES_COMITE_EXPERTOS_CARTERAS_AR.md §4a).
 """
 from __future__ import annotations
 
-from datetime import date
 import html
 import time
+from datetime import date
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from core.auth import has_feature
 from core.diagnostico_types import CARTERA_IDEAL, perfil_diagnostico_valido
-from services.plan_simulaciones import agrupar_pesos_torta, dias_desde_primera_compra, ideal_dict_desde_mix_plan
+from services.plan_simulaciones import (
+    agrupar_pesos_torta,
+    dias_desde_primera_compra,
+    ideal_dict_desde_mix_plan,
+)
 from ui.mq26_ux import plotly_chart_layout_base
 from ui.rbac import can_action
-
 
 # ─── WIZARD DE ONBOARDING ─────────────────────────────────────────────────────
 
@@ -190,8 +192,9 @@ def _wizard_paso4(ctx: dict) -> None:
                 tenant_id  = ctx.get("tenant_id", "default")
                 if dbm:
                     try:
-                        from core.db_manager import Cliente, get_session
                         import datetime as _dt
+
+                        from core.db_manager import Cliente, get_session
                         with get_session() as s:
                             nuevo = Cliente(
                                 nombre         = st.session_state["wiz_nombre"],
@@ -801,13 +804,13 @@ def render_tab_estudio(ctx: dict) -> None:
                               use_container_width=True):
                 with st.spinner("Generando informe..."):
                     try:
-                        from services.diagnostico_cartera import diagnosticar
-                        from services.recomendacion_capital import recomendar
-                        from services.reporte_inversor import generar_reporte_inversor
                         from core.diagnostico_types import (
                             RENDIMIENTO_MODELO_YTD_REF,
                             perfil_diagnostico_valido,
                         )
+                        from services.diagnostico_cartera import diagnosticar
+                        from services.recomendacion_capital import recomendar
+                        from services.reporte_inversor import generar_reporte_inversor
 
                         fila = df.loc[df["ID"] == cid].iloc[0]
                         nombre_cli = str(fila.get("Nombre", "—") or "—")
@@ -900,7 +903,8 @@ def render_tab_estudio(ctx: dict) -> None:
                         )
                         with st.expander("📧 Enviar informe al cliente por email", expanded=False):
                             from services.email_sender import (
-                                enviar_email_gmail, verificar_config_email,
+                                enviar_email_gmail,
+                                verificar_config_email,
                             )
                             ok_cfg, _gmail_user, msg_cfg = verificar_config_email(
                                 ctx.get("dbm")
@@ -947,7 +951,7 @@ def render_tab_estudio(ctx: dict) -> None:
                         st.warning(f"No se pudo generar el informe: {e}")
 
             with st.expander("📝 Mis notas (privadas — no las ve el cliente)", expanded=False):
-                _notas_act = dbm.obtener_notas_asesor(int(cid), tenant_id=tid)
+                _notas_act = dbm.obtener_notas_asesor(int(cid), tenant_id=tenant_id)
                 _notas_new = st.text_area(
                     "Notas internas",
                     value=_notas_act,
@@ -963,7 +967,7 @@ def render_tab_estudio(ctx: dict) -> None:
                     if not can_action(ctx, "write"):
                         st.warning("No tenés permiso para guardar notas.")
                     else:
-                        dbm.guardar_notas_asesor(int(cid), _notas_new, tenant_id=tid)
+                        dbm.guardar_notas_asesor(int(cid), _notas_new, tenant_id=tenant_id)
                         st.success("✓ Notas guardadas")
 
     with col_nuevo:

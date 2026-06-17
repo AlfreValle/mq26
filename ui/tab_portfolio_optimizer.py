@@ -12,21 +12,21 @@ Secciones:
 """
 from __future__ import annotations
 
-import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
 
 from core.logging_config import get_logger
 from services.portfolio_optimizer import (
     CATALOGO_OBJETIVOS,
+    CCL_DEFAULT,
     PlanMultifuncional,
     asignacion_pie_df,
     calcular_plan_multifuncional,
     objetivo_info,
     proyeccion_consolidada_df,
     resumen_plan_df,
-    CCL_DEFAULT,
 )
 
 _log = get_logger(__name__)

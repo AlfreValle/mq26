@@ -4,7 +4,7 @@ services/fundamentals_cache.py — Capa 1 del pipeline de análisis.
 Ingesta y caché de fundamentales con TTL 24h. Persiste en db_mercado.fundamentals_cache.
 
 Pipeline:
-    Capa 1 (este módulo) → Capa 2 (scoring_engine) → Capa 3 (bdi_auto_generator)
+    Capa 1 (este módulo) → Capa 2 (scoring_engine) → Capa 3 (reportes BDI)
 
 Datos cacheados por ticker (todo opcional, devuelve None si no disponible):
     Precio:       precio_actual_usd, precio_52w_low, precio_52w_high
@@ -24,7 +24,7 @@ import json
 import logging
 import threading
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # TTL: 24 horas — fundamentales no cambian intradía.
 _TTL_HORAS = 24
 _LOCK = threading.Lock()
-_MEM_CACHE: dict[str, "FundamentalsSnapshot"] = {}
+_MEM_CACHE: dict[str, FundamentalsSnapshot] = {}
 
 
 # ─── Dataclass ────────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ class FundamentalsSnapshot:
     def edad_horas(self) -> float:
         try:
             t = dt.datetime.fromisoformat(self.fetched_at.replace("Z", "+00:00"))
-            ahora = dt.datetime.now(dt.timezone.utc)
+            ahora = dt.datetime.now(dt.UTC)
             return (ahora - t).total_seconds() / 3600.0
         except Exception:
             return 999.0
@@ -109,8 +109,9 @@ class FundamentalsSnapshot:
 def _ensure_table() -> None:
     """Crea la tabla fundamentals_cache si no existe (idempotente)."""
     try:
-        from core.db_domains import MERCADO
         from sqlalchemy import text
+
+        from core.db_domains import MERCADO
         with MERCADO.engine.begin() as conn:
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS fundamentals_cache (
@@ -127,8 +128,9 @@ def _ensure_table() -> None:
 def _persistir(snapshot: FundamentalsSnapshot) -> None:
     try:
         _ensure_table()
-        from core.db_domains import MERCADO
         from sqlalchemy import text
+
+        from core.db_domains import MERCADO
         with MERCADO.engine.begin() as conn:
             conn.execute(text("""
                 INSERT OR REPLACE INTO fundamentals_cache
@@ -147,8 +149,9 @@ def _persistir(snapshot: FundamentalsSnapshot) -> None:
 def _cargar_de_bd(ticker: str) -> FundamentalsSnapshot | None:
     try:
         _ensure_table()
-        from core.db_domains import MERCADO
         from sqlalchemy import text
+
+        from core.db_domains import MERCADO
         with MERCADO.engine.connect() as conn:
             row = conn.execute(
                 text("SELECT payload_json FROM fundamentals_cache WHERE ticker = :t"),
@@ -187,13 +190,13 @@ def _fetch_yfinance(ticker: str) -> FundamentalsSnapshot:
     """Descarga fundamentales reales de yfinance."""
     snap = FundamentalsSnapshot(
         ticker=ticker.upper(),
-        fetched_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+        fetched_at=dt.datetime.now(dt.UTC).isoformat(),
         source="yfinance",
     )
     try:
         import yfinance as yf
         t = yf.Ticker(ticker)
-        info = {}
+        info: dict = {}
         try:
             info = t.info or {}
         except Exception as e_info:
@@ -295,7 +298,7 @@ def obtener_fundamentales(
     """
     t = ticker.upper().strip()
     if not t:
-        return FundamentalsSnapshot(ticker="", fetched_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+        return FundamentalsSnapshot(ticker="", fetched_at=dt.datetime.now(dt.UTC).isoformat(),
                                      calidad="missing")
 
     # 1) Memoria
@@ -361,8 +364,9 @@ def listar_tickers_cacheados() -> list[str]:
     """Tickers que tienen al menos una entrada en el caché BD."""
     try:
         _ensure_table()
-        from core.db_domains import MERCADO
         from sqlalchemy import text
+
+        from core.db_domains import MERCADO
         with MERCADO.engine.connect() as conn:
             rows = conn.execute(text("SELECT ticker FROM fundamentals_cache ORDER BY ticker")).fetchall()
         return [r[0] for r in rows]
@@ -374,12 +378,13 @@ def estadisticas_cache() -> dict[str, Any]:
     """Resumen del estado del caché (cuántos frescos, cuántos expirados)."""
     try:
         _ensure_table()
-        from core.db_domains import MERCADO
         from sqlalchemy import text
+
+        from core.db_domains import MERCADO
         with MERCADO.engine.connect() as conn:
             rows = conn.execute(text("SELECT ticker, fetched_at FROM fundamentals_cache")).fetchall()
         n_total = len(rows)
-        ahora = dt.datetime.now(dt.timezone.utc)
+        ahora = dt.datetime.now(dt.UTC)
         n_fresco = 0
         n_stale = 0
         for r in rows:

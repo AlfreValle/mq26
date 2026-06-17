@@ -291,7 +291,7 @@ def render_motor_salida(
     perfil:          str = "Moderado",
     ccl:             float = 0.0,
     capital_disponible: float = 500_000,
-    scores_semana_anterior: dict[str, float] = None,
+    scores_semana_anterior: dict[str, float] | None = None,
 ):
     """
     Renderiza el motor de salida completo con objetivos, progreso y sizing.

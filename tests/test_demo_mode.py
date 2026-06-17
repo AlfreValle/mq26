@@ -5,8 +5,6 @@ import os
 import sqlite3
 from pathlib import Path
 
-import pytest
-
 
 def test_generate_demo_crea_db(tmp_path):
     """El script de demo crea la BD con las tablas mínimas."""
@@ -62,6 +60,7 @@ def test_config_demo_mode_false_por_defecto():
     """DEMO_MODE debe ser False si la variable de entorno no está definida."""
     os.environ.pop("DEMO_MODE", None)
     import importlib
+
     import config
     importlib.reload(config)
     assert config.DEMO_MODE is False, "DEMO_MODE debe ser False por defecto"

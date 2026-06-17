@@ -27,9 +27,9 @@ _env_path = ROOT / ".env"
 if _load_dotenv and _env_path.is_file():
     _load_dotenv(_env_path)
 
+from services.iol_api.anomaly_scan import PearlAnomalyConfig
 from services.iol_api.client import IOLApiClient
 from services.iol_api.config import load_iol_bot_settings
-from services.iol_api.anomaly_scan import PearlAnomalyConfig
 from services.iol_api.pearl_scanner_runner import read_symbol_rows, run_iteration
 from services.iol_api.pearl_state import load_pearl_state
 

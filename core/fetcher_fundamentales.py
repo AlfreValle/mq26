@@ -35,7 +35,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -282,7 +282,7 @@ def guardar_cache_json(
 
     payload = {
         "metadata": {
-            "generado_en": datetime.now(timezone.utc).isoformat(),
+            "generado_en": datetime.now(UTC).isoformat(),
             "n_tickers":   len(datos),
             "fuente":      "yfinance",
         },
@@ -399,7 +399,7 @@ def obtener_fundamentales(
     # ── 2. Construir universo si no se pasa ───────────────────────────────────
     if universo_activos is None:
         try:
-            from config import CEDEAR_INFO, ACCIONES_ARGENTINAS
+            from config import ACCIONES_ARGENTINAS, CEDEAR_INFO
             universo_activos = {**CEDEAR_INFO, **ACCIONES_ARGENTINAS}
         except ImportError:
             log.error("No se pudo importar CEDEAR_INFO / ACCIONES_ARGENTINAS de config")

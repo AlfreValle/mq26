@@ -30,9 +30,11 @@ import yfinance as yf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import (
-    RATIOS_CEDEAR,
-    RSI_COMPRA, RSI_VENTA, RSI_VENTANA,
-    SECTORES, SMA_VENTANA,
+    RSI_COMPRA,
+    RSI_VENTA,
+    RSI_VENTANA,
+    SECTORES,
+    SMA_VENTANA,
     TICKERS_NO_CEDEAR_BYMA,
     UNIVERSO_CEDEARS_SCORING,
     UNIVERSO_MERVAL_SCORING,
@@ -461,7 +463,7 @@ def _score_accion_local(ticker: str) -> tuple[float, dict]:
 
 # ─── HELPERS TÉCNICOS ELITE ───────────────────────────────────────────────────
 
-def _calcular_tecnico_elite(cierre: "pd.Series") -> tuple[float, dict]:
+def _calcular_tecnico_elite(cierre: pd.Series) -> tuple[float, dict]:
     """
     Calcula score técnico 0-100 sobre una Serie de precios de cierre.
     Distribución de puntos:
@@ -601,7 +603,7 @@ def _calcular_tecnico_elite(cierre: "pd.Series") -> tuple[float, dict]:
         return 40.0, det
 
 
-def _calcular_volatilidad_penalizacion(cierre: "pd.Series") -> tuple[float, dict]:
+def _calcular_volatilidad_penalizacion(cierre: pd.Series) -> tuple[float, dict]:
     """
     Calcula penalización por riesgo/volatilidad (0 a -8 puntos).
 
@@ -1153,7 +1155,7 @@ def calcular_cartera_optima(
             candidatos = pd.concat([candidatos, defensivos_disponibles.head(2)])
 
     # Seleccionar top N con diversificación sectorial
-    seleccionados = []
+    seleccionados: list = []
     sectores_incluidos = set()
     for _, row in candidatos.iterrows():
         if len(seleccionados) >= n_posiciones:
@@ -1217,7 +1219,8 @@ def calcular_cartera_optima(
         ticker = row["Ticker"]
         senal  = row.get("Senal", "")
         precio = float(row.get("Precio", 0)) or 1.0
-        ratio  = float(RATIOS_CEDEAR.get(ticker, 1.0))
+        from core.instrument_master import get_master
+        ratio  = get_master().ratio(ticker)
         precio_ars = precio * ccl / ratio  # precio del CEDEAR en ARS
 
         if precio_ars <= 0:

@@ -6,6 +6,7 @@ Correr antes de cada commit importante.
 Uso: python scripts/check_regressions.py
 """
 from __future__ import annotations
+
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent

@@ -6,8 +6,8 @@ Núcleo puro: ``hrp_weights`` con ``scipy.cluster.hierarchy`` y bisección recur
 from __future__ import annotations
 
 import numpy as np
-from scipy.optimize import minimize
 from scipy.cluster.hierarchy import leaves_list, linkage
+from scipy.optimize import minimize
 from scipy.spatial.distance import squareform
 
 

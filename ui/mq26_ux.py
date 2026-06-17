@@ -11,7 +11,6 @@ import secrets
 import pandas as pd
 import streamlit as st
 
-
 # ── MEJORA 51: Etiquetas por semáforo (colores vía CSS mq-sem-label-text--*) ─
 SEMAFORO_CONFIG = {
     "verde":    {"label": "Cartera en orden"},

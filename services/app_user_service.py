@@ -6,6 +6,7 @@ Sin Streamlit. Soporta bcrypt (estándar) y migración lazy desde SHA-256 legacy
 from __future__ import annotations
 
 from typing import Any
+
 from core.password_hashing import hash_password_bcrypt, verify_password
 
 # Rol en BD → clave interna de sesión (compatible con get_user_role)

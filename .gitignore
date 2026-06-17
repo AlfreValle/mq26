@@ -7,8 +7,13 @@
 .venv/
 venv/
 
-# Cursor / OS
+# Cursor / Claude Code / OS
 .cursor/
+# .claude: ignorar todo salvo skills y agents (compartidos del proyecto)
+.claude/*
+!.claude/skills/
+!.claude/agents/
+.env.demo
 .DS_Store
 Thumbs.db
 
@@ -25,6 +30,8 @@ yfinance_cache*
 # Archivos de datos y reportes
 *.xlsx
 *.csv
+# Excepciones: datos de referencia versionados
+!data/sectores.csv
 
 # Datos maestros (incluye logs, DB local, CSVs)
 0_Data_Maestra/

@@ -53,12 +53,16 @@ def get_authenticator() -> Any | None:
         import warnings
         warnings.warn(
             f"AUTH_CONFIG definida pero streamlit-authenticator no instalado: {e}. "
-            "Usando auth legacy. Instalar: pip install streamlit-authenticator pyyaml"
+            "Usando auth legacy. Instalar: pip install streamlit-authenticator pyyaml",
+            stacklevel=2,
         )
         return None
     except Exception as e:
         import warnings
-        warnings.warn(f"AUTH_CONFIG inválida o error al parsear: {e}. Usando auth legacy.")
+        warnings.warn(
+            f"AUTH_CONFIG inválida o error al parsear: {e}. Usando auth legacy.",
+            stacklevel=2,
+        )
         return None
 
 

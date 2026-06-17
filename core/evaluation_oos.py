@@ -15,8 +15,9 @@ Backtesting rolling walk-forward (A14):
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -208,7 +209,10 @@ def rolling_oos_backtest(
     -------
     RollingOOSResult con ventanas individuales, serie OOS y métricas agregadas.
     """
-    from core.portfolio_optimization import OptimizationProblem, estimate_mu_sigma_mle  # noqa: PLC0415
+    from core.portfolio_optimization import (  # noqa: PLC0415
+        OptimizationProblem,
+        estimate_mu_sigma_mle,
+    )
 
     returns = returns.dropna(axis=0, how="any")
     tickers = list(returns.columns)

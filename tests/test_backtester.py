@@ -243,7 +243,7 @@ class TestWalkForward:
         n = 400
         idx = pd.date_range("2019-01-01", periods=n, freq="B")
         df = pd.DataFrame({"A": rng.random(n), "B": rng.random(n)}, index=idx)
-        for _train, test, meta in walk_forward_splits(
+        for _train, _test, meta in walk_forward_splits(
             df, train_rows=120, test_rows=20, step_rows=20
         ):
             assert meta.train_end < meta.test_start

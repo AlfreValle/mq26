@@ -4,10 +4,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import re
-from datetime import datetime, timedelta
+import sys
 from dataclasses import replace
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -27,10 +27,10 @@ if _load_dotenv and _env_path.is_file():
     _load_dotenv(_env_path)
 
 from services.alert_bot import enviar_telegram
+from services.byma_market_data import _fetch_tipo
 from services.iol_api.anomaly_scan import PearlAnomalyConfig, score_pearl_buy
 from services.iol_api.client import IOLApiClient
 from services.iol_api.config import load_iol_bot_settings
-from services.byma_market_data import _fetch_tipo
 from services.iol_api.pearl_scanner_runner import (
     default_yahoo_ticker,
     ensure_hist_cached,
@@ -207,7 +207,7 @@ def _byma_ranked_universe(
     Devuelve pares (ticker_iol, yahoo_override=None).
     """
     def _sym(row: dict[str, Any]) -> str:
-        return str((row.get("symbol") or row.get("ticker") or "")).strip().upper()
+        return str(row.get("symbol") or row.get("ticker") or "").strip().upper()
 
     def _vol(row: dict[str, Any]) -> float:
         for k in ("volumeAmount", "nominalVolume", "tradedVolume", "volume"):

@@ -85,11 +85,11 @@ class NotificadorDSS:
         self._log_en_bd("PRESUPUESTO_DESVIO", f"{categoria}: {pct_uso:.0f}% uso")
 
 
-def notificar_exito(mensaje: str, dbm=None, cliente_id: int = None) -> None:
+def notificar_exito(mensaje: str, dbm=None, cliente_id: int | None = None) -> None:
     """Función convenience para éxito sin instanciar."""
     NotificadorDSS(cliente_id=cliente_id, dbm=dbm).exito(mensaje)
 
 
-def notificar_error(mensaje: str, dbm=None, cliente_id: int = None) -> None:
+def notificar_error(mensaje: str, dbm=None, cliente_id: int | None = None) -> None:
     """Función convenience para error sin instanciar."""
     NotificadorDSS(cliente_id=cliente_id, dbm=dbm).error(mensaje)

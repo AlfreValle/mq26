@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -167,7 +167,7 @@ def evaluar_calidad(snap) -> DataQualityScore:
     try:
         if snap.fetched_at:
             fetched = dt.datetime.fromisoformat(snap.fetched_at.replace("Z", "+00:00"))
-            cache_edad_horas = (dt.datetime.now(dt.timezone.utc) - fetched).total_seconds() / 3600
+            cache_edad_horas = (dt.datetime.now(dt.UTC) - fetched).total_seconds() / 3600
             if cache_edad_horas > 168:   # 7 días
                 issues_advertencia.append(f"caché muy stale ({cache_edad_horas:.0f}h)")
             elif cache_edad_horas > 48:

@@ -7,8 +7,8 @@ Usado por ``scripts/mvp_preflight.py`` y tests.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping
 
 _DEFAULT_SQLITE = Path(__file__).resolve().parent.parent / "0_Data_Maestra" / "master_quant.db"
 

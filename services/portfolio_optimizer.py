@@ -28,7 +28,6 @@ SIN streamlit, SIN yfinance. Sólo stdlib + pandas + numpy.
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
@@ -361,8 +360,9 @@ def _seleccionar_on_usd_para_objetivo(
 
     Returns list of (ticker, nombre, tir_ref, vencimiento, razon).
     """
-    from core.renta_fija_ar import INSTRUMENTOS_RF
     from datetime import timedelta
+
+    from core.renta_fija_ar import INSTRUMENTOS_RF
 
     hoy = date.today()
     # Horizonte mínimo: 12 meses para LP, 6 para MP

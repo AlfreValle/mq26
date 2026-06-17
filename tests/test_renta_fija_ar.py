@@ -11,21 +11,21 @@ from core.renta_fija_ar import (
     INSTRUMENTOS_RF,
     ON_USD_PARIDAD_BASE_VN,
     RF_SCHEMA_KEYS,
-    cashflow_ilustrativo_por_100_vn,
-    ficha_rf_minima_bundle,
-    fecha_vencimiento_desde_meta,
     analisis_obligaciones_negociables_usd_df,
+    cashflow_ilustrativo_por_100_vn,
     descripcion_legible,
     es_fila_renta_fija_ar,
     es_renta_fija,
+    fecha_vencimiento_desde_meta,
     ficha_rf_denominacion_min,
     ficha_rf_forma_amortizacion,
     ficha_rf_isin,
+    ficha_rf_minima_bundle,
     get_meta,
     ladder_vencimientos,
     lamina_min_on,
-    meta_rf_con_precio,
     meta_on_usd_unidades_resumen,
+    meta_rf_con_precio,
     monto_minimo_compra_on,
     ons_comprables_para_capital,
     precio_ars_on_usd_por_base_vn,
@@ -462,3 +462,86 @@ class TestTirEstimadaConCcl:
 
     def test_ccl_cero_devuelve_none(self):
         assert tir_estimada_con_ccl("TLCTO", ccl=0.0) is None
+
+
+class TestPrecioReferenciaArsDesdeCatalogo:
+    """A04: normalizador único paridad→ARS/VN (antes repetido en 3 sitios)."""
+
+    def test_on_usd_paridad_por_ccl(self):
+        from core.renta_fija_ar import get_meta, precio_referencia_ars_desde_catalogo
+
+        meta = get_meta("PN43O")
+        esperado = (float(meta["paridad_ref"]) / 100.0) * 1429.0
+        assert precio_referencia_ars_desde_catalogo("PN43O", 1429.0) == pytest.approx(esperado)
+
+    def test_vn_multiplica(self):
+        from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
+
+        p1 = precio_referencia_ars_desde_catalogo("PN43O", 1429.0, vn=1.0)
+        p100 = precio_referencia_ars_desde_catalogo("PN43O", 1429.0, vn=100.0)
+        assert p100 == pytest.approx(p1 * 100.0)
+
+    def test_usd_sin_ccl_cero(self):
+        from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
+
+        assert precio_referencia_ars_desde_catalogo("PN43O", 0.0) == 0.0
+
+    def test_ticker_fuera_catalogo_cero(self):
+        from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
+
+        assert precio_referencia_ars_desde_catalogo("AAPL", 1429.0) == 0.0
+        assert precio_referencia_ars_desde_catalogo("", 1429.0) == 0.0
+
+    def test_moneda_ars_no_usa_ccl(self):
+        from core.renta_fija_ar import INSTRUMENTOS_RF, precio_referencia_ars_desde_catalogo
+
+        t_ars = next(
+            (t for t, m in INSTRUMENTOS_RF.items()
+             if str(m.get("moneda", "")).upper() == "ARS" and float(m.get("paridad_ref", 0) or 0) > 0),
+            None,
+        )
+        if t_ars is None:
+            pytest.skip("catálogo sin instrumentos ARS con paridad")
+        con_ccl = precio_referencia_ars_desde_catalogo(t_ars, 1429.0)
+        sin_ccl = precio_referencia_ars_desde_catalogo(t_ars, 0.0)
+        assert con_ccl == sin_ccl > 0
+
+
+class TestCompletarLaminaVnFilas:
+    """M2: autocompletado de lámina RF en la carga (helper service-level)."""
+
+    def test_autocompleta_on_del_catalogo(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas, lamina_min_on
+
+        filas = [{"TICKER": "PN43O", "TIPO": "ON_USD", "LAMINA_VN": float("nan")}]
+        avisos = completar_lamina_vn_filas(filas)
+        assert filas[0]["LAMINA_VN"] == float(lamina_min_on("PN43O"))
+        assert filas[0]["LAMINA_VN"] > 0
+        assert any("PN43O" in a and "lámina" in a.lower() for a in avisos)
+
+    def test_no_pisa_lamina_valida(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        filas = [{"TICKER": "PN43O", "TIPO": "ON_USD", "LAMINA_VN": 500.0}]
+        avisos = completar_lamina_vn_filas(filas)
+        assert filas[0]["LAMINA_VN"] == 500.0  # respeta lo que el usuario puso
+        assert avisos == []
+
+    def test_rf_fuera_de_catalogo_avisa_sin_romper(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        filas = [{"TICKER": "XXNOEXISTE", "TIPO": "ON_USD", "LAMINA_VN": float("nan")}]
+        avisos = completar_lamina_vn_filas(filas)
+        assert any("XXNOEXISTE" in a and "mano" in a for a in avisos)
+
+    def test_cedear_se_ignora(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        filas = [{"TICKER": "AAPL", "TIPO": "CEDEAR", "LAMINA_VN": float("nan")}]
+        avisos = completar_lamina_vn_filas(filas)
+        assert avisos == []  # RV no lleva lámina
+
+    def test_fila_sin_ticker_no_rompe(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        assert completar_lamina_vn_filas([{"TICKER": "", "LAMINA_VN": float("nan")}]) == []

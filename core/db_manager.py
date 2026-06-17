@@ -8,6 +8,7 @@ import logging
 import os
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from sqlalchemy import (
@@ -71,7 +72,7 @@ def _build_engine():
 
 engine, DB_BACKEND = _build_engine()
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-Base = declarative_base()
+Base: Any = declarative_base()  # mypy: declarative_base() retorna tipo dinámico
 
 
 def get_engine():
@@ -955,8 +956,8 @@ def registrar_objetivo(
     plazo_label: str,
     motivo: str = "",
     ticker: str = "",
-    target_pct: float = None,
-    stop_pct: float = None,
+    target_pct: float | None = None,
+    stop_pct: float | None = None,
     tenant_id: str = "default",
 ) -> int:
     """Registra un objetivo de inversión nuevo y devuelve su id."""
@@ -1025,12 +1026,12 @@ def obtener_objetivos_cliente(cliente_id: int, tenant_id: str | None = None) -> 
 
 def actualizar_objetivo(
     id_objetivo: int,
-    monto_ars: float = None,
-    plazo_label: str = None,
-    motivo: str = None,
-    target_pct: float = None,
-    stop_pct: float = None,
-    estado: str = None,
+    monto_ars: float | None = None,
+    plazo_label: str | None = None,
+    motivo: str | None = None,
+    target_pct: float | None = None,
+    stop_pct: float | None = None,
+    estado: str | None = None,
 ):
     """Actualiza campos de un objetivo existente."""
     with get_session() as s:
@@ -1096,7 +1097,7 @@ def registrar_auditoria(
     accion: str,
     detalle: str,
     usuario: str = "asesor",
-    cliente_id: int = None,
+    cliente_id: int | None = None,
     ticker: str = "",
 ) -> None:
     """Registra toda operación de escritura en AlertaLog con tipo AUDITORIA."""
@@ -1470,7 +1471,7 @@ def set_config(clave: str, valor_str: str) -> None:
     guardar_config(clave, valor_str)
 
 
-def get_config(clave: str, default: str = None) -> str | None:
+def get_config(clave: str, default: str | None = None) -> str | None:
     """Alias de obtener_config para lectura clave/valor."""
     v = obtener_config(clave, default)
     return str(v) if v is not None else default

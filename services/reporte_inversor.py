@@ -12,9 +12,9 @@ import numpy as np
 import pandas as pd
 
 from core.diagnostico_types import (
+    RENDIMIENTO_MODELO_YTD_REF,
     DiagnosticoResult,
     PrioridadAccion,
-    RENDIMIENTO_MODELO_YTD_REF,
     RecomendacionResult,
     perfil_diagnostico_valido,
 )

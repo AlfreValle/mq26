@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 
 import pandas as pd
+
 from core.structured_logging import log_degradacion
 
 logger = logging.getLogger(__name__)
@@ -218,7 +219,7 @@ def enviar_reporte_mensual_email(
             metricas=metricas,
             recomendaciones=[],
             ccl=ccl,
-            mes_ano=mes_ano,
+            mes_año=mes_ano,
         )
         asunto = (
             f"Reporte Mensual MQ26 \u2014 {nombre_cliente} \u2014 {mes_ano}"

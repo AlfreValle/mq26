@@ -9,17 +9,12 @@ Sin Streamlit. Testeable.
 """
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 
 from services.byma_market_data import (
     _cached_byma,
-    fetch_on_byma_live,
-    enriquecer_on_desde_byma,
     cached_on_byma,
 )
-
 
 # ── TIPOS DE ACTIVO (vocabulario único del producto) ──────────────────────────
 TIPO_CEDEAR       = "CEDEAR"
@@ -74,10 +69,8 @@ def fetch_rf_completo(ccl: float) -> dict[str, pd.DataFrame]:
     Precio siempre de BYMA — nunca hardcodeado.
     Sin Streamlit.
     """
+    from core.renta_fija_ar import get_meta
     from services.byma_market_data import _ENDPOINTS
-    from core.renta_fija_ar import (
-        get_meta, tir_ponderada_cartera, INSTRUMENTOS_RF
-    )
 
     # ONs: fetch live con normalización ×100
     on_dict = cached_on_byma(ccl)
@@ -161,8 +154,8 @@ def universo_rv_con_señales(
 
     Sin Streamlit. Puede tardar si hay muchos tickers (usa cache del scoring_engine).
     """
-    from services.scoring_engine import calcular_score_total
     from services.motor_salida import OBJETIVOS_PERFIL
+    from services.scoring_engine import calcular_score_total
 
     df_rv = fetch_rv_completo()
     if df_rv.empty:

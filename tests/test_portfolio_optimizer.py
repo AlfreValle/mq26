@@ -19,7 +19,6 @@ from services.portfolio_optimizer import (
     CATALOGO_OBJETIVOS,
     AsignacionInstrumento,
     PlanMultifuncional,
-    TramoResult,
     _asignar_capital_por_objetivos,
     _distribuir_equitativamente,
     _proyectar_fv,
@@ -29,7 +28,6 @@ from services.portfolio_optimizer import (
     proyeccion_consolidada_df,
     resumen_plan_df,
 )
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  CATÁLOGO
@@ -295,7 +293,7 @@ class TestCalcularPlanCasosEdge:
         p2 = calcular_plan_multifuncional(["MP1", "LP3"], 5000)
         assert p1.capital_total_usd == p2.capital_total_usd
         assert len(p1.tramos) == len(p2.tramos)
-        for t1, t2 in zip(p1.tramos, p2.tramos):
+        for t1, t2 in zip(p1.tramos, p2.tramos, strict=True):
             assert t1.capital_inicial_usd == t2.capital_inicial_usd
 
     def test_mp2_boncer_instrumentos(self):

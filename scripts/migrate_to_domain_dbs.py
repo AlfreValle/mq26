@@ -22,7 +22,6 @@ Es idempotente: duplicados son detectados y saltados.
 from __future__ import annotations
 
 import datetime
-import json
 import sqlite3
 import sys
 from pathlib import Path
@@ -37,13 +36,14 @@ MQ_DB    = DATA_DIR / "master_quant.db"
 CSV_TRANSAC = DATA_DIR / "Maestra_Transaccional.csv"
 
 # Inicializar dominios (crea archivos y tablas)
-from core.db_domains import init_all_domains, ALL_DOMAINS, CLIENTES, AUTH, PORTFOLIO, MERCADO, CONFIG, AUDITORIA
-import core.db_clientes   # noqa: F401 — registra modelos
-import core.db_auth       # noqa: F401
-import core.db_portfolio  # noqa: F401
-import core.db_mercado    # noqa: F401
-import core.db_config     # noqa: F401
 import core.db_auditoria  # noqa: F401
+import core.db_auth  # noqa: F401
+import core.db_clientes  # noqa: F401 — registra modelos
+import core.db_config  # noqa: F401
+import core.db_mercado  # noqa: F401
+import core.db_portfolio  # noqa: F401
+from core.db_domains import ALL_DOMAINS, AUDITORIA, CLIENTES, PORTFOLIO, init_all_domains
+
 init_all_domains()
 
 _SEPARADOR = "─" * 60

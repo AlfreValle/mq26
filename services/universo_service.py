@@ -26,6 +26,14 @@ def set_universo_df(df: pd.DataFrame) -> None:
     """Registra el DataFrame de universo cargado por DataEngine."""
     global _universo_df
     _universo_df = df
+    # Reconstruye el maestro consolidado (A01) con el universo nuevo, así
+    # cualquier get_master() posterior sin args ya lo incluye.
+    try:
+        from core.instrument_master import get_master
+
+        get_master(df)
+    except Exception:  # pragma: no cover - el maestro nunca debe romper la carga
+        pass
 
 
 def obtener_ratio(ticker: str) -> float:
@@ -56,17 +64,16 @@ def obtener_sector(ticker: str) -> str:
 
 
 def obtener_tipo(ticker: str) -> str:
-    """Tipo de instrumento BYMA."""
+    """
+    Tipo de instrumento BYMA, resuelto contra el maestro consolidado (A01).
+    El catálogo RF manda: una ON fuera del Excel ya no se reporta «CEDEAR».
+    Fallback «CEDEAR» solo para tickers desconocidos (compat histórica).
+    """
+    from core.instrument_master import get_master
+
     t = ticker.upper().strip()
-    if _universo_df is not None and not _universo_df.empty:
-        row = _universo_df[_universo_df["Ticker"].str.upper() == t]
-        if not row.empty and "Tipo" in row.columns:
-            tipo = str(row["Tipo"].iloc[0])
-            if tipo and tipo != "nan":
-                return tipo
-    if t in RATIOS_CEDEAR:
-        return "CEDEAR"
-    return "CEDEAR"
+    tipo = get_master(_universo_df).tipo(t)
+    return tipo or "CEDEAR"
 
 
 def listar_tickers(tipo: str | None = None) -> list[str]:

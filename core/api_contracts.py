@@ -3,7 +3,7 @@ H04 — Contratos tipados (TypedDict) para payloads API/servicios sin acoplar Py
 """
 from __future__ import annotations
 
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 
 
 class OptimizePayloadTD(TypedDict, total=False):

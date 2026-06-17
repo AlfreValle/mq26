@@ -180,7 +180,7 @@ def _construir_tesis_criollo(score, snap) -> str:
 
     cierre = ""
     if score.recomendacion == "COMPRAR":
-        cierre = f"Recomendación: COMPRAR escalonado (40/35/25%) con R/R 2:1."
+        cierre = "Recomendación: COMPRAR escalonado (40/35/25%) con R/R 2:1."
     elif score.recomendacion == "MANTENER":
         cierre = "Recomendación: MANTENER si ya está en cartera, esperar mejor precio si no."
     else:
@@ -193,7 +193,7 @@ def _construir_tesis_criollo(score, snap) -> str:
 
 def _razones_desde_score(score, snap) -> list[str]:
     """Top 7 razones derivadas del breakdown."""
-    from services.fundamental_cache import pct_seguro, fraccion_segura
+    from services.fundamental_cache import fraccion_segura, pct_seguro
 
     razones = []
 
@@ -284,8 +284,8 @@ def generar_reporte_bdi(
         dict compatible con services.bdi_reports._construir_reporte
         — se puede leer con obtener_reporte_bdi() después.
     """
+    from services.fundamental_cache import obtener_fundamentales, pct_seguro
     from services.scoring_multifactor import calcular_action_score
-    from services.fundamental_cache import obtener_fundamentales, pct_seguro, fraccion_segura
 
     ticker = ticker.upper().strip()
 

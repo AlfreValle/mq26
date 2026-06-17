@@ -76,12 +76,10 @@ def _app_scope_clientes_df(df: pd.DataFrame) -> pd.DataFrame:
     return scope_clientes_df_por_sesion(df, app_id="app")
 
 
-# Importar config desde la raíz explícitamente (evita conflicto con 1_Scripts_Motor/config.py)
-import importlib.util as _ilu
+# config raíz: BASE_DIR está al inicio de sys.path, garantiza que `import config`
+# resuelva al raíz y no a 1_Scripts_Motor/config.py (que solo re-exporta).
+import config as _cfg_mod
 
-_cfg_spec = _ilu.spec_from_file_location("config_root", str(BASE_DIR / "config.py"))
-_cfg_mod  = _ilu.module_from_spec(_cfg_spec)
-_cfg_spec.loader.exec_module(_cfg_mod)
 APP_PASSWORD     = _cfg_mod.APP_PASSWORD
 MQ26_VIEWER_PASSWORD = getattr(_cfg_mod, "MQ26_VIEWER_PASSWORD", "") or ""
 MQ26_INVESTOR_PASSWORD = getattr(_cfg_mod, "MQ26_INVESTOR_PASSWORD", "") or ""
@@ -97,7 +95,6 @@ RISK_FREE_RATE   = _cfg_mod.RISK_FREE_RATE
 PESO_MAX_CARTERA = _cfg_mod.PESO_MAX_CARTERA
 RUTA_ANALISIS    = _cfg_mod.RUTA_ANALISIS
 RUTA_UNIVERSO    = _cfg_mod.RUTA_UNIVERSO
-from core.cartera_scope import filtrar_transaccional_por_rol
 from data_engine import DataEngine, asignar_sector, obtener_ccl
 from risk_engine import RiskEngine
 
@@ -114,6 +111,7 @@ import services.ejecucion_service as ejsvc
 import services.market_connector as mc
 import services.mod23_service as m23svc
 import services.report_service as rpt
+from core.cartera_scope import filtrar_transaccional_por_rol
 
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -359,6 +357,7 @@ st.sidebar.markdown(f"**👤 {_cliente_nombre}**")
 st.sidebar.caption(f"Perfil: {_cliente_perfil}  |  Horizonte: {_horiz_label}")
 _app_role_sidebar = get_user_role("app")
 from ui.rbac import can_action as _can_action_rbac
+
 _can_sensitive_utils = _can_action_rbac({"user_role": _app_role_sidebar}, "sensitive_utils")
 # Inversor con un solo cliente en alcance: no ofrecer cambiar (misma lógica que run_mq26).
 if _app_role_sidebar != "inversor" or len(df_clientes) > 1:
@@ -570,7 +569,7 @@ with st.sidebar.expander("💰 Precios fallback (sin red)"):
         key="editor_fallback_sb", hide_index=True,
     )
     if st.button("💾 Aplicar precios", key="btn_aplicar_fb", disabled=not _can_sensitive_utils):
-        _nuevos = dict(zip(_df_fb_edit["Ticker"], _df_fb_edit["Precio ARS"]))
+        _nuevos = dict(zip(_df_fb_edit["Ticker"], _df_fb_edit["Precio ARS"], strict=True))
         _nuevos = {t: float(p) for t, p in _nuevos.items() if t and p and float(p) > 0}
         cs.actualizar_fallback(_nuevos)
         st.cache_data.clear()
@@ -679,7 +678,10 @@ if cartera_activa != "-- Todas las carteras --" and not _cartera_sin_datos and n
         precios_dict_live = cached_precios_actuales(tuple(tickers_cartera), ccl)
         try:
             from core.price_engine import PriceEngine, records_tras_rellenar_ppc
-            from services.valoracion_audit import auditar_inferido_live_vs_resto, auditar_valoracion_por_tipo
+            from services.valoracion_audit import (
+                auditar_inferido_live_vs_resto,
+                auditar_valoracion_por_tipo,
+            )
 
             _pe = PriceEngine(universo_df=engine_data.universo_df)
             _records = _pe.get_portfolio(tickers_cartera, ccl, precios_live_override=precios_dict_live)
@@ -694,6 +696,10 @@ if cartera_activa != "-- Todas las carteras --" and not _cartera_sin_datos and n
                 _records = records_tras_rellenar_ppc(
                     _records, _precios_pre_ppc, precios_dict, float(ccl or 0)
                 )
+                # A15: marca stale según umbral por tipo de instrumento
+                from core.price_engine import aplicar_politica_stale
+
+                _records = aplicar_politica_stale(_records)
                 tickers_sin_precio = [
                     t for t in tickers_cartera if float(precios_dict.get(str(t).upper(), 0) or 0) <= 0
                 ]
@@ -873,12 +879,6 @@ if not df_ag.empty and precios_dict:
 
 
 # ─── IMPORTAR MÓDULOS DE TABS ─────────────────────────────────────────────────
-from ui.tab_cartera import render_tab_cartera
-from ui.tab_ejecucion import render_tab_ejecucion
-from ui.tab_optimizacion import render_tab_optimizacion
-from ui.tab_reporte import render_tab_reporte
-from ui.tab_riesgo import render_tab_riesgo
-from ui.tab_universo import render_tab_universo
 from ui.carga_activos import render_carga_activos
 from ui.navigation import render_main_tabs
 

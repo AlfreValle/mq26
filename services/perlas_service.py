@@ -30,7 +30,10 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +128,40 @@ _SCORE_MIN_POR_PERFIL: dict[str, float] = {
     "Moderado":      65.0,
     "Arriesgado":    55.0,
     "Muy arriesgado": 50.0,
+}
+
+# ── Filtros adicionales DIFERENCIADORES por perfil ───────────────────────────
+# Volatilidad histórica anualizada (HV20d) — diferencia perfiles defensivos vs growth
+_HV_MAX_POR_PERFIL: dict[str, float] = {
+    "Conservador":   0.25,    # solo activos de BAJA volatilidad (defensivos)
+    "Moderado":      0.40,    # volatilidad media
+    "Arriesgado":    0.70,    # tolera alta volatilidad
+    "Muy arriesgado": 9.99,   # cualquier volatilidad
+}
+
+# Drawdown máximo aceptado por perfil (perfiles conservadores no quieren tickers cayendo 50%+)
+_DD_MAX_POR_PERFIL: dict[str, float] = {
+    "Conservador":   0.35,    # max 35% caída (caídas mayores → cambio estructural)
+    "Moderado":      0.50,
+    "Arriesgado":    0.70,
+    "Muy arriesgado": 0.99,
+}
+
+# Sectores apropiados por perfil — Conservador quiere defensivos, Muy arriesgado growth
+_SECTORES_PREFERIDOS: dict[str, set[str]] = {
+    "Conservador": {
+        # Defensivos clásicos: consumo no cíclico, healthcare, utilities
+        "Consumer Defensive", "Healthcare", "Utilities",
+        "Consumer Staples", "Pharmaceuticals",
+    },
+    "Moderado": {
+        # Defensivos + quality tech maduro + financiero grande
+        "Consumer Defensive", "Healthcare", "Utilities",
+        "Technology", "Financial Services", "Communication Services",
+        "Industrials",
+    },
+    "Arriesgado": set(),   # vacío = acepta cualquier sector
+    "Muy arriesgado": set(),
 }
 
 # RSI máximo para considerar "sobrevendido" (señal de entrada).
@@ -245,7 +282,7 @@ def _construir_tesis(row: dict[str, Any]) -> str:
     )
 
 
-def construir_tesis_html(perla: "Perla | dict") -> str:
+def construir_tesis_html(perla: Perla | dict) -> str:
     """
     Genera tesis ENRIQUECIDA en HTML con todas las razones de selección.
     Incluye: score breakdown, RSI interpretado, drawdown, volatilidad, sector,
@@ -397,7 +434,7 @@ def construir_tesis_html(perla: "Perla | dict") -> str:
 # ─── API pública ──────────────────────────────────────────────────────────────
 
 def detectar_perlas_desde_scoring(
-    df_scores: "pd.DataFrame",
+    df_scores: pd.DataFrame,
     perfil: str = "Moderado",
     n_max: int = 5,
     ccl: float = 1490.0,
@@ -424,7 +461,6 @@ def detectar_perlas_desde_scoring(
     if df_scores is None or len(df_scores) == 0:
         return []
 
-    import pandas as pd  # local: evita import en cabecera
 
     score_min = _SCORE_MIN_POR_PERFIL.get(perfil, 65.0)
     fecha_hoy = dt.date.today().isoformat()
@@ -440,20 +476,44 @@ def detectar_perlas_desde_scoring(
         else:
             df[col] = df[col].fillna(default if col != "Sector" else "—")
 
-    # Filtro 1: score mínimo
+    # Filtro 1: score mínimo según perfil (más estricto en Conservador)
     mask_score = df["Score_Total"].astype(float) >= score_min
-    # Filtro 2: sobrevendido (RSI bajo O drawdown alto)
+
+    # Filtro 2: sobrevendido (RSI bajo O drawdown alto) — señal de entrada
     # Normalizar MaxDD_1Y vectorialmente — el scoring puede devolver porcentajes
     _dd_norm = df["MaxDD_1Y"].astype(float).abs().apply(
         lambda v: v / 100.0 if v > 1.0 else v
     ).clip(upper=0.99)
     mask_rsi = df["RSI"].astype(float) <= _RSI_MAX_SOBREVENDIDO
-    mask_dd  = _dd_norm >= _DRAWDOWN_MIN
-    mask_oportunidad = mask_rsi | mask_dd
+    mask_dd_min = _dd_norm >= _DRAWDOWN_MIN
+    mask_oportunidad = mask_rsi | mask_dd_min
+
     # Filtro 3: precio disponible
     mask_precio = df["Precio"].astype(float) > 0
 
-    df_perlas = df[mask_score & mask_oportunidad & mask_precio].copy()
+    # Filtro 4: VOLATILIDAD máxima según perfil (diferenciador clave)
+    # Normalizar HV20d vectorialmente — puede venir en porcentaje
+    _hv_norm = df["HV20d"].astype(float).abs().apply(
+        lambda v: v / 100.0 if v > 1.0 else v
+    ).clip(upper=2.0)
+    hv_max = _HV_MAX_POR_PERFIL.get(perfil, 9.99)
+    mask_vol = _hv_norm <= hv_max
+
+    # Filtro 5: DRAWDOWN máximo (Conservador no quiere caídas extremas)
+    dd_max = _DD_MAX_POR_PERFIL.get(perfil, 0.99)
+    mask_dd_max = _dd_norm <= dd_max
+
+    # Filtro 6: SECTOR apropiado (vacío = todos)
+    sectores_pref = _SECTORES_PREFERIDOS.get(perfil, set())
+    if sectores_pref:
+        mask_sector = df["Sector"].astype(str).isin(sectores_pref)
+    else:
+        mask_sector = df["Sector"].astype(str).apply(lambda _: True)
+
+    df_perlas = df[
+        mask_score & mask_oportunidad & mask_precio
+        & mask_vol & mask_dd_max & mask_sector
+    ].copy()
     if df_perlas.empty:
         logger.info("perlas: 0 candidatas (perfil=%s, score_min=%.0f)", perfil, score_min)
         return []
@@ -484,8 +544,8 @@ def detectar_perlas_desde_scoring(
             # Fallback: convertir precio USD del scoring usando el ratio de config
             precio_usd_sub = float(row.get("Precio", 0) or 0)
             try:
-                from config import RATIOS_CEDEAR
-                ratio = float(RATIOS_CEDEAR.get(ticker, 1))
+                from core.instrument_master import get_master
+                ratio = get_master().ratio(ticker)
                 if precio_usd_sub > 0 and ratio > 0 and ccl > 0:
                     precio_ars = round(precio_usd_sub * ccl / ratio, 2)
             except Exception:
@@ -512,9 +572,9 @@ def detectar_perlas_desde_scoring(
         confianza_pct = None
         confianza_nivel = None
         try:
-            from services.fundamental_cache import obtener_fundamentales
-            from services.dcf_simple import calcular_dcf
             from services.data_quality import evaluar_calidad
+            from services.dcf_simple import calcular_dcf
+            from services.fundamental_cache import obtener_fundamentales
 
             snap = obtener_fundamentales(ticker)
             # DCF (puede fallar para empresas pre-profit)
@@ -566,7 +626,7 @@ def seleccionar_perlas(
     perfil: str = "Moderado",
     n_max: int = 3,
     precio_actual: dict[str, float] | None = None,
-    df_scores: "pd.DataFrame | None" = None,
+    df_scores: pd.DataFrame | None = None,
 ) -> list[Perla]:
     """
     Interfaz compatible con la versión anterior.
@@ -594,7 +654,7 @@ def seleccionar_perlas(
     )
 
 
-def _intentar_cargar_scores_actuales() -> "pd.DataFrame | None":
+def _intentar_cargar_scores_actuales() -> pd.DataFrame | None:
     """
     Intenta cargar el último DataFrame de scores desde la BD o sesión Streamlit.
     Retorna None si no hay scores disponibles.
@@ -650,7 +710,7 @@ def capital_por_perla(
     return unidades, round(unidades * precio_unit_ars, 2)
 
 
-def resumen_perlas_df(perlas: list[Perla]) -> "pd.DataFrame":
+def resumen_perlas_df(perlas: list[Perla]) -> pd.DataFrame:
     """DataFrame con el resumen de perlas para tabla en UI."""
     import pandas as pd
     if not perlas:

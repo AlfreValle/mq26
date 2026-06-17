@@ -13,19 +13,17 @@ from typing import Any
 
 import pandas as pd
 
-from core.renta_fija_ar import es_fila_renta_fija_ar
-
 from core.diagnostico_types import (
     BENCHMARK_RENDIMIENTO,
     CATEGORIAS_DEFENSIVAS,
     CLASIFICACION_ACTIVOS,
+    LIMITE_CONCENTRACION,
+    UNIVERSO_RENTA_FIJA_AR,
     CategoriaActivo,
     DiagnosticoResult,
-    LIMITE_CONCENTRACION,
     ObservacionDiagnostico,
     PrioridadAccion,
     Semaforo,
-    UNIVERSO_RENTA_FIJA_AR,
     perfil_diagnostico_valido,
     semaforo_desde_score,
 )
@@ -35,6 +33,7 @@ from core.perfil_allocation import (
     target_rf_efectivo,
     target_rv_efectivo,
 )
+from core.renta_fija_ar import es_fila_renta_fija_ar
 
 _BONO_PREFIJOS = ("AL", "GD", "TX", "PR")
 

@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -188,8 +187,8 @@ def listar_tickers_con_bdi(incluir_auto: bool = True) -> list[str]:
     Retorna tickers con reporte BDI.
 
     Args:
-        incluir_auto: si True, incluye reportes auto-generados (`*_auto.json`)
-                      por el pipeline (bdi_auto_generator). Default True.
+        incluir_auto: si True, incluye reportes auto-generados (`*_auto.json`).
+                      Default True.
     """
     if not _BDI_DIR.exists():
         return []

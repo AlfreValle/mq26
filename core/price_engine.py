@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field, replace as dc_replace
+from dataclasses import dataclass, field
+from dataclasses import replace as dc_replace
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -65,20 +66,31 @@ class PriceSource(Enum):
 
 # ─── Registro de precio ────────────────────────────────────────────────────────
 
+# A02: convenciones de cotización explícitas (antes implícitas en el nombre del campo)
+CONVENCION_ARS_POR_UNIDAD = "ars_por_unidad"   # RV: precio de 1 CEDEAR/acción en ARS
+CONVENCION_ARS_POR_VN = "ars_por_vn"           # RF: precio ARS por 1 valor nominal
+
+
 @dataclass
 class PriceRecord:
     """
     Registro atómico de precio con trazabilidad de fuente y timestamp.
     Todas las conversiones usan la invariante canónica CEDEAR.
+
+    A02: ``moneda`` y ``convencion`` hacen explícito qué significa el número.
+    Para RF, ``precio_cedear_ars`` reusa el campo histórico pero la convención
+    es ARS por valor nominal (``CONVENCION_ARS_POR_VN``), no por unidad.
     """
     ticker:               str
-    precio_cedear_ars:    float        # precio de 1 CEDEAR en ARS
+    precio_cedear_ars:    float        # precio en ARS (ver `convencion`)
     precio_subyacente_usd: float       # precio del activo subyacente en USD
     ccl:                  float
     ratio:                float
     source:               PriceSource
     timestamp:            datetime
     stale:                bool = False  # True si > STALE_MINUTES antigüedad
+    moneda:               str = "ARS"
+    convencion:           str = CONVENCION_ARS_POR_UNIDAD
 
     STALE_MINUTES: int = field(default=30, repr=False, compare=False)
 
@@ -102,6 +114,8 @@ class PriceRecord:
             "source":               self.source.label,
             "calidad":              self.calidad,
             "timestamp":            self.timestamp.isoformat(),
+            "moneda":               self.moneda,
+            "convencion":           self.convencion,
         }
 
 
@@ -149,6 +163,51 @@ def records_tras_rellenar_ppc(
     return out
 
 
+def aplicar_politica_stale(records: dict[str, PriceRecord]) -> dict[str, PriceRecord]:
+    """
+    A15: marca ``stale`` según el umbral del tipo de instrumento (core.stale_policy).
+
+    Un CEDEAR con precio de hace 2 horas queda STALE; una ON con el mismo
+    timestamp sigue ACEPTABLE (la referencia válida en RF es el cierre anterior).
+    Idempotente; los precios live recién fetcheados nunca se marcan.
+    """
+    from core.instrument_master import get_master
+    from core.stale_policy import es_stale
+
+    master = get_master()
+    for rec in records.values():
+        if rec.source.is_live:
+            continue
+        rec.stale = es_stale(master.tipo(rec.ticker) or None, rec.timestamp)
+    return records
+
+
+_LABEL_FUENTE = {
+    PriceSource.LIVE_YFINANCE: "LIVE",
+    PriceSource.LIVE_BYMA: "LIVE",
+    PriceSource.FALLBACK_BD: "FALLBACK_BD",
+    PriceSource.FALLBACK_HARD: "FALLBACK_HARD",
+    PriceSource.FALLBACK_PPC: "FALLBACK_PPC",
+    PriceSource.FALLBACK_CATALOGO_RF: "CATALOGO_RF",
+    PriceSource.MISSING: "MISSING",
+}
+
+
+def label_fuente_con_frescura(record: PriceRecord | None) -> str:
+    """
+    Label de fuente para columnas «Fuente px» de la UI, con marca de frescura
+    (A15). Un fallback dentro del umbral de su tipo se muestra limpio; uno
+    vencido lleva el sufijo ⚠STALE para que el usuario no opere sobre humo.
+    """
+    if record is None:
+        return "—"
+    src = getattr(record, "source", None)
+    base = _LABEL_FUENTE.get(src) or (getattr(src, "label", None) or "—")
+    if getattr(record, "stale", False):
+        base += " ⚠STALE"
+    return base
+
+
 # ─── PriceEngine ──────────────────────────────────────────────────────────────
 
 class PriceEngine:
@@ -184,9 +243,8 @@ class PriceEngine:
 
     def __init__(self, universo_df=None) -> None:
         from config import RATIOS_CEDEAR
-        from services.cartera_service import PRECIOS_FALLBACK_ARS
-
         from core.pricing_utils import obtener_ratio
+        from services.cartera_service import PRECIOS_FALLBACK_ARS
 
         self._ratios: dict[str, float] = {k: float(v) for k, v in RATIOS_CEDEAR.items()}
         if universo_df is not None and not universo_df.empty and "Ticker" in universo_df.columns:
@@ -253,10 +311,10 @@ class PriceEngine:
         if not self._yfinance_habilitado():
             self._reload_fallback_bd()
 
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
 
         chain: list = []
-        if BYMA_FIRST:
+        if byma_first_activo():
             chain.append(self._try_byma)
         chain.extend([
             self._try_live,
@@ -296,11 +354,11 @@ class PriceEngine:
         override = {k.upper(): v for k, v in (precios_live_override or {}).items()}
         result: dict[str, PriceRecord] = {}
 
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
         from services.byma_provider import fetch_precios_ars_batch
 
         byma_batch: dict[str, float] = {}
-        if BYMA_FIRST:
+        if byma_first_activo():
             try:
                 byma_batch = fetch_precios_ars_batch([x.upper().strip() for x in tickers if x])
             except Exception:
@@ -389,9 +447,9 @@ class PriceEngine:
 
     def _try_byma(self, ticker: str, ccl: float, ratio: float) -> PriceRecord | None:
         """Precio vía API BYMA / tercero (MQ26_BYMA_API_URL)."""
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
 
-        if not BYMA_FIRST:
+        if not byma_first_activo():
             return None
         try:
             from services.byma_provider import fetch_precios_ars_batch
@@ -423,6 +481,7 @@ class PriceEngine:
             return None
 
         import time as _time
+
         from core.pricing_utils import es_instrumento_local_ars
 
         is_local = es_instrumento_local_ars(ticker)
@@ -493,15 +552,14 @@ class PriceEngine:
                 return None
             if not meta.get("activo", True):
                 return None
-            paridad_pct = float(meta.get("paridad_ref") or 0)
-            if paridad_pct <= 0 or ccl <= 0:
-                return None
-            # Precio por 1 VN USD = paridad_pct / 100 × CCL
-            px_ars = round(paridad_pct / 100.0 * ccl, 2)
+            from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
+
+            # A04: conversión paridad→ARS/VN normalizada en el modelo RF
+            px_ars = round(precio_referencia_ars_desde_catalogo(ticker, ccl), 2)
             if px_ars <= 0:
                 return None
             # En USD: el precio de mercado por cada VN USD nominal
-            px_usd = round(paridad_pct / 100.0, 6)
+            px_usd = round(float(meta.get("paridad_ref") or 0) / 100.0, 6)
             return PriceRecord(
                 ticker=ticker,
                 precio_cedear_ars=px_ars,
@@ -510,6 +568,7 @@ class PriceEngine:
                 ratio=ratio,
                 source=PriceSource.FALLBACK_CATALOGO_RF,
                 timestamp=datetime.now(),
+                convencion=CONVENCION_ARS_POR_VN,
             )
         except Exception as _e:
             logger.debug("PriceEngine._try_on_usd %s: %s", ticker, _e)

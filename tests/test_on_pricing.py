@@ -18,8 +18,6 @@ from __future__ import annotations
 from datetime import date
 
 import pandas as pd
-import pytest
-
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -165,7 +163,8 @@ def test_agregar_cartera_on_usd_valor_correcto():
     Integración end-to-end: dado VN=1000, paridad=97.5%
     → INV_ARS_HISTORICO = VN × (paridad/100) × ccl_historico_para_fecha.
     """
-    import sys, pathlib
+    import pathlib
+    import sys
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "1_Scripts_Motor"))
     from data_engine import DataEngine
 
@@ -203,7 +202,8 @@ def test_agregar_cartera_on_usd_no_multiplica_por_ccl_doble():
     Con TIPO='ON_USD':
        agregar_cartera → cant × (ppc_usd/100) × ccl → correcto.
     """
-    import sys, pathlib
+    import pathlib
+    import sys
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "1_Scripts_Motor"))
     from data_engine import DataEngine
 
@@ -299,7 +299,7 @@ def test_seleccionar_ons_para_perfil_conservador():
     Conservador: prioriza calificación. Las 3 ONs seleccionadas deben tener
     calificación AA- o superior, y los pesos deben sumar el pool_total.
     """
-    from core.renta_fija_ar import seleccionar_ons_para_perfil, INSTRUMENTOS_RF
+    from core.renta_fija_ar import INSTRUMENTOS_RF, seleccionar_ons_para_perfil
 
     POOL = 0.33
     resultado = seleccionar_ons_para_perfil("Conservador", POOL, n_max=3)
@@ -319,7 +319,8 @@ def test_seleccionar_ons_para_perfil_conservador():
 def test_seleccionar_ons_vencimiento_minimo():
     """No deben seleccionarse ONs con vencimiento en menos de 12 meses."""
     from datetime import date, timedelta
-    from core.renta_fija_ar import seleccionar_ons_para_perfil, INSTRUMENTOS_RF
+
+    from core.renta_fija_ar import INSTRUMENTOS_RF, seleccionar_ons_para_perfil
 
     resultado = seleccionar_ons_para_perfil("Moderado", 0.28, n_max=5, vencimiento_min_meses=12)
     fecha_corte = date.today() + timedelta(days=365)

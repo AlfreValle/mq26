@@ -182,7 +182,9 @@ class RiskEngine:
         fallback = {t: round(1/self.n, 4) for t in self.activos}
         if not result.success:
             return fallback
-        pesos = {t: p for t, p in zip(self.activos, result.x) if p >= umbral}
+        # result.x puede traer vars auxiliares (ej. CVaR: [w_1..w_n, z]); usar solo los primeros n.
+        pesos_arr = result.x[: self.n]
+        pesos = {t: p for t, p in zip(self.activos, pesos_arr, strict=True) if p >= umbral}
         total = sum(pesos.values())
         if total <= 0:
             return fallback
@@ -411,9 +413,9 @@ class RiskEngine:
         """
         if not self.cov_psd_ok:
             return {t: round(1.0 / self.n, 4) for t in self.activos}
+        from config import DIAS_TRADING
         from core.black_litterman import black_litterman_with_absolute_views
         from core.portfolio_optimization import solve_black_litterman_max_sharpe
-        from config import DIAS_TRADING
 
         sigma = self.cov_matrix.values
         w_mkt = np.array(self.w0, dtype=float)

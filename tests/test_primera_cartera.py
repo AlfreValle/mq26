@@ -5,6 +5,7 @@ import json
 from datetime import date
 from unittest.mock import MagicMock, patch
 
+
 def test_numero_semana_del_año():
     from services.primera_cartera import numero_semana_del_año
 
@@ -13,7 +14,11 @@ def test_numero_semana_del_año():
 
 
 def test_presupuesto_semana_rango():
-    from services.primera_cartera import PRESUPUESTO_MAX_ARS, PRESUPUESTO_MIN_ARS, presupuesto_semana
+    from services.primera_cartera import (
+        PRESUPUESTO_MAX_ARS,
+        PRESUPUESTO_MIN_ARS,
+        presupuesto_semana,
+    )
 
     for w in range(1, 60):
         p = presupuesto_semana(w)
@@ -65,7 +70,11 @@ def test_calcular_unidades(mock_score, _mock_px, _mock_var):
 @patch("services.primera_cartera._precio_ars_actual", return_value=1000.0)
 @patch("services.scoring_engine.calcular_score_total", side_effect=_fake_score)
 def test_generar_narrativa_campos(mock_score, _mock_px, _mock_var):
-    from services.primera_cartera import calcular_unidades, generar_narrativa_semana, seleccionar_recomendaciones
+    from services.primera_cartera import (
+        calcular_unidades,
+        generar_narrativa_semana,
+        seleccionar_recomendaciones,
+    )
 
     recs = seleccionar_recomendaciones(1200.0, n=2, min_score=40.0)
     u = calcular_unidades(90_000.0, recs)
@@ -82,7 +91,11 @@ def test_generar_narrativa_campos(mock_score, _mock_px, _mock_var):
 @patch("services.primera_cartera._precio_ars_actual", return_value=500.0)
 @patch("services.scoring_engine.calcular_score_total", side_effect=_fake_score)
 def test_generar_html_largo_y_escape(mock_score, _mock_px, _mock_var):
-    from services.primera_cartera import calcular_unidades, generar_narrativa_semana, seleccionar_recomendaciones
+    from services.primera_cartera import (
+        calcular_unidades,
+        generar_narrativa_semana,
+        seleccionar_recomendaciones,
+    )
     from services.reporte_primera_cartera import generar_html_semana
 
     recs = seleccionar_recomendaciones(1000.0, n=1, min_score=40.0)
@@ -201,6 +214,7 @@ def _make_mock_ticker(info_dict):
 @patch("services.primera_cartera._precio_ars_actual", return_value=38_000.0)
 def test_ficha_fundamentals_cedear_consenso(mock_px):
     import yfinance as yf
+
     from services.primera_cartera import _ficha_fundamentals
 
     with patch.object(yf, "Ticker", return_value=_make_mock_ticker(_fake_yf_info_cedear())):
@@ -227,6 +241,7 @@ def test_ficha_fundamentals_cedear_consenso(mock_px):
 def test_ficha_fundamentals_sin_analistas_usa_eps(mock_px):
     """Con <3 analistas cae a proyeccion_eps."""
     import yfinance as yf
+
     from services.primera_cartera import _ficha_fundamentals
 
     info = dict(_fake_yf_info_cedear())
@@ -246,6 +261,7 @@ def test_ficha_fundamentals_sin_analistas_usa_eps(mock_px):
 def test_ficha_fundamentals_sin_eps_usa_flat8(mock_px):
     """Sin EPS growth ni analistas suficientes → flat+8%."""
     import yfinance as yf
+
     from services.primera_cartera import _ficha_fundamentals
 
     info = {
@@ -265,6 +281,7 @@ def test_ficha_fundamentals_sin_eps_usa_flat8(mock_px):
 def test_ficha_fundamentals_sin_precio_no_target(mock_px):
     """Sin regularMarketPrice → objetivo_salida_ars es None."""
     import yfinance as yf
+
     from services.primera_cartera import _ficha_fundamentals
 
     with patch.object(yf, "Ticker", return_value=_make_mock_ticker({})):
@@ -279,6 +296,7 @@ def test_ficha_fundamentals_sin_precio_no_target(mock_px):
 def test_ficha_fundamentals_yfinance_falla_devuelve_dict(mock_px):
     """Si yfinance lanza excepción → devuelve dict con Nones (no explota)."""
     import yfinance as yf
+
     from services.primera_cartera import _ficha_fundamentals
 
     mock_t = MagicMock()
@@ -296,6 +314,7 @@ def test_ficha_fundamentals_yfinance_falla_devuelve_dict(mock_px):
 def test_ficha_fundamentals_upside_negativo_es_permitido(mock_px):
     """Si precio_ars_actual >> objetivo_ars → upside negativo es válido."""
     import yfinance as yf
+
     from services.primera_cartera import _ficha_fundamentals
 
     info = {
@@ -426,7 +445,11 @@ def test_narrativa_incluye_fundamentals_y_tesis(
         "pe_ratio": 20.0, "roe_pct": 18.0, "objetivo_salida_ars": 55_000.0,
         "upside_pct": 12.0, "horizonte_meses": 12, "fuente_objetivo": "proyeccion_eps",
     }
-    from services.primera_cartera import calcular_unidades, generar_narrativa_semana, seleccionar_recomendaciones
+    from services.primera_cartera import (
+        calcular_unidades,
+        generar_narrativa_semana,
+        seleccionar_recomendaciones,
+    )
 
     recs = seleccionar_recomendaciones(1000.0, n=2, min_score=40.0)
     u = calcular_unidades(80_000.0, recs)
@@ -445,7 +468,11 @@ def test_narrativa_incluye_fundamentals_y_tesis(
 @patch("services.primera_cartera._ficha_fundamentals", side_effect=Exception("yf timeout"))
 def test_narrativa_fundamentals_falla_gracioso(mock_fund, mock_score, _px, _var):
     """Si _ficha_fundamentals lanza → item igual incluye 'fundamentals': {} y 'tesis': ''."""
-    from services.primera_cartera import calcular_unidades, generar_narrativa_semana, seleccionar_recomendaciones
+    from services.primera_cartera import (
+        calcular_unidades,
+        generar_narrativa_semana,
+        seleccionar_recomendaciones,
+    )
 
     recs = seleccionar_recomendaciones(1000.0, n=1, min_score=40.0)
     u = calcular_unidades(50_000.0, recs)

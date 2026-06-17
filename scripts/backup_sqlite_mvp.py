@@ -10,7 +10,6 @@ Uso:
 from __future__ import annotations
 
 import shutil
-import sys
 from datetime import datetime
 from pathlib import Path
 

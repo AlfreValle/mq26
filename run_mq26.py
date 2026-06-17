@@ -66,11 +66,10 @@ from core.structured_logging import log_degradacion
 _log = get_logger(__name__)
 
 
-import importlib.util as _ilu
+# config raíz: BASE_DIR está al inicio de sys.path (línea 53-54), garantiza que
+# `import config` resuelva al raíz y no a 1_Scripts_Motor/config.py (que solo re-exporta).
+import config as _cfg_mod
 
-_cfg_spec = _ilu.spec_from_file_location("config_root", str(BASE_DIR / "config.py"))
-_cfg_mod  = _ilu.module_from_spec(_cfg_spec)
-_cfg_spec.loader.exec_module(_cfg_mod)
 APP_PASSWORD     = _cfg_mod.APP_PASSWORD
 MQ26_VIEWER_PASSWORD = getattr(_cfg_mod, "MQ26_VIEWER_PASSWORD", "") or ""
 MQ26_INVESTOR_PASSWORD = getattr(_cfg_mod, "MQ26_INVESTOR_PASSWORD", "") or ""
@@ -110,6 +109,7 @@ if DEMO_MODE:
         if _demo_db.exists():
             from sqlalchemy import create_engine as _demo_ce
             from sqlalchemy.orm import sessionmaker as _demo_sm
+
             import core.db_manager as _dbm
             # Parchear engine, SessionLocal Y SQLITE_PATH para que init_db() use la BD demo
             _demo_engine = _demo_ce(
@@ -341,6 +341,7 @@ _inject_css_after_auth()
 
 # Header cartera / métricas (se usa antes del bloque de imports de tabs).
 from ui.mq26_ux import metric_card_html, topline_html
+
 
 # ─── INICIALIZACIÓN ───────────────────────────────────────────────────────────
 @st.cache_resource
@@ -792,6 +793,7 @@ def cached_metricas_resumen(df_serialized: str, ccl: float, cartera_key: str) ->
 _mq26_role = get_user_role("mq26")
 _mq26_viewer = _mq26_role in ("estudio", "inversor")
 from ui.rbac import can_action as _can_action_rbac
+
 _mq26_can_sensitive_utils = _can_action_rbac({"user_role": _mq26_role}, "sensitive_utils")
 
 # ── Contexto del cliente (disponible también fuera del sidebar) ─────────────
@@ -1087,6 +1089,12 @@ if (
                 else 100.0
             )
 
+        if _records:
+            # A15: marca stale según umbral por tipo de instrumento
+            from core.price_engine import aplicar_politica_stale
+
+            _records = aplicar_politica_stale(_records)
+
         st.session_state["_mq26_audit_ctx"] = {
             "records": _records,
             "precios_live": dict(precios_dict_live),
@@ -1235,8 +1243,8 @@ if not df_ag.empty and precios_dict:
     if _mq26_role != "inversor":
         with st.sidebar.expander("📈 Dólar — últimos 30 días", expanded=False):
             try:
-                import yfinance as yf
                 import plotly.graph_objects as go
+                import yfinance as yf
 
                 ggal_ba = yf.Ticker("GGAL.BA").history(period="30d")["Close"].dropna()
                 ggal_us = yf.Ticker("GGAL").history(period="30d")["Close"].dropna()
@@ -1425,12 +1433,9 @@ if st.session_state.get("tab_activo") == "motor_salida":
 # ─── FOOTER ───────────────────────────────────────────────────────────────────
 st.divider()
 try:
-    _bd_backend = info_bd['backend'].upper()
+    _bd_backend = dbm.info_backend().get('backend', 'sqlite').upper()
 except Exception:
-    try:
-        _bd_backend = dbm.info_backend().get('backend', 'sqlite').upper()
-    except Exception:
-        _bd_backend = "SQLITE"
+    _bd_backend = "SQLITE"
 st.caption(
     f"Master Quant · {datetime.now().year} · BD: {_bd_backend} · "
     f"CCL: ${ccl:,.0f}"

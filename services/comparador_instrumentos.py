@@ -160,7 +160,7 @@ def generar_comparador_instrumentos(
         )
 
     # Anotaciones de valor final
-    for serie_orig, label, color in [
+    for serie_orig, _label, color in [
         (spy,   "SPY (mercado USA)",         colores["SPY (mercado USA)"]),
         (mq26,  "Cartera MQ26 Conservadora", colores["Cartera MQ26 Conservadora"]),
         (dolar, "Dólar billete (ARS)",       colores["Dólar billete (ARS)"]),

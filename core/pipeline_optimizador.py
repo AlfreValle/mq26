@@ -43,11 +43,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Literal
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from core.portfolio_optimization import OptimizationProblem
 
 log = logging.getLogger(__name__)
 
@@ -119,9 +122,13 @@ def _clasificar_activos(
     """
     try:
         from config import (
-            OBLIGACIONES_NEGOCIABLES, ACCIONES_ARGENTINAS,
-            CEDEAR_INFO, ETF_INFO,
-            BONOS_SOBERANOS, BONOS_CER, CAUCIONES_BYMA,
+            ACCIONES_ARGENTINAS,
+            BONOS_CER,
+            BONOS_SOBERANOS,
+            CAUCIONES_BYMA,
+            CEDEAR_INFO,
+            ETF_INFO,
+            OBLIGACIONES_NEGOCIABLES,
         )
     except ImportError:
         return {t: {"tipo": "rv_global"} for t in tickers}
@@ -289,7 +296,7 @@ def _construir_constraints_perfil(
         liq_req = float(datos_perfil.get("necesidad_liquidez_pct", 0.0))
         if liq_req > 0.0:
             try:
-                from config import VOLUMEN_PROMEDIO_BYMA, ADV_LIQUIDEZ_MINIMA
+                from config import ADV_LIQUIDEZ_MINIMA, VOLUMEN_PROMEDIO_BYMA
                 adv_umbral = float(ADV_LIQUIDEZ_MINIMA)
                 idx_liq = [
                     i for i, t in enumerate(tickers)
@@ -330,9 +337,9 @@ def _calcular_metricas_portafolio(
 ) -> dict[str, float]:
     """Calcula Sharpe, VaR, CVaR, drawdown, beta, duration del portafolio."""
     from core.risk_metrics import (
-        portfolio_vol_annual,
         historical_var_cvar,
         max_drawdown_from_returns,
+        portfolio_vol_annual,
     )
 
     # Retorno y vol del portafolio
@@ -474,7 +481,7 @@ def optimizar_cartera(
     -------
     ResultadoOptimizacion
     """
-    t_start = datetime.now(timezone.utc)
+    t_start = datetime.now(UTC)
     advertencias: list[str] = []
 
     def _log(msg: str) -> None:
@@ -484,23 +491,29 @@ def optimizar_cartera(
 
     # ── Imports centralizados ─────────────────────────────────────────────────
     from config import (
-        RESTRICCIONES_POR_PERFIL, PARAMETROS_HISTORICO, MACRO_AR,
-        CEDEAR_INFO, ACCIONES_ARGENTINAS, OBLIGACIONES_NEGOCIABLES,
-        BONOS_SOBERANOS, BONOS_CER, CAUCIONES_BYMA,
+        ACCIONES_ARGENTINAS,
+        BONOS_CER,
+        BONOS_SOBERANOS,
+        CAUCIONES_BYMA,
+        CEDEAR_INFO,
+        MACRO_AR,
+        OBLIGACIONES_NEGOCIABLES,
+        PARAMETROS_HISTORICO,
+        RESTRICCIONES_POR_PERFIL,
     )
-    from core.filtros_cartera import filtrar_universo_por_perfil, ajustar_mu_por_ter
+    from core.filtros_cartera import (
+        ajustar_mu_por_ter,
+        ajustar_restriccion_liquidez_por_cliente,
+        filtrar_universo_por_perfil,
+    )
     from core.historico_retornos import obtener_matriz_retornos_limpios
+    from core.hrp_weights import hrp_weights
     from core.metricas_riesgo import calcular_metricas_riesgo_universo, validar_riesgo_perfil
-    from core.filtros_cartera import ajustar_restriccion_liquidez_por_cliente
     from core.portfolio_optimization import (
         OptimizationProblem,
         estimate_mu_sigma_mle,
-        solve_max_sharpe,
-        solve_minimum_variance,
-        solve_equal_risk_contribution,
         solve_max_return_tracking_error,
     )
-    from core.hrp_weights import hrp_weights
 
     restricciones = RESTRICCIONES_POR_PERFIL.get(perfil)
     if restricciones is None:
@@ -797,15 +810,16 @@ def optimizar_cartera(
 # ═════════════════════════════════════════════════════════════════════════════
 
 def _solve_max_sharpe_con_perfil(
-    problema:       "OptimizationProblem",
+    problema:       OptimizationProblem,
     constraints:    list[dict],
     bounds:         list[tuple],
-    wp:             "np.ndarray | None",
+    wp:             np.ndarray | None,
     lam:            float,
-    max_turn:       "float | None",
+    max_turn:       float | None,
 ) -> dict:
     """Max Sharpe con constraints completos del perfil inyectados en SLSQP."""
     from scipy.optimize import minimize
+
     from core.portfolio_optimization import regularize_sigma
 
     n   = problema.mu.shape[0]
@@ -851,12 +865,13 @@ def _solve_max_sharpe_con_perfil(
 
 
 def _solve_min_variance_con_perfil(
-    problema:    "OptimizationProblem",
+    problema:    OptimizationProblem,
     constraints: list[dict],
     bounds:      list[tuple],
 ) -> dict:
     """Mínima varianza con constraints del perfil."""
     from scipy.optimize import minimize
+
     from core.portfolio_optimization import regularize_sigma
 
     n = problema.mu.shape[0]

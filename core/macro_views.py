@@ -28,7 +28,10 @@ Uso:
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import numpy as np
 
 # ─── Tipos canónicos de activo ─────────────────────────────────────────────────
 # Usado en `tipos_activos` dict {ticker: TIPO}
@@ -303,7 +306,7 @@ def detectar_tipo_desde_ticker(ticker: str) -> str:
         return TIPO_ON_USD
 
     # Bonos CER: TX28, DICP, PARP, CUAP
-    if t in {"TX28", "TX26", "DICP", "PARP", "CUAP", "PR13", "CUAP"}:
+    if t in {"TX28", "TX26", "DICP", "PARP", "CUAP", "PR13"}:
         return TIPO_BONO_CER
 
     # Cauciones
@@ -330,9 +333,9 @@ def detectar_tipo_desde_ticker(ticker: str) -> str:
 def enriquecer_bl_con_macro(
     macro: dict[str, Any],
     tickers: list[str],
-    Sigma: "np.ndarray",  # noqa: F821
-    mu_sample: "np.ndarray",  # noqa: F821
-    w_mkt: "np.ndarray | None" = None,  # noqa: F821
+    Sigma: np.ndarray,
+    mu_sample: np.ndarray,
+    w_mkt: np.ndarray | None = None,
     *,
     tau: float = 0.05,
     moneda: str = "ARS",
@@ -363,6 +366,7 @@ def enriquecer_bl_con_macro(
       "tipos"        : tipos usados {ticker: tipo}
     """
     import numpy as np  # noqa: PLC0415
+
     from core.black_litterman import black_litterman_with_absolute_views  # noqa: PLC0415
 
     if tipos_activos is None:

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from core.macro_views import (
     TIPO_BONO_CER,

@@ -14,8 +14,8 @@ import streamlit as st
 
 from core import db_manager as dbm
 from services.precio_cache_service import estado_circuit_breaker
-from ui.rbac import can_action
 from ui.mq26_ux import dataframe_auto_height
+from ui.rbac import can_action
 
 
 def _require_panel_admin_write(ctx: dict) -> bool:
@@ -444,7 +444,7 @@ def _render_app_usuarios_admin(ctx: dict, tenant_id: str, df_clientes: pd.DataFr
             )
             default_lbls = []
             for cid in u.get("cliente_ids", []):
-                match = next((l for l in opts_labels if l.startswith(f"{cid} — ")), None)
+                match = next((lbl for lbl in opts_labels if lbl.startswith(f"{cid} — ")), None)
                 if match:
                     default_lbls.append(match)
             sel2 = st.multiselect(
@@ -491,6 +491,53 @@ def _render_app_usuarios_admin(ctx: dict, tenant_id: str, df_clientes: pd.DataFr
                     st.rerun()
 
 
+_EMOJI_ESTADO = {"OK": "🟢", "AVISO": "🟡", "CRITICO": "🔴"}
+
+
+def _render_salud_datos(ctx: dict) -> None:
+    """Monitor de salud de datos (Pilar 4): ¿puedo confiar en los números de hoy?"""
+    from services.salud_datos import ping_proveedores, snapshot_salud_datos
+
+    st.markdown("#### 🩺 Salud de datos — ¿son confiables los números que muestra la app?")
+    salud = snapshot_salud_datos(
+        ccl=ctx.get("ccl"),
+        precio_records=ctx.get("precio_records"),
+    )
+    sem = salud.semaforo_global
+    cols = st.columns([1, 3])
+    cols[0].metric("Estado global", f"{_EMOJI_ESTADO.get(sem, '⚪')} {sem}")
+    cols[1].caption(
+        f"Snapshot {salud.generado_utc} — sin tocar la red. "
+        "El estado global es el peor de los chequeos individuales."
+    )
+
+    for ch in salud.chequeos:
+        emoji = _EMOJI_ESTADO.get(ch.estado, "⚪")
+        with st.expander(f"{emoji} {ch.nombre} — {ch.estado}", expanded=(ch.estado != "OK")):
+            st.markdown(ch.detalle)
+            if ch.valor:
+                st.json(ch.valor, expanded=False)
+
+    st.markdown("---")
+    try:
+        from core.feature_flags import get_flag
+
+        _ping_habilitado = get_flag("ping_proveedores", ctx.get("tenant_id"))
+    except Exception:
+        _ping_habilitado = True
+    if not _ping_habilitado:
+        st.caption("Ping de proveedores deshabilitado por feature flag (ping_proveedores).")
+        return
+    st.caption(
+        "El ping de proveedores sale a internet (yfinance + BYMA) — corre solo si lo pedís."
+    )
+    if st.button("📡 Ping a proveedores externos", key="adm_salud_ping"):
+        with st.spinner("Consultando yfinance y BYMA…"):
+            for ch in ping_proveedores():
+                emoji = _EMOJI_ESTADO.get(ch.estado, "⚪")
+                st.markdown(f"{emoji} **{ch.nombre}** — {ch.detalle}")
+
+
 def render_tab_admin(ctx: dict) -> None:
     if ctx.get("user_role") != "super_admin":
         st.warning("Acceso restringido al Super Administrador.")
@@ -504,8 +551,9 @@ def render_tab_admin(ctx: dict) -> None:
 """,
         unsafe_allow_html=True,
     )
-    tab_lat, tab_audit, tab_uso, tab_inc, tab_demo, tab_users, tab_cartera_ini, tab_growth = st.tabs(
+    tab_salud, tab_lat, tab_audit, tab_uso, tab_inc, tab_demo, tab_users, tab_cartera_ini, tab_growth = st.tabs(
         [
+            "🩺 Salud datos",
             "Latencia",
             "Auditoria",
             "Uso",
@@ -516,6 +564,9 @@ def render_tab_admin(ctx: dict) -> None:
             "Growth Top 3",
         ]
     )
+
+    with tab_salud:
+        _render_salud_datos(ctx)
 
     with tab_lat:
         st.json({"metricas": ctx.get("metricas", {})})
@@ -549,6 +600,49 @@ def render_tab_admin(ctx: dict) -> None:
             )
         else:
             st.info("Sin registros.")
+
+        # ── Auditoría de recomendaciones (Pilar 3) ───────────────────────
+        st.markdown("---")
+        st.markdown("#### 🧭 Planes de acción y recomendaciones registradas")
+        st.caption(
+            "Cada simulación/plan queda persistido con su payload completo "
+            "(motivos y trazabilidad de datos). Seleccioná un evento para ver el detalle."
+        )
+        try:
+            from services.audit_trail import (
+                listar_recomendaciones,
+                obtener_payload_recomendacion,
+            )
+
+            _ev_opts = ["(todos)", "PLAN_ACCION_EXPLICADO", "SIMULACION_RECOMENDACION", "EJECUCION_CONFIRMADA"]
+            _ev_sel = st.selectbox("Filtrar evento", _ev_opts, key="adm_reco_evento")
+            df_reco = listar_recomendaciones(
+                evento=None if _ev_sel == "(todos)" else _ev_sel,
+                limit=200,
+            )
+            if df_reco.empty:
+                st.info("Sin recomendaciones registradas todavía.")
+            else:
+                st.dataframe(
+                    df_reco,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=dataframe_auto_height(df_reco, max_px=380),
+                )
+                _ids = df_reco["id"].tolist()
+                _id_sel = st.selectbox(
+                    "Ver payload del evento (motivos y trazabilidad)",
+                    ["—"] + [str(i) for i in _ids],
+                    key="adm_reco_payload_id",
+                )
+                if _id_sel != "—":
+                    _payload = obtener_payload_recomendacion(int(_id_sel))
+                    if _payload:
+                        st.json(_payload, expanded=False)
+                    else:
+                        st.caption("Evento sin payload.")
+        except Exception as _e_reco:
+            st.warning(f"No se pudo leer la auditoría de recomendaciones: {_e_reco}")
 
     with tab_uso:
         st.markdown("#### Estado del sistema")
@@ -632,6 +726,70 @@ def render_tab_admin(ctx: dict) -> None:
                     st.warning(
                         "No se pudo enviar. Verifica token, chat_id y que el bot tenga acceso al chat."
                     )
+
+        # ── Feature flags por tenant (A08, Pilar 4) ───────────────────────
+        st.markdown("---")
+        st.markdown("#### 🚩 Feature flags por tenant")
+        try:
+            from core.feature_flags import listar_flags, set_flag
+
+            _tid_flags = (str(ctx.get("tenant_id") or "default")).strip() or "default"
+            st.caption(
+                f"Tenant: **{_tid_flags}**. Los cambios impactan sin deploy "
+                "(propagación ≤60 s por cache). Cada cambio queda auditado (ADMIN.feature_flag.*)."
+            )
+            for ef in listar_flags(_tid_flags):
+                cols_f = st.columns([1, 4])
+                nuevo = cols_f[0].toggle(
+                    ef.nombre,
+                    value=ef.valor,
+                    key=f"adm_flag_{_tid_flags}_{ef.nombre}",
+                )
+                marca = " · override activo" if ef.tiene_override else f" · default ({ef.default})"
+                cols_f[1].caption(f"{ef.descripcion}{marca}")
+                if nuevo != ef.valor:
+                    ok = set_flag(
+                        ef.nombre, nuevo, _tid_flags,
+                        actor=str(ctx.get("login_user", "") or ""),
+                    )
+                    if ok:
+                        st.success(f"Flag **{ef.nombre}** → {nuevo} (tenant {_tid_flags}).")
+                        st.rerun()
+                    else:
+                        st.error(f"No se pudo guardar el flag {ef.nombre}.")
+        except Exception as _e_flags:
+            st.warning(f"Feature flags no disponibles: {_e_flags}")
+
+        # ── Métricas de uso desde el audit trail (Pilar 4) ────────────────
+        st.markdown("---")
+        st.markdown("#### 📈 Uso del recomendador (desde auditoría)")
+        try:
+            from services.audit_trail import listar_recomendaciones
+
+            df_uso = listar_recomendaciones(limit=500)
+            if df_uso.empty:
+                st.info("Sin actividad registrada todavía.")
+            else:
+                u1, u2, u3 = st.columns(3)
+                u1.metric("Eventos registrados", len(df_uso))
+                if "evento" in df_uso.columns:
+                    _planes = int((df_uso["evento"] == "PLAN_ACCION_EXPLICADO").sum())
+                    u2.metric("Planes explicados", _planes)
+                    _ejec = int((df_uso["evento"] == "EJECUCION_CONFIRMADA").sum())
+                    u3.metric("Ejecuciones confirmadas", _ejec)
+                _ts = pd.to_datetime(df_uso.get("timestamp"), errors="coerce")
+                if _ts is not None and _ts.notna().any():
+                    _por_semana = (
+                        df_uso.assign(_semana=_ts.dt.strftime("%G-W%V"))
+                        .groupby("_semana").size().rename("eventos").reset_index()
+                        .sort_values("_semana", ascending=False).head(8)
+                    )
+                    st.dataframe(_por_semana, use_container_width=True, hide_index=True)
+                if "perfil" in df_uso.columns and df_uso["perfil"].notna().any():
+                    _por_perfil = df_uso["perfil"].value_counts().head(6)
+                    st.caption("Por perfil: " + " · ".join(f"{k}: {v}" for k, v in _por_perfil.items()))
+        except Exception as _e_uso:
+            st.warning(f"Métricas de uso no disponibles: {_e_uso}")
 
     with tab_inc:
         _render_tablero_degradaciones(ctx)

@@ -18,15 +18,19 @@ from typing import Any
 
 import pandas as pd
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float,
-    Index, Integer, String, Text,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    String,
+    Text,
 )
 
 from core.db_domains import AUDITORIA
 
-_B = AUDITORIA.Base
-
-
+_B: Any = AUDITORIA.Base  # mypy: alias dinámico SQLAlchemy
 # ─── Modelos ──────────────────────────────────────────────────────────────────
 
 class AlertaLog(_B):

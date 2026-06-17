@@ -23,6 +23,8 @@ from config import (
 from core.pricing_utils import (
     ccl_historico_por_fecha,
     es_renta_fija_local,
+)
+from core.pricing_utils import (
     obtener_ratio as ratio_desde_universo_o_config,
 )
 from core.renta_fija_ar import get_meta as rf_get_meta
@@ -725,13 +727,17 @@ class DataEngine:
         tickers = self.universo_df["Ticker"].dropna().unique().tolist() if \
                   not self.universo_df.empty else UNIVERSO_BASE
         tickers_yf = [ticker_yahoo(t, self.universo_df) for t in tickers]
-        tickers_yf = list(dict.fromkeys(tickers_yf))
+        # Dedup defensivo: si hay tickers que mapean a la misma serie yfinance,
+        # nos quedamos con el primero. ticker_map: yf_col -> ticker MQ26 original.
+        _seen: set = set()
+        _pairs = [(yf_t, t) for yf_t, t in zip(tickers_yf, tickers, strict=True) if not (yf_t in _seen or _seen.add(yf_t))]
+        tickers_yf = [p[0] for p in _pairs]
+        ticker_map = dict(_pairs)
         data = yf.download(tickers_yf, period="1y", progress=False)["Close"]
         if isinstance(data, pd.Series): data = data.to_frame()
         data = data.ffill().bfill()
         rend = data.pct_change().dropna()
         detalles, metricas = {}, {}
-        ticker_map = dict(zip(tickers_yf, tickers))
         for col in data.columns:
             t_by = ticker_map.get(col, col)
             s = data[col].dropna()
@@ -740,8 +746,8 @@ class DataEngine:
             sma = float(s.rolling(150).mean().iloc[-1])
             d   = s.diff()
             g   = d.clip(lower=0).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
-            l   = (-d.clip(upper=0)).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
-            rsi = round(100 - 100 / (1 + g / l), 1) if l > 0 else 50.0
+            loss = (-d.clip(upper=0)).ewm(alpha=1/14, min_periods=14, adjust=False).mean().iloc[-1]
+            rsi = round(100 - 100 / (1 + g / loss), 1) if loss > 0 else 50.0
             sh  = round(float(rend[col].mean() * 252) /
                         float(rend[col].std() * (252**0.5)), 2) if rend[col].std() > 0 else 0.0
             detalles[t_by] = {"RSI": rsi, "SMA150": px > sma, "Sharpe": sh, "Precio": px}

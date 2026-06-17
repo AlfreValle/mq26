@@ -19,12 +19,6 @@ RUTA_ANALISIS    = DATA_DIR / "Analisis_Empresas.xlsx"
 RUTA_UNIVERSO    = DATA_DIR / "Universo_120_CEDEARs.xlsx"
 RUTA_DB          = DATA_DIR / "master_quant.db"
 
-# ─── REGLA CRÍTICA DE UNIVERSO ────────────────────────────────────────────────
-# Todo activo comercializado en Argentina en ARS debe estar en el universo BYMA.
-# El precio de mercado SIEMPRE viene de BYMA Open Data (services/byma_market_data.py).
-# Nunca hardcodear precios. Nunca usar yfinance para precios de instrumentos AR.
-UNIVERSO_FUENTE_CRITICA = "BYMA"  # sentinel — no borrar
-
 # ─── SEGURIDAD Y VARIABLES DE ENTORNO (E3) ────────────────────────────────────
 # No abortar el proceso si falta: en Docker/Railway el import ocurre antes de que
 # Streamlit abra el puerto; un OSError aquí tumba el healthcheck /_stcore/health.
@@ -80,6 +74,7 @@ INFLACION_MENSUAL_ARG = 0.04    # Inflación mensual Argentina (configurable)
 # Útil para demos a prospects en cualquier máquina en menos de 1 minuto.
 DEMO_MODE = os.environ.get("DEMO_MODE", "false").strip().lower() in ("true", "1", "yes")
 import tempfile as _tempfile
+
 DEMO_DB_PATH = os.environ.get(
     "DEMO_DB_PATH",
     str(Path(_tempfile.gettempdir()) / "mq26_demo.db")
@@ -825,7 +820,30 @@ OBLIGACIONES_NEGOCIABLES = {
 
 # ─── SECTORES (para clasificación) ────────────────────────────────────────────
 # Fuente: ratios cedears.txt columna "Area" (2026-05)
-SECTORES = {
+# Datos en data/sectores.csv — editable sin deploy, sin riesgo de F601 duplicate-key.
+# El dict in-line abajo es FALLBACK si el CSV no está disponible (entornos minimal).
+def _load_sectores() -> dict:
+    """Carga sectores desde data/sectores.csv con fallback a SECTORES_FALLBACK."""
+    import csv
+    from pathlib import Path
+    csv_path = Path(__file__).resolve().parent / "data" / "sectores.csv"
+    if not csv_path.exists():
+        return SECTORES_FALLBACK
+    out: dict[str, str] = {}
+    try:
+        with csv_path.open(encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                t = (row.get("ticker") or "").strip().upper()
+                s = (row.get("sector") or "").strip()
+                if t and s:
+                    out[t] = s
+    except Exception:
+        return SECTORES_FALLBACK
+    return out or SECTORES_FALLBACK
+
+
+SECTORES_FALLBACK = {
     # Tecnología
     "AAPL":"Tecnología","MSFT":"Tecnología","GOOGL":"Tecnología","NVDA":"Tecnología",
     "AMD":"Tecnología","ADBE":"Tecnología","ACN":"Tecnología","ADS":"Tecnología",
@@ -836,7 +854,7 @@ SECTORES = {
     "ORCL":"Tecnología","PLTR":"Tecnología","QCOM":"Tecnología",
     "SAP":"Tecnología","SMSN":"Tecnología","SNOW":"Tecnología","SWKS":"Tecnología",
     "TXN":"Tecnología","TWLO":"Tecnología","XROX":"Tecnología","ZM":"Tecnología",
-    "NEC1":"Tecnología","SONY":"Tecnología","TSM":"Tecnología","SIEGY":"Tecnología",
+    "NEC1":"Tecnología","TSM":"Tecnología","SIEGY":"Tecnología",
     "SDA":"Tecnología","PBI":"Tecnología","ADI":"Tecnología","ADP":"Tecnología",
     "MU":"Tecnología","MSTR":"Tecnología","PANW":"Tecnología","RBLX":"Tecnología",
     "SATL":"Tecnología","KEEL":"Tecnología","HUT":"Tecnología","HHPD":"Tecnología",
@@ -911,7 +929,7 @@ SECTORES = {
     "SNP":"Energía","PTR":"Energía","HNPIY":"Energía",
     # Industria
     "BA":"Industria","CAT":"Industria","CX":"Industria",
-    "DE":"Industria","DESP":"Industria","ERJ":"Industria",
+    "DE":"Industria","ERJ":"Industria",
     "FDX":"Industria","GE":"Industria","HON":"Industria",
     "HWM":"Industria","JCI":"Industria","LMT":"Defensa",
     "MMM":"Industria","PAC":"Industria","RTX":"Industria","SNA":"Industria",
@@ -934,11 +952,9 @@ SECTORES = {
     "XLV":"ETF","XLI":"ETF","XLB":"ETF","XLRE":"ETF","XLK":"ETF","XLU":"ETF",
     "URA":"ETF","SMH":"ETF","SPXL":"ETF","CIBR":"ETF","TQQQ":"ETF",
     "VXX":"ETF","ITA":"ETF","ICLN":"ETF","EWY":"ETF","XME":"ETF","RSP":"ETF",
-    # Acciones brasileñas B3
+    # Acciones brasileñas B3 (BBAS3, PRIO3, RENT3, MGLU3, LREN3, HAPV3 ya están más arriba)
     "VALE3":"Materiales","PETR3":"Energía","BBDC3":"Financiero",
-    "BBAS3":"Financiero","PRIO3":"Energía","RENT3":"Consumo Ciclico",
-    "MGLU3":"Consumo Ciclico","ITUB3":"Financiero","LREN3":"Consumo Ciclico",
-    "HAPV3":"Salud","SUZB3":"Materiales","ABEV3":"Consumo Def.",
+    "ITUB3":"Financiero","SUZB3":"Materiales","ABEV3":"Consumo Def.",
     "CSNA3":"Materiales","BPA11":"Financiero","NATU3":"Consumo Def.",
     "WEGE3":"Industria","SBSP3":"Consumo Def.","VIVT3":"Comunicaciones",
     "TIMS3":"Comunicaciones",
@@ -955,6 +971,8 @@ SECTORES = {
     "ALUA":"Materiales","BYMA":"Financiero","CRES":"Consumo Def.",
     "MIRG":"Industria","BOLT":"Industria","COME":"Industria",
 }
+
+SECTORES = _load_sectores()
 
 # ─── UNIVERSOS CANÓNICOS PARA SCORING Y ANÁLISIS FUNDAMENTAL ─────────────────
 #
@@ -1747,6 +1765,7 @@ CAUCIONES_BYMA = {
 # Rutas para archivos de cache generados por scripts nocturnos.
 # Usar pathlib para independencia de OS.
 import pathlib as _pathlib
+
 _BASE_DIR = _pathlib.Path(__file__).parent
 
 # Cache JSON de fundamentales (actualizado por scripts/cron_update_fundamentales.py)

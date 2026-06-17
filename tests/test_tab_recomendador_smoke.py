@@ -39,10 +39,10 @@ def mock_st_y_plotly_tab():
     sys.modules["plotly"] = mock_plotly_pkg
     sys.modules["plotly.express"] = mock_px
 
-    sys.modules.pop("services.tab_recomendador", None)
+    sys.modules.pop("ui.tab_recomendador", None)
     yield mock_st
 
-    sys.modules.pop("services.tab_recomendador", None)
+    sys.modules.pop("ui.tab_recomendador", None)
     if prev_st is not None:
         sys.modules["streamlit"] = prev_st
     else:
@@ -60,27 +60,27 @@ def mock_st_y_plotly_tab():
 class TestTabRecomendadorImporta:
     def test_modulo_importa_sin_error(self):
         try:
-            import services.tab_recomendador as tr
+            import ui.tab_recomendador as tr
             assert tr is not None
         except Exception as e:
             pytest.fail(f"tab_recomendador no importó: {e}")
 
     def test_render_tab_recomendador_es_callable(self):
-        import services.tab_recomendador as tr
+        import ui.tab_recomendador as tr
 
         assert callable(tr.render_tab_recomendador)
 
     def test_scan_cacheado_existe(self):
-        import services.tab_recomendador as tr
+        import ui.tab_recomendador as tr
 
         assert hasattr(tr, "_scan_cacheado")
 
     def test_enviar_reporte_email_existe(self):
-        import services.tab_recomendador as tr
+        import ui.tab_recomendador as tr
 
         assert hasattr(tr, "_enviar_reporte_email")
 
     def test_render_email_widget_existe(self):
-        import services.tab_recomendador as tr
+        import ui.tab_recomendador as tr
 
         assert hasattr(tr, "_render_email_widget")

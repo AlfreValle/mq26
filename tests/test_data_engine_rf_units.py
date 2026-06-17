@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DE_PATH = ROOT / "1_Scripts_Motor" / "data_engine.py"
 

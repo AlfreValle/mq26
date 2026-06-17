@@ -31,7 +31,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import time as _time_mod
 
-from config import RATIOS_CEDEAR
 from core.logging_config import get_logger
 from core.pricing_utils import obtener_ratio, subyacente_usd_desde_cedear
 
@@ -178,10 +177,10 @@ def resolver_precios(
 
     byma_px: dict[str, float] = {}
     try:
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
         from services.byma_provider import fetch_precios_ars_batch
 
-        if BYMA_FIRST and tickers:
+        if byma_first_activo() and tickers:
             byma_px = fetch_precios_ars_batch([str(x) for x in tickers if x])
     except Exception:
         byma_px = {}
@@ -202,7 +201,7 @@ def resolver_precios(
 
     # ONs/bonos: último recurso desde paridad_ref en renta_fija_ar (no pisa live/fallback)
     try:
-        from core.renta_fija_ar import get_meta
+        from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
 
         ccl_f = float(ccl or 0.0)
         for t in tickers:
@@ -211,15 +210,7 @@ def resolver_precios(
                 continue
             if float(resultado.get(t, 0) or resultado.get(tu, 0) or 0) > 0:
                 continue
-            meta = get_meta(tu)
-            if meta is None:
-                continue
-            paridad = float(meta.get("paridad_ref", 100.0))
-            moneda = str(meta.get("moneda", "USD")).upper()
-            if moneda == "USD":
-                precio_ars = (paridad / 100.0) * ccl_f if ccl_f > 0 else 0.0
-            else:
-                precio_ars = paridad
+            precio_ars = precio_referencia_ars_desde_catalogo(tu, ccl_f)
             if precio_ars > 0:
                 resultado[t] = precio_ars
                 if t != tu:
@@ -248,10 +239,10 @@ def resolver_precios_con_origen(
     resultado: dict[str, tuple[float, str]] = {}
     byma_px: dict[str, float] = {}
     try:
-        from core.data_providers import BYMA_FIRST
+        from core.data_providers import byma_first_activo
         from services.byma_provider import fetch_precios_ars_batch
 
-        if BYMA_FIRST and tickers:
+        if byma_first_activo() and tickers:
             byma_px = fetch_precios_ars_batch([str(x) for x in tickers if x])
     except Exception:
         byma_px = {}
@@ -271,17 +262,12 @@ def resolver_precios_con_origen(
             resultado[tu] = (fallback, "fallback_bd")
             continue
         try:
-            from core.renta_fija_ar import get_meta
+            from core.renta_fija_ar import precio_referencia_ars_desde_catalogo
 
-            ccl_f = float(ccl or 0.0)
-            meta = get_meta(tu)
-            if meta:
-                paridad = float(meta.get("paridad_ref", 100.0))
-                moneda = str(meta.get("moneda", "USD")).upper()
-                precio = (paridad / 100.0) * ccl_f if moneda == "USD" else paridad
-                if precio > 0:
-                    resultado[tu] = (precio, "paridad_rf")
-                    continue
+            precio = precio_referencia_ars_desde_catalogo(tu, float(ccl or 0.0))
+            if precio > 0:
+                resultado[tu] = (precio, "paridad_rf")
+                continue
         except Exception:
             pass
         resultado[tu] = (0.0, "sin_dato")
@@ -444,19 +430,35 @@ def calcular_posicion_neta(
         _rf_usd_par = np.array(
             [
                 _ppc_usd_es_paridad_rf_usd(str(t), str(tp))
-                for t, tp in zip(df["TICKER"].astype(str), _tipos)
+                for t, tp in zip(df["TICKER"].astype(str), _tipos, strict=True)
             ],
             dtype=bool,
         )
+        # A13: si hay fecha de compra por fila, el costo en ARS usa el CCL de
+        # esa fecha (core.fx) — cumple el contrato del docstring («costo
+        # histórico real, no CCL actual»). Sin fecha: CCL spot, como siempre.
+        _fecha_col = next(
+            (c for c in ("FECHA_PRIMERA_COMPRA", "FECHA_COMPRA") if c in df.columns),
+            None,
+        )
+        if _fecha_col is not None and ccl > 0:
+            from core.fx import ccl_para_fecha
+
+            _ccl_fila = pd.to_numeric(
+                df[_fecha_col].map(lambda f: ccl_para_fecha(f, spot=ccl).valor),
+                errors="coerce",
+            ).fillna(float(ccl))
+        else:
+            _ccl_fila = pd.Series([float(ccl)] * len(df), index=df.index)
         _ppc_loc = np.where(
             _rf_usd_par & (ccl > 0),
-            df["PPC_USD_PROM"] / 100.0 * ccl,
+            df["PPC_USD_PROM"] / 100.0 * _ccl_fila,
             df["PPC_USD_PROM"],
         )
         df["PPC_ARS"] = np.where(
             df["ES_LOCAL"],
             _ppc_loc,
-            df["PPC_USD_PROM"] * ccl,
+            df["PPC_USD_PROM"] * _ccl_fila,
         )
         df["INV_ARS"] = df["CANTIDAD_TOTAL"] * df["PPC_ARS"]
 
@@ -466,7 +468,7 @@ def calcular_posicion_neta(
     _rf_usd_par = np.array(
         [
             _ppc_usd_es_paridad_rf_usd(str(t), str(tp))
-            for t, tp in zip(df["TICKER"].astype(str), _tipos)
+            for t, tp in zip(df["TICKER"].astype(str), _tipos, strict=True)
         ],
         dtype=bool,
     )
@@ -601,7 +603,7 @@ def calcular_twrr(
 
     try:
 
-        from config import RATIOS_CEDEAR as _RATIOS
+        from core.instrument_master import get_master as _get_master
 
         # Identificar fechas de flujos (compras y ventas)
         trans = transacciones.copy()
@@ -642,7 +644,7 @@ def calcular_twrr(
                     cant = t_trans["CANTIDAD"].sum()
                     ppc  = (t_trans["CANTIDAD"] * t_trans["PPC_USD"]).sum() / max(cant, 1)
                     if cant > 0:
-                        ratio = float(_RATIOS.get(t, 1.0))
+                        ratio = _get_master().ratio(t)
                         posiciones[t] = {"cant": cant, "ppc": ppc, "ratio": ratio}
 
             if not posiciones:

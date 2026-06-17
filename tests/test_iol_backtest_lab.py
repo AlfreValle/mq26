@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 
 from services.iol_api.backtest_lab import (
+    _positions_ma_cross,
     build_named_strategies,
     compare_strategies,
     fit_regime_router_walk_forward,
     simulate_positions,
     walk_forward_oos_grid,
-    _positions_ma_cross,
 )
 
 

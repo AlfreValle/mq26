@@ -1,16 +1,28 @@
 # Instalación: pip install -e ".[dev]" && pre-commit install
-# Alineado a pyproject.toml ([tool.ruff], [tool.black])
+# Ejecutar en todo el repo: pre-commit run --all-files
+# Alineado a pyproject.toml ([tool.ruff]).
+# NOTA: black NO está como hook — el repo no está black-formateado (191 archivos
+# divergen, medido 2026-06-11) y reformatear rompería blame + trabajo en curso.
+# mixed-line-ending tampoco: repo CRLF en Windows sin .gitattributes.
 default_language_version:
   python: python3.12
 
+exclude: '^(\.claude/|0_Data_Maestra/|htmlcov/|assets/)'
+
 repos:
+  # rev alineado a la versión local/CI de ruff (0.15.x) — un rev viejo aplica
+  # reglas ya deprecadas (ej. UP038) y bloquea commits que el CI aceptaría.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.15.12
     hooks:
       - id: ruff
         args: [--fix]
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
-      - id: black
-        language_version: python3.12
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]

@@ -1,0 +1,36 @@
+# Dependabot — actualizaciones automáticas de dependencias.
+# Crea PRs semanales que CI ya valida (lint + tests + mypy-strict + smoke).
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Argentina/Buenos_Aires"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    # Agrupar parches/minor en un solo PR para reducir ruido.
+    groups:
+      python-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Las majors siempre van solas — implican posible breaking change.
+    ignore:
+      # streamlit cambia rápido y suele romper layout: revisar manual.
+      - dependency-name: "streamlit"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    open-pull-requests-limit: 3

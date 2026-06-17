@@ -5,8 +5,8 @@ y seguimiento de objetivo / stop / tiempo maximo en posicion.
 from __future__ import annotations
 
 import json
-import time
 import math
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -45,7 +45,7 @@ class PearlScannerState:
         if phase not in ("idle", "in_position", "cooldown"):
             phase = "idle"
         return cls(
-            phase=phase,  # type: ignore[arg-type]
+            phase=phase,
             market=str(raw.get("market", "argentina")),
             active_symbol=(str(raw["active_symbol"]) if raw.get("active_symbol") else None),
             entry_price=(float(raw["entry_price"]) if raw.get("entry_price") is not None else None),

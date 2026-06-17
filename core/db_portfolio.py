@@ -18,13 +18,21 @@ from typing import Any
 
 import pandas as pd
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Float, Index,
-    Integer, String, Text, UniqueConstraint,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    String,
+    Text,
 )
 
 from core.db_domains import PORTFOLIO
 
-_B = PORTFOLIO.Base
+# mypy: _B viene de SQLAlchemy declarative_base() (dinámico); Any lo hace válido como tipo base.
+_B: Any = PORTFOLIO.Base
 
 
 # ─── Modelos ──────────────────────────────────────────────────────────────────
@@ -161,7 +169,7 @@ def cargar_transaccional_df(cartera: str | None = None, tenant_id: str = "defaul
 
 def registrar_operacion(
     cartera: str,
-    fecha: "dt.date",
+    fecha: dt.date,
     ticker: str,
     cantidad: float,
     ppc_ars: float,

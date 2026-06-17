@@ -184,19 +184,27 @@ def render_tab_universo(ctx: dict) -> None:
     _is_inversor    = str(ctx.get("user_role", "admin")).lower() == "inversor"
 
     if _is_inversor:
-        sub_mod23, sub_byma = st.tabs([
+        sub_mod23, sub_ficha, sub_byma = st.tabs([
             "🔍 Señales de compra",
+            "📑 Ficha de ticker",
             "📋 Mercado BYMA",
         ])
         sub_velas = None
         sub_fci   = None
     else:
-        sub_mod23, sub_velas, sub_byma, sub_fci = st.tabs([
+        sub_mod23, sub_ficha, sub_velas, sub_byma, sub_fci = st.tabs([
             "🔍 Señales de compra",
+            "📑 Ficha de ticker",
             "🕯️ Análisis técnico",
             "📋 Mercado BYMA",
             "🏦 Fondos comunes (FCIs)",
         ])
+
+    # ── SUB-TAB: Ficha de ticker (Pilar 2 — análisis integral explicado) ───────
+    with sub_ficha:
+        from ui.components.ficha_ticker_view import render_buscador_ficha
+
+        render_buscador_ficha(ctx, key_prefix="univ_ficha")
 
     # ── SUB-TAB: MOD-23 ─────────────────────────────────────────────────────────
     with sub_mod23:
@@ -508,7 +516,7 @@ def render_tab_universo(ctx: dict) -> None:
                                 close, bb_lower, bb_upper, sk, datos)
 
                         if entradas_xy:
-                            x_e, y_e = zip(*entradas_xy)
+                            x_e, y_e = zip(*entradas_xy, strict=True)
                             fig_v.add_trace(go.Scatter(
                                 x=list(x_e), y=[y * 0.985 for y in y_e],
                                 mode="markers", name="ENTRADA",
@@ -517,7 +525,7 @@ def render_tab_universo(ctx: dict) -> None:
                             ), row=1, col=1)
 
                         if salidas_xy:
-                            x_s, y_s = zip(*salidas_xy)
+                            x_s, y_s = zip(*salidas_xy, strict=True)
                             fig_v.add_trace(go.Scatter(
                                 x=list(x_s), y=[y * 1.015 for y in y_s],
                                 mode="markers", name="SALIDA",
@@ -527,7 +535,7 @@ def render_tab_universo(ctx: dict) -> None:
 
                         if mostrar_vol and "Volume" in datos.columns and row_vol:
                             colores_vol = ["#27AE60" if c >= o else "#E74C3C"
-                                           for c, o in zip(close, datos["Open"])]
+                                           for c, o in zip(close, datos["Open"], strict=True)]
                             fig_v.add_trace(go.Bar(
                                 x=datos.index, y=datos["Volume"],
                                 name="Volumen", marker_color=colores_vol, opacity=0.6,

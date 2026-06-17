@@ -18,7 +18,7 @@ import plotly.express as px
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from config import RATIOS_CEDEAR
+from core.instrument_master import get_master
 
 # Brokers soportados con su parseo nativo
 BROKERS_SOPORTADOS = {
@@ -72,7 +72,7 @@ def consolidar_multicuenta(
         else:
             ppc_pond = 0.0
 
-        ratio = float(RATIOS_CEDEAR.get(ticker, 1.0))
+        ratio = get_master().ratio(ticker)
 
         filas.append({
             "Ticker":     ticker,
@@ -111,7 +111,7 @@ def consolidar_multicuenta(
             "Brokers":         brokers_activos,
             "N_Brokers":       len(g),
             "Desglose":        desglose,
-            "Ratio":           float(RATIOS_CEDEAR.get(ticker, 1.0)),
+            "Ratio":           get_master().ratio(ticker),
         })
 
     return pd.DataFrame(filas_cons).sort_values("INV_USD_Total", ascending=False).reset_index(drop=True)

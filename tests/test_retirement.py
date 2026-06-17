@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+
 from core.retirement_goal import (
     _daily_to_monthly,
     calcular_aporte_necesario,

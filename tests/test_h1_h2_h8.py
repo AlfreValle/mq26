@@ -19,16 +19,13 @@ H8 — Healthcheck smoke:
 """
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 # ─── H1: _RENTA_AR redistribución ────────────────────────────────────────────
-
 from core.diagnostico_types import (
-    CARTERA_IDEAL,
     RENTA_AR_PENDIENTE_MSG,
 )
 from services.recomendacion_capital import _renta_ar_peso_actual, recomendar
@@ -337,7 +334,7 @@ class TestHealthcheckSmoke:
         assert "capital_disponible" in fields
 
     def test_navigation_modulo_importa(self):
-        from ui.navigation import MainTabSpec, get_main_tabs, render_main_tabs
+        from ui.navigation import get_main_tabs, render_main_tabs
         assert callable(get_main_tabs)
         assert callable(render_main_tabs)
 

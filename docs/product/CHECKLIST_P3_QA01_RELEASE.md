@@ -8,25 +8,23 @@ Objetivo: **misma barra que CI** + cobertura opcional alineada al repo + revisi�
 
 ## 1. Tests automatizados (obligatorio antes de tag)
 
-Paridad exacta con GitHub Actions (`pytest tests/ -q --tb=short --no-cov -m "not integration"`):
+Paridad exacta con GitHub Actions (`pytest tests/ -q --tb=short --no-cov`):
 
 **PowerShell (Windows)**
 
 ```powershell
 $env:MQ26_PASSWORD = "test_password_123"
-python -m pytest tests/ -q --tb=short --no-cov -m "not integration"
+python -m pytest tests/ -q --tb=short --no-cov
 ```
 
 **bash**
 
 ```bash
 export MQ26_PASSWORD=test_password_123
-python -m pytest tests/ -q --tb=short --no-cov -m "not integration"
+python -m pytest tests/ -q --tb=short --no-cov
 ```
 
 Criterio: **salida 0 fallos**. Si hay fallos, no se etiqueta release hasta corregirlos o documentar la excepción aprobada por el comité.
-
-> Los tests `@pytest.mark.integration` (red real: yfinance, BYMA) quedan **fuera del gate determinista** (ver `pyproject.toml` § markers y §8 de [`PENDIENTES`](./PENDIENTES_COMITE_EXPERTOS_CARTERAS_AR.md)). Correrlos aparte cuando haya conectividad: `pytest tests/ -m integration`.
 
 ---
 

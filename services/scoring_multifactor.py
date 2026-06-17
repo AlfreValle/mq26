@@ -17,8 +17,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-import statistics
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -321,7 +320,7 @@ def _detectar_flags_alerta(snap, score_v, score_c, score_m, score_s) -> list[str
     SEGURO contra escala: usa pct_seguro/fraccion_segura para auto-detectar
     si el dato viene en fracción (yfinance: 0.2642) o porcentaje (curado: 26.42).
     """
-    from services.fundamental_cache import pct_seguro, fraccion_segura
+    from services.fundamental_cache import fraccion_segura, pct_seguro
 
     flags = []
 
@@ -443,7 +442,7 @@ def calcular_action_score(ticker: str, *, force_refresh: bool = False) -> Action
 
     return ActionScore(
         ticker=ticker,
-        timestamp=dt.datetime.now(dt.timezone.utc).isoformat(),
+        timestamp=dt.datetime.now(dt.UTC).isoformat(),
         score_total=score_total,
         score_valor=sc_v,
         score_calidad=sc_c,

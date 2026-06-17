@@ -42,7 +42,7 @@ def _columns_base() -> list[str]:
     ]
 
 
-def _to_date_safe(series: "pd.Series") -> "pd.Series":
+def _to_date_safe(series: pd.Series) -> pd.Series:
     """
     Convierte una Series a datetime.date manejando NaT de forma segura.
 

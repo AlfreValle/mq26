@@ -27,625 +27,29 @@ import pandas as pd
 
 from core.diagnostico_types import UNIVERSO_RENTA_FIJA_AR
 
-# Base nominal (USD) respecto a la cual se interpreta la paridad % en ON dólar cable.
-# Coincide con la cotización típica "por cada 100 nominales" en ARS.
-ON_USD_PARIDAD_BASE_VN = 100.0
+# Catálogo (datos) extraído a su propio módulo — re-export para compatibilidad.
+from core.renta_fija_catalogo import (  # noqa: F401
+    INSTRUMENTOS_RF,
+    ON_USD_PARIDAD_BASE_VN,
+    TIPOS_RF,
+)
 
-# BONCER/BOPREAL/DUAL/USD_LINKED: familias panel BYMA (ver core/rf_panel_taxonomy.py).
-TIPOS_RF = frozenset({
-    "ON", "ON_USD", "BONO", "BONO_USD", "LETRA", "LECAP", "LEDE",
-    "BONCER", "BOPREAL", "DUAL", "USD_LINKED", "CAUCION",
-})
-
-INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # OBLIGACIONES NEGOCIABLES en USD (ON_USD) — Hard Dollar / Cable
-    # Convención: paridad_ref = % de VN USD; precio ARS/100VN ≈ paridad × CCL
-    # CCL referencia: AR$ 1.429 (implícito precio DNC7O, 2026-05-27)
-    # DV01 = modified_duration × paridad_ref / 10000  (USD por bp por 100 VN)
-    # ══════════════════════════════════════════════════════════════════════════
-
-    "PN43O": {
-        "emisor":      "Pan American Energy",
-        "descripcion": "PAE ON Clase 3 7.375% 2037",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2037-12-01",
-        "cupon_anual":  0.07375,         # 7.375% (cupón fijo, Ley Argentina)
-        "frecuencia":   2,
-        "calificacion": "AA+", "ley": "Argentina",
-        "tir_ref":      6.8,             # compresión spread vs. 7.3% de mar-26
-        "paridad_ref":  103.0,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    147_187.0,  # 103.0 × 1429 por 100 VN
-        "modified_duration": 8.20,
-        "dv01_por_100vn":    0.0847,
-    },
-    "YM34O": {
-        "emisor":      "YPF S.A.",
-        "descripcion": "YPF ON 8.5% 2034",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2034-07-01",
-        "cupon_anual":  0.085,           # 8.5% — cupón verificado prospecto
-        "frecuencia":   2,
-        "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  105.5,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    150_760.0,  # 105.5 × 1429 por 100 VN
-        "modified_duration": 6.00,
-        "dv01_por_100vn":    0.0633,
-    },
-    "TLCTO": {
-        "emisor":      "Telecom Argentina",
-        "descripcion": "Telecom ON 8.5% VT 20/01/36",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2036-01-20",
-        "cupon_anual":  0.085,           # 8.5% nominal anual
-        "frecuencia":   2,
-        "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      7.5,
-        "paridad_ref":  102.5,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1, "callable": True,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    146_473.0,  # 102.5 × 1429 por 100 VN
-        "modified_duration": 7.00,
-        "dv01_por_100vn":    0.0718,
-    },
-    "TSC4O": {
-        "emisor":      "TGS (Transportadora Gas del Sur)",
-        "descripcion": "TGS ON 6.6% 2035",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2035-05-14",
-        "cupon_anual":  0.066,           # 6.6% — por debajo del mercado, cotiza bajo par
-        "frecuencia":   2,
-        "calificacion": "AA+", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  97.8,            # descuento por cupón < TIR de mercado
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   10_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    139_756.0,  # 97.8 × 1429 por 100 VN
-        "modified_duration": 6.80,
-        "dv01_por_100vn":    0.0665,
-    },
-    "IRCPO": {
-        "emisor":      "IRSA Inversiones y Representaciones",
-        "descripcion": "IRSA ON 8.75% 2035",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2035-02-08",
-        "cupon_anual":  0.0875,          # 8.75% — verificado, no 8.5%
-        "frecuencia":   2,
-        "calificacion": "AA-", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  106.5,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    152_189.0,  # 106.5 × 1429 por 100 VN
-        "modified_duration": 6.50,
-        "dv01_por_100vn":    0.0692,
-    },
-    "DNC7O": {
-        "emisor":      "Edenor (Distribuidora Norte)",
-        "descripcion": "Edenor ON Clase 7 9.75% 2030",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2030-10-25",
-        "cupon_anual":  0.0975,          # 9.75% nominal anual — confirmado por usuario
-        "frecuencia":   2,               # semestral: abril y octubre
-        "calificacion": "A+", "ley": "Nueva York",
-        "tir_ref":      7.73,            # TIR informada por usuario 2026-05-27
-        "paridad_ref":  107.56,          # AR$ 153.650 / (1429 × 100/100) = 107.52 ≈ 107.56
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   100, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    153_650.0,  # precio de mercado informado por usuario
-        "modified_duration": 3.64,
-        "dv01_por_100vn":    0.0391,
-    },
-    "YMCXO": {
-        "emisor":      "YPF S.A.",
-        "descripcion": "YPF ON 9.0% 2031 (Serie YMCX)",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2031-06-16",
-        "cupon_anual":  0.090,           # 9.0% nominal anual
-        "frecuencia":   2,
-        "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      8.0,
-        "paridad_ref":  103.0,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    147_187.0,  # 103.0 × 1429 por 100 VN
-        "modified_duration": 4.00,
-        "dv01_por_100vn":    0.0412,
-    },
-    "RUCDO": {
-        "emisor":      "Raghsa S.A.",
-        "descripcion": "Raghsa ON 8.5% 2026 (Serie D)",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2026-11-30",
-        "cupon_anual":  0.085,
-        "frecuencia":   2,
-        "calificacion": "A", "ley": "Argentina",
-        "tir_ref":      6.5,             # muy corto plazo — spread reducido
-        "paridad_ref":  101.2,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    144_615.0,  # 101.2 × 1429 por 100 VN
-        "modified_duration": 0.47,
-        "dv01_por_100vn":    0.0048,
-    },
-    "MGCEO": {
-        "emisor":      "MercadoLibre Inc.",
-        "descripcion": "MercadoLibre ON 6.375% 2030 (Serie E)",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2030-01-14",
-        "cupon_anual":  0.06375,         # 6.375% exacto (era 0.0638)
-        "frecuencia":   2,
-        "calificacion": "BBB+", "ley": "Nueva York",
-        "tir_ref":      5.8,             # MELI investment grade, spread ajustado
-        "paridad_ref":  102.8,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    146_901.0,  # 102.8 × 1429 por 100 VN
-        "modified_duration": 3.20,
-        "dv01_por_100vn":    0.0329,
-    },
-    "MRCAO": {
-        "emisor":      "Mastellone Hermanos S.A.",
-        "descripcion": "Mastellone ON 7.5% 2026 (Serie A)",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2026-07-01",
-        "cupon_anual":  0.075,
-        "frecuencia":   2,
-        "calificacion": "A-", "ley": "Argentina",
-        "tir_ref":      5.8,             # ~35 días restantes → spread mínimo
-        "paridad_ref":  100.8,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,                  # vence en ~35 días (jul-26), aún activo
-        "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    144_043.0,  # 100.8 × 1429 por 100 VN
-        "modified_duration": 0.12,
-        "dv01_por_100vn":    0.0012,
-    },
-    "YCA6O": {
-        "emisor":      "YPF S.A.",
-        "descripcion": "YPF ON 8.5% 2026 (corta)",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2026-07-01",
-        "cupon_anual":  0.085,
-        "frecuencia":   2,
-        "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      5.8,             # ~35 días restantes → precio cercano a par+accrued
-        "paridad_ref":  101.0,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,                  # vence en ~35 días (jul-26), aún activo
-        "lamina_min":   1, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    144_329.0,  # 101.0 × 1429 por 100 VN
-        "modified_duration": 0.12,
-        "dv01_por_100vn":    0.0012,
-    },
-    "CSO2O": {
-        "emisor":      "Cresud S.A.",
-        "descripcion": "Cresud ON 9.0% 2026",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2026-02-08",
-        "cupon_anual":  0.090,
-        "frecuencia":   2,
-        "calificacion": "A+", "ley": "Argentina",
-        "tir_ref":      6.5,             # último valor conocido (ref pre-vencimiento)
-        "paridad_ref":  100.0,           # al par en el período final
-        "fecha_ref":    "2026-02-08",    # fecha de vencimiento = última fecha de referencia
-        "activo": False,                 # venció 2026-02-08 → inactiva
-        "lamina_min":   1_000, "callable": False,
-    },
-    "MGCHO": {
-        "emisor":      "MercadoLibre Inc.",
-        "descripcion": "MercadoLibre ON 6.25% 2028",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2028-01-14",
-        "cupon_anual":  0.0625,          # 6.25% nominal anual
-        "frecuencia":   2,
-        "calificacion": "BBB+", "ley": "Nueva York",
-        "tir_ref":      5.6,
-        "paridad_ref":  101.8,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    145_471.0,  # 101.8 × 1429 por 100 VN
-        "modified_duration": 1.90,
-        "dv01_por_100vn":    0.0193,
-    },
-    "RCCJO": {
-        "emisor":      "Pampa Energía S.A.",
-        "descripcion": "Pampa Energía ON 7.5% 2027",
-        "tipo": "ON_USD", "moneda": "USD",
-        "vencimiento": "2027-07-21",
-        "cupon_anual":  0.075,
-        "frecuencia":   2,
-        "calificacion": "AA-", "ley": "Nueva York",
-        "tir_ref":      6.5,
-        "paridad_ref":  102.5,
-        "fecha_ref":    "2026-05-27",
-        "activo": True,
-        "lamina_min":   1, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    146_473.0,  # 102.5 × 1429 por 100 VN
-        "modified_duration": 1.00,
-        "dv01_por_100vn":    0.0103,
-    },
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # BONOS SOBERANOS USD — Ley Argentina (AL) y Ley Nueva York (GD)
-    # Cupón step-up (ver prospecto reestructuración 2020); cupon_anual = 0.0
-    # en el motor de cashflow ilustrativo (flujos reales en calendario oficial).
-    # TIR y paridad actualizados al 2026-05-27; MD = Duration Modificada aprox.
-    # ══════════════════════════════════════════════════════════════════════════
-
-    "GD29": {
-        "emisor": "República Argentina", "descripcion": "Global 2029",
-        "tipo": "BONO_USD", "moneda": "USD",
-        "vencimiento": "2029-07-09",
-        "cupon_anual": 0.0, "frecuencia": 2,   # step-up; ver prospecto 2020
-        "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.0,   "paridad_ref":  71.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 2.60,
-    },
-    "AL29": {
-        "emisor": "República Argentina", "descripcion": "Bonar 2029",
-        "tipo": "BONO_USD", "moneda": "USD",
-        "vencimiento": "2029-07-09",
-        "cupon_anual": 0.0, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.3,   "paridad_ref":  69.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 2.60,
-    },
-    "GD30": {
-        "emisor": "República Argentina", "descripcion": "Global 2030",
-        "tipo": "BONO_USD", "moneda": "USD",
-        "vencimiento": "2030-07-09",
-        "cupon_anual": 0.0, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.2,   "paridad_ref":  69.5,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 3.10,
-    },
-    "AL30": {
-        "emisor": "República Argentina", "descripcion": "Bonar 2030",
-        "tipo": "BONO_USD", "moneda": "USD",
-        "vencimiento": "2030-07-09",
-        "cupon_anual": 0.0, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.6,   "paridad_ref":  67.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 3.00,
-    },
-    "GD35": {
-        "emisor": "República Argentina", "descripcion": "Global 2035",
-        "tipo": "BONO_USD", "moneda": "USD",
-        "vencimiento": "2035-07-09",
-        "cupon_anual": 0.0, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.5,   "paridad_ref":  78.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 5.00,
-    },
-    "AL35": {
-        "emisor": "República Argentina", "descripcion": "Bonar 2035",
-        "tipo": "BONO_USD", "moneda": "USD",
-        "vencimiento": "2035-07-09",
-        "cupon_anual": 0.0, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.8,   "paridad_ref":  76.5,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 4.90,
-    },
-    "AE38": {
-        "emisor": "República Argentina", "descripcion": "Bonar 2038",
-        "tipo": "BONO_USD", "moneda": "USD",
-        "vencimiento": "2038-01-09",
-        "cupon_anual": 0.0, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   9.2,   "paridad_ref":  82.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 5.80,
-    },
-    "GD41": {
-        "emisor": "República Argentina", "descripcion": "Global 2041",
-        "tipo": "BONO_USD", "moneda": "USD",
-        "vencimiento": "2041-07-09",
-        "cupon_anual": 0.0, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.8,   "paridad_ref":  74.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 7.20,
-    },
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # BOPREAL — Bono para la Reconstrucción de una Argentina Libre (BCRA)
-    # ══════════════════════════════════════════════════════════════════════════
-
-    "BPA27": {
-        "emisor": "BCRA",
-        "descripcion": "BOPREAL Serie 1-A 2027",
-        "tipo": "BOPREAL", "moneda": "USD",
-        "vencimiento": "2027-01-31",
-        "cupon_anual": 0.05, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   6.5,   "paridad_ref":  98.2,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "lamina_min": 1,
-        "forma_amortizacion": "Bullet al vencimiento",
-        "modified_duration": 0.65,
-    },
-    "BPJ27": {
-        "emisor": "BCRA",
-        "descripcion": "BOPREAL Serie 3 2027",
-        "tipo": "BOPREAL", "moneda": "USD",
-        "vencimiento": "2027-05-31",
-        "cupon_anual": 0.03, "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   7.5,   "paridad_ref":  95.5,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "lamina_min": 1,
-        "forma_amortizacion": "Bullet al vencimiento",
-        "modified_duration": 0.95,
-    },
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # BONCER — Bonos ajustables por CER (inflación AR)
-    # cupon_anual = spread_real sobre CER; tir_ref = TIR real anual en %
-    # duration_real = años (nominal sobre flujos reales)
-    # ══════════════════════════════════════════════════════════════════════════
-
-    "TX26": {
-        "emisor": "Tesoro Nacional",
-        "descripcion": "Boncer Jun 2026 (TX26)",
-        "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2026-06-30",
-        "cupon_anual": 0.0,              # CER + 0% puro
-        "frecuencia": 2,
-        "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.0,   "paridad_ref": 99.8,  # vence en ~34 días; precio ≈ VN
-        "fecha_ref":  "2026-05-27", "activo": True,
-        "lamina_min":    1,
-        "spread_real":   0.0,
-        "duration_real": 0.09,          # ~33 días = 0.09 años
-    },
-    "TX28": {
-        "emisor": "Tesoro Nacional",
-        "descripcion": "Boncer Nov 2028 (TX28)",
-        "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2028-11-30",
-        "cupon_anual": 0.0025,           # CER + 0.25%
-        "frecuencia": 2,
-        "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.3,   "paridad_ref": 98.5,
-        "fecha_ref":  "2026-05-27", "activo": True,
-        "lamina_min":    1,
-        "spread_real":   0.0025,
-        "duration_real": 2.40,
-    },
-    "TZXD7": {
-        "emisor": "Tesoro Nacional",
-        "descripcion": "Boncer Dic 2027 (TZXD7)",
-        "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2027-12-31",
-        "cupon_anual": 0.005,            # CER + 0.5%
-        "frecuencia": 2,
-        "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.6,   "paridad_ref": 97.8,
-        "fecha_ref":  "2026-05-27", "activo": True,
-        "lamina_min":    1,
-        "spread_real":   0.005,
-        "duration_real": 1.55,
-    },
-    "DICP": {
-        "emisor": "República Argentina",
-        "descripcion": "Discount Peso CER 2033 (DICP)",
-        "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2033-12-31",
-        "cupon_anual": 0.08,             # CER + 8% real (bono legacy reestructuración)
-        "frecuencia": 2,
-        "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":    8.5,   "paridad_ref": 96.5,
-        "fecha_ref":  "2026-05-27", "activo": True,
-        "lamina_min":    1,
-        "spread_real":   0.08,
-        "duration_real": 3.80,
-        "forma_amortizacion": "Amortización trimestral sobre VN ajustado por CER",
-    },
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # LECAP / LEDE — Letras del Tesoro Nacional en ARS
-    # S17A6, S30A6, S15Y6: VENCIDAS (activo: False) — ref histórica
-    # S30J6, S29L6: vigentes al 2026-05-27
-    # tir_ref = TNA % (tasa nominal anual de descuento)
-    # ══════════════════════════════════════════════════════════════════════════
-
-    "S17A6": {
-        "emisor": "Ministerio de Economía AR", "descripcion": "LEDE 17/04/2026",
-        "tipo": "LETRA", "moneda": "ARS",
-        "vencimiento": "2026-04-17",
-        "cupon_anual": 0.0, "frecuencia": 0,
-        "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref": 24.59, "paridad_ref": 97.8,
-        "fecha_ref": "2026-04-01",
-        "activo": False,                 # VENCIDA — 17/04/2026
-    },
-    "S30A6": {
-        "emisor": "Ministerio de Economía AR", "descripcion": "LEDE 30/04/2026",
-        "tipo": "LETRA", "moneda": "ARS",
-        "vencimiento": "2026-04-30",
-        "cupon_anual": 0.0, "frecuencia": 0,
-        "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref": 25.3, "paridad_ref": 97.2,
-        "fecha_ref": "2026-04-01",
-        "activo": False,                 # VENCIDA — 30/04/2026
-    },
-    "S15Y6": {
-        "emisor": "Ministerio de Economía AR", "descripcion": "LEDE 15/05/2026",
-        "tipo": "LETRA", "moneda": "ARS",
-        "vencimiento": "2026-05-15",
-        "cupon_anual": 0.0, "frecuencia": 0,
-        "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref": 25.6, "paridad_ref": 95.8,
-        "fecha_ref": "2026-04-01",
-        "activo": False,                 # VENCIDA — 15/05/2026
-    },
-    "S30J6": {
-        "emisor": "Ministerio de Economía AR",
-        "descripcion": "LECAP 30/06/2026",
-        "tipo": "LETRA", "moneda": "ARS",   # LETRA es el tipo genérico; LECAP es subtipo
-        "vencimiento": "2026-06-30",
-        "cupon_anual": 0.0, "frecuencia": 0,
-        "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    29.5,              # TNA efectiva jun-26 (capitalización mensual)
-        "paridad_ref": 96.8,
-        "fecha_ref":  "2026-05-27", "activo": True,
-        "lamina_min": 1,
-        "forma_amortizacion": "Pago único al vencimiento (LECAP — capitaliza tasa mensual)",
-    },
-    "S29L6": {
-        "emisor": "Ministerio de Economía AR",
-        "descripcion": "LECAP 29/07/2026",
-        "tipo": "LETRA", "moneda": "ARS",   # LETRA es el tipo genérico; LECAP es subtipo
-        "vencimiento": "2026-07-29",
-        "cupon_anual": 0.0, "frecuencia": 0,
-        "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    29.0,              # TNA efectiva jul-26
-        "paridad_ref": 94.8,
-        "fecha_ref":  "2026-05-27", "activo": True,
-        "lamina_min": 1,
-        "forma_amortizacion": "Pago único al vencimiento (LECAP — capitaliza tasa mensual)",
-    },
-}
-
-# P2-RF-05: campos opcionales por instrumento — `isin`, `lamina_min` / `denominacion_min`, `forma_amortizacion`.
-# ISIN solo donde hay referencia pública estable; el resto queda ausente (UI muestra "—").
-# Fuentes típicas: prospecto, página emisor, BYMA / agente de custodia.
-_EXTRAS_CATALOGO_P2_RF5: dict[str, dict[str, Any]] = {
-    # ── Bonos soberanos ─────────────────────────────────────────────────────
-    "AL30": {
-        "isin": "ARARGE3209S6",
-        "lamina_min": 1,
-        "forma_amortizacion": "Step-up cupón semestral; amortización programada (ver prospecto reestructuración 2020)",
-    },
-    "GD30": {
-        "isin": "US040114HS26",
-        "lamina_min": 1,
-        "forma_amortizacion": "Step-up cupón semestral; amortización en cuotas (ver prospecto reestructuración 2020)",
-    },
-    "AE38": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Step-up cupón semestral; ver calendario oficial prospecto 2020",
-    },
-    "GD35": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Step-up cupón semestral; ver prospecto reestructuración 2020",
-    },
-    "AL35": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Step-up cupón semestral; ver prospecto reestructuración 2020",
-    },
-    "GD41": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Step-up cupón semestral; ver prospecto reestructuración 2020",
-    },
-    "GD29": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Step-up cupón semestral; amortización en cuotas (ver prospecto 2020)",
-    },
-    "AL29": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Step-up cupón semestral; ver prospecto reestructuración 2020",
-    },
-    # ── ON USD corporativas ─────────────────────────────────────────────────
-    "PN43O": {
-        "lamina_min": 1_000,
-        "forma_amortizacion": "Cupones semestrales (jun/dic); principal bullet al vencimiento",
-    },
-    "YM34O": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Cupones semestrales (ene/jul); principal bullet al vencimiento",
-    },
-    "TLCTO": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Cupones semestrales (ene/jul); principal bullet al vencimiento; callable",
-    },
-    "TSC4O": {
-        "lamina_min": 10_000,
-        "forma_amortizacion": "Cupones semestrales (may/nov); principal bullet al vencimiento",
-    },
-    "IRCPO": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Cupones semestrales (feb/ago); principal bullet al vencimiento",
-    },
-    "DNC7O": {
-        "lamina_min": 100,
-        "forma_amortizacion": "Cupones semestrales (abr/oct); principal bullet al vencimiento",
-    },
-    "YMCXO": {
-        "lamina_min": 1_000,
-        "forma_amortizacion": "Cupones semestrales (jun/dic); principal bullet al vencimiento",
-    },
-    "RUCDO": {
-        "lamina_min": 1_000,
-        "forma_amortizacion": "Cupones semestrales; principal bullet al vencimiento (nov-2026)",
-    },
-    "MGCEO": {
-        "lamina_min": 1_000,
-        "forma_amortizacion": "Cupones semestrales (ene/jul); principal bullet al vencimiento",
-    },
-    "MRCAO": {
-        "lamina_min": 1_000,
-        "forma_amortizacion": "Cupones semestrales; principal bullet al vencimiento (jul-2026)",
-    },
-    "YCA6O": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Cupón semestral; principal bullet al vencimiento (jul-2026)",
-    },
-    "MGCHO": {
-        "lamina_min": 1_000,
-        "forma_amortizacion": "Cupones semestrales (ene/jul); principal bullet al vencimiento",
-    },
-    "RCCJO": {
-        "lamina_min": 1,
-        "forma_amortizacion": "Cupones semestrales (ene/jul); principal bullet al vencimiento",
-    },
-    # ── Letras ─────────────────────────────────────────────────────────────
-    "S17A6": {"lamina_min": 1, "forma_amortizacion": "Pago único al vencimiento (LEDE descuento) — VENCIDA"},
-    "S30A6": {"lamina_min": 1, "forma_amortizacion": "Pago único al vencimiento (LEDE descuento) — VENCIDA"},
-    "S15Y6": {"lamina_min": 1, "forma_amortizacion": "Pago único al vencimiento (LEDE descuento) — VENCIDA"},
-    "S30J6": {"lamina_min": 1},  # forma_amortizacion ya en instrumento principal
-    "S29L6": {"lamina_min": 1},
-}
-
-for _tk, _add in _EXTRAS_CATALOGO_P2_RF5.items():
-    if _tk in INSTRUMENTOS_RF:
-        INSTRUMENTOS_RF[_tk].update(_add)
+# Monitor ON + cashflow ilustrativo extraídos — re-export para compatibilidad.
+from core.renta_fija_monitor import (  # noqa: F401
+    _CALIF_RANK,
+    _MESES_ES_VTO,
+    DISCLAIMER_CASHFLOW_ILUSTRATIVO_RF,
+    MONITOR_ON_USD_DISCLAIMER,
+    _calif_rank,
+    _frecuencia_cupon_label,
+    _meses_calendario_pago_cupon,
+    _meses_entre_cupones,
+    bucket_riesgo_on_hd,
+    cashflow_ilustrativo_por_100_vn,
+    fecha_vencimiento_desde_meta,
+    monitor_on_usd_panel_df,
+    monitor_on_usd_vencimientos_por_mes_df,
+)
 
 GUION_FICHA_RF = "—"
 
@@ -719,6 +123,42 @@ def precio_ars_on_usd_por_base_vn(
     if p <= 0 or c <= 0 or v <= 0:
         return 0.0
     return v * (p / 100.0) * c
+
+
+def precio_referencia_ars_desde_catalogo(
+    ticker: str,
+    ccl: float,
+    *,
+    vn: float = 1.0,
+) -> float:
+    """
+    A04: precio ARS de referencia por ``vn`` nominales desde ``paridad_ref``
+    del catálogo. Normaliza la convención precio/VN en un solo lugar — antes
+    esta aritmética vivía repetida en resolver_precios, resolver_precios_con_origen
+    y PriceEngine, con el riesgo de divergir.
+
+    - moneda USD: paridad% sobre VN USD × CCL → ARS por VN.
+    - moneda ARS: ``paridad_ref`` ya es ARS por VN (BONCER/LECAP).
+
+    Devuelve 0.0 si el ticker no está en catálogo, la paridad no es válida
+    o falta CCL para instrumentos USD.
+    """
+    meta = get_meta(ticker)
+    if meta is None:
+        return 0.0
+    try:
+        paridad = float(meta.get("paridad_ref", 0) or 0)
+        v = float(vn)
+    except (TypeError, ValueError):
+        return 0.0
+    if paridad <= 0 or v <= 0:
+        return 0.0
+    if str(meta.get("moneda", "USD")).upper() == "USD":
+        c = float(ccl or 0)
+        if c <= 0:
+            return 0.0
+        return v * (paridad / 100.0) * c
+    return v * paridad
 
 
 def meta_on_usd_unidades_resumen(ticker: str) -> dict[str, Any] | None:
@@ -1160,467 +600,6 @@ def tir_ponderada_cartera(
     return num / den
 
 
-_CALIF_RANK: dict[str, int] = {
-    "AAA": 100, "AA+": 95, "AA": 90, "AA-": 85, "A+": 82, "A": 78, "A-": 75,
-    "BBB+": 55, "BBB": 50, "BBB-": 48, "BB+": 40, "CCC+": 25, "CCC": 10,
-}
-
-MONITOR_ON_USD_DISCLAIMER = (
-    "Todas las ON USD del catálogo usan la misma convención: paridad en % sobre nominal USD; "
-    "el precio en pesos por cada 100 nominales USD ≈ paridad_% × CCL. "
-    "Referencia educativa (paridad, TIR y cupón por instrumento). "
-    "No reemplaza cotizaciones BYMA, láminas oficiales ni informes de custodio."
-)
-
-
-def bucket_riesgo_on_hd(meta: dict[str, Any]) -> str:
-    """
-    Banda tipo monitor HD: calificación (riesgo crédito) + TIR de referencia.
-    Conservador: AA- o mejor y TIR ref. moderada (hasta 7,6 %).
-    Agresivo: rating por debajo de BBB+ o TIR alta (más de 8,5 %).
-    Moderado: casos intermedios.
-    """
-    try:
-        tir = float(meta.get("tir_ref") or 0.0)
-    except (TypeError, ValueError):
-        tir = 0.0
-    r = _calif_rank(str(meta.get("calificacion", "")))
-    if r >= 85 and tir <= 7.6:
-        return "conservador"
-    if tir > 8.5 or r < 55:
-        return "agresivo"
-    return "moderado"
-
-
-def _frecuencia_cupon_label(meta: dict[str, Any]) -> str:
-    try:
-        n = int(meta.get("frecuencia") or 0)
-    except (TypeError, ValueError):
-        n = 0
-    if n >= 4:
-        return "Trimestral"
-    if n == 2:
-        return "Semestral"
-    if n == 1:
-        return "Anual"
-    if n <= 0:
-        return "Al vencimiento"
-    return str(n)
-
-
-def monitor_on_usd_panel_df(
-    byma_live: dict[str, dict[str, Any]] | None = None,
-    *,
-    ccl: float | None = None,
-) -> pd.DataFrame:
-    """
-    Tabla tipo monitor ON en dólares (Hard Dollar / cable).
-    Columnas alineadas a paneles de mercado; campos faltantes en metadatos → "—".
-
-    Args:
-        byma_live: dict opcional {ticker: {paridad_ref, var_diaria_pct, precio_ars,
-                   fecha_ref, fuente, escala_div100}} proveniente de services.byma_market_data.
-                   Cuando se provee, los campos de precio se actualizan con datos en vivo.
-                   ``escala_div100`` indica si se aplicó heurística ÷100 al último/cierre (P2-RF-04).
-    """
-    _byma: dict[str, dict[str, Any]] = byma_live if byma_live else {}
-
-    rows: list[dict[str, Any]] = []
-    for ticker, meta in INSTRUMENTOS_RF.items():
-        if str(meta.get("tipo", "")).upper() != "ON_USD" or not meta.get("activo"):
-            continue
-
-        # ── Datos de BYMA en vivo (tienen prioridad sobre metadatos estáticos) ──
-        live = _byma.get(ticker.upper(), {})
-        es_live = bool(live)
-
-        try:
-            paridad = float(live.get("paridad_ref") or meta.get("paridad_ref") or 0.0)
-        except (TypeError, ValueError):
-            paridad = 0.0
-        try:
-            tir = float(meta.get("tir_ref") or 0.0)
-        except (TypeError, ValueError):
-            tir = 0.0
-        try:
-            cupon = float(meta.get("cupon_anual") or 0.0) * 100.0
-        except (TypeError, ValueError):
-            cupon = 0.0
-
-        # Variación diaria: BYMA primero, luego metadatos estáticos
-        var_dia_raw = live.get("var_diaria_pct") if es_live else meta.get("var_diaria_pct")
-        try:
-            var_dia = round(float(var_dia_raw), 2) if var_dia_raw is not None else None
-        except (TypeError, ValueError):
-            var_dia = None
-
-        # Precio en ARS (solo disponible vía BYMA)
-        precio_ars_raw = live.get("precio_ars") if es_live else None
-        try:
-            precio_ars = round(float(precio_ars_raw), 2) if precio_ars_raw is not None else None
-        except (TypeError, ValueError):
-            precio_ars = None
-
-        ven_raw = meta.get("vencimiento", "")
-        ven_s = str(ven_raw)[:10] if ven_raw else "—"
-        lamina = meta.get("lamina_min")
-        if lamina is None:
-            lamina = meta.get("lamina_vn")
-        try:
-            lamina_i = int(lamina) if lamina is not None else 1_000
-        except (TypeError, ValueError):
-            lamina_i = 1_000
-        call_raw = meta.get("callable")
-        if call_raw is None:
-            callable_txt = "—"
-        else:
-            callable_txt = "Sí" if bool(call_raw) else "No"
-
-        fecha_dato = (
-            str(live.get("fecha_ref", ""))[:16]
-            if es_live
-            else str(meta.get("fecha_ref") or "—")[:10]
-        )
-
-        escala_div100 = bool(live.get("escala_div100")) if es_live else False
-
-        ars_100_vn: float | None = None
-        try:
-            ccl_f = float(ccl) if ccl is not None else 0.0
-        except (TypeError, ValueError):
-            ccl_f = 0.0
-        if paridad and ccl_f > 0:
-            ars_100_vn = round(
-                precio_ars_on_usd_por_base_vn(paridad, ccl_f, vn_usd=ON_USD_PARIDAD_BASE_VN),
-                2,
-            )
-
-        # ── Días al vencimiento + alerta próximo vto ─────────────────────────
-        dias_al_vto: int | None = None
-        alerta_vto = ""
-        try:
-            vcto_d = date.fromisoformat(str(ven_raw)[:10])
-            dias_al_vto = (vcto_d - date.today()).days
-            if dias_al_vto <= 35:
-                alerta_vto = "🔴 ≤35d"
-            elif dias_al_vto <= 90:
-                alerta_vto = "🟡 ≤90d"
-        except (ValueError, TypeError):
-            dias_al_vto = None
-
-        rows.append({
-            "Banda":           bucket_riesgo_on_hd(meta),
-            "Ticker":          ticker,
-            "Emisor":          str(meta.get("emisor") or "—"),
-            "Tipo":            "Hard Dollar",
-            "Paridad %":       round(paridad, 2) if paridad else None,
-            f"ARS / {int(ON_USD_PARIDAD_BASE_VN)} VN USD": ars_100_vn,
-            "Precio ARS":      precio_ars,
-            "Var. % día":      var_dia,
-            "Cupón %":         round(cupon, 2),
-            "TIR ref. %":      round(tir, 2),
-            "MD":              meta.get("modified_duration", "—"),
-            "Vencimiento":     ven_s,
-            "Días al vto.":    dias_al_vto,
-            "⚠️ Próx. vto.":   alerta_vto,
-            "Moneda":          "CABLE",
-            "Amortización":    str(meta.get("amortizacion") or "Bullet"),
-            "Callable":        callable_txt,
-            "Calificación":    str(meta.get("calificacion") or "—"),
-            "Lámina mín.":     lamina_i,
-            "ISIN":            str(meta.get("isin") or "—"),
-            "Frecuencia cupón":_frecuencia_cupon_label(meta),
-            "Ley":             str(meta.get("ley") or "—"),
-            "Fecha dato":      fecha_dato,
-            "Fuente":          "🟢 BYMA en vivo" if es_live else "📋 Catálogo",
-            # P2-RF-04 — Sí = último/cierre BYMA normalizado ÷100 (feed en escala ×100)
-            "Ajuste ×100 BYMA": "Sí" if escala_div100 else ("No" if es_live else "—"),
-        })
-    if not rows:
-        return pd.DataFrame()
-    df = pd.DataFrame(rows)
-    _order = {"conservador": 0, "moderado": 1, "agresivo": 2}
-    df["_sort_banda"] = df["Banda"].map(lambda b: _order.get(str(b), 9))
-    df = df.sort_values(["_sort_banda", "TIR ref. %"], ascending=[True, False]).drop(
-        columns=["_sort_banda"]
-    )
-    return df.reset_index(drop=True)
-
-
-_MESES_ES_VTO = (
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-)
-
-
-DISCLAIMER_CASHFLOW_ILUSTRATIVO_RF = (
-    "Importes **por cada 100 unidades de valor nominal (VN)** en la **moneda de emisión** del catálogo. "
-    "Las fechas se **aproximan** desde la fecha de vencimiento y la frecuencia de cupón de los metadatos "
-    "internos (no desde el prospecto). **No** es un calendario legal de pagos: no sustituye prospecto, "
-    "suplementos ni comunicación del emisor. Se asume cupón fijo y amortización **bullet** al vencimiento, "
-    "sin impuestos ni comisiones."
-)
-
-
-def fecha_vencimiento_desde_meta(meta: dict[str, Any] | None) -> date | None:
-    """Parsea `vencimiento` (YYYY-MM-DD u otras formas pandas) a `date`."""
-    if not meta:
-        return None
-    ven_raw = meta.get("vencimiento")
-    ts = pd.to_datetime(ven_raw, errors="coerce")
-    if pd.isna(ts):
-        return None
-    d = ts.date()
-    return d if isinstance(d, date) else None
-
-
-def _meses_entre_cupones(frecuencia: int) -> int:
-    """Meses entre fechas de pago aproximadas (1=año, 2=semestre, 4=trimestre)."""
-    try:
-        f = int(frecuencia)
-    except (TypeError, ValueError):
-        f = 0
-    if f <= 0:
-        return 12
-    if f == 1:
-        return 12
-    if f == 2:
-        return 6
-    if f >= 4:
-        return 3
-    return max(1, 12 // f)
-
-
-def cashflow_ilustrativo_por_100_vn(
-    meta: dict[str, Any] | None,
-    *,
-    hoy: date | None = None,
-    max_filas: int = 60,
-    solo_futuros: bool = True,
-) -> dict[str, Any]:
-    """
-    P2-RF-02: cashflow **ilustrativo** en base 100 VN y moneda de emisión.
-
-    Calendario aproximado (hacia atrás desde el vencimiento con paso fijo según frecuencia).
-    Cupón cero: un solo flujo al vencimiento con amortización del nominal.
-    """
-    from dateutil.relativedelta import relativedelta
-
-    base = 100.0
-    hoy_d = hoy or date.today()
-    out: dict[str, Any] = {
-        "ok": False,
-        "base_vn": base,
-        "moneda_emision": "",
-        "disclaimer": DISCLAIMER_CASHFLOW_ILUSTRATIVO_RF,
-        "filas": [],
-        "aviso": "",
-    }
-    if not meta:
-        out["aviso"] = "Sin metadatos de instrumento."
-        return out
-
-    vm = fecha_vencimiento_desde_meta(meta)
-    if vm is None:
-        out["aviso"] = "Sin fecha de vencimiento parseable."
-        return out
-
-    moneda = str(meta.get("moneda") or "USD").strip()[:12] or "USD"
-    out["moneda_emision"] = moneda
-
-    try:
-        cupon_anual = float(meta.get("cupon_anual") or 0.0)
-    except (TypeError, ValueError):
-        cupon_anual = 0.0
-    try:
-        freq = int(meta.get("frecuencia") or 0)
-    except (TypeError, ValueError):
-        freq = 0
-
-    if cupon_anual <= 1e-15:
-        fila = {
-            "fecha": vm.isoformat(),
-            "concepto": "Amortización nominal al vencimiento (ilustrativo, sin cupones)",
-            "monto_100vn": round(base, 4),
-            "moneda": moneda,
-        }
-        if solo_futuros and vm < hoy_d:
-            out["ok"] = True
-            out["aviso"] = "Vencimiento ya ocurrió: no hay flujos futuros ilustrativos."
-            out["filas"] = []
-            return out
-        out["ok"] = True
-        out["filas"] = [fila]
-        return out
-
-    if freq <= 0:
-        freq = 2
-
-    meses = _meses_entre_cupones(freq)
-    cupon_por_periodo = base * (cupon_anual / float(freq))
-
-    fechas_rev: list[date] = []
-    d = vm
-    for _ in range(max(4, max_filas)):
-        fechas_rev.append(d)
-        d = d - relativedelta(months=meses)
-        if len(fechas_rev) >= max_filas:
-            break
-
-    fechas = sorted(set(fechas_rev))
-    if solo_futuros:
-        fechas = [x for x in fechas if x >= hoy_d]
-    fechas = [x for x in fechas if x <= vm]
-    fechas.sort()
-
-    if not fechas:
-        out["ok"] = True
-        out["aviso"] = "Sin fechas de pago ilustrativas en el rango (revisá vencimiento vs. hoy)."
-        out["filas"] = []
-        return out
-
-    filas: list[dict[str, Any]] = []
-    for fd in fechas:
-        es_vto = fd == vm
-        if es_vto:
-            monto = cupon_por_periodo + base
-            concepto = "Cupón + amortización VN (ilustrativo)"
-        else:
-            monto = cupon_por_periodo
-            concepto = "Cupón (ilustrativo)"
-        filas.append({
-            "fecha": fd.isoformat(),
-            "concepto": concepto,
-            "monto_100vn": round(monto, 4),
-            "moneda": moneda,
-        })
-
-    out["ok"] = True
-    out["filas"] = filas
-    return out
-
-
-def _meses_calendario_pago_cupon(meta: dict[str, Any], fecha_vto: date) -> tuple[set[int], str]:
-    """
-    Meses del año (1–12) en que habitualmente hay pago de cupón, según frecuencia y fecha de vencimiento
-    del catálogo (convención estándar: calendario alineado al último cupón en la fecha de vto).
-
-    - Sin cupón periódico / al vencimiento: solo el mes del vencimiento (devolución de principal).
-    - Semestral: mes del vto y mes opuesto (+6).
-    - Trimestral: mes del vto y cada -3 meses (4 fechas/año).
-    - Anual: solo mes del vto.
-    """
-    if not isinstance(fecha_vto, date):
-        return set(), ""
-    m = int(fecha_vto.month)
-    try:
-        cup = float(meta.get("cupon_anual") or 0.0)
-    except (TypeError, ValueError):
-        cup = 0.0
-    try:
-        freq = int(meta.get("frecuencia") or 0)
-    except (TypeError, ValueError):
-        freq = 0
-
-    if cup <= 1e-12 or freq <= 0:
-        s = {m}
-        note = f"{_MESES_ES_VTO[m - 1].title()} (solo principal al venc.)"
-        return s, note
-
-    if freq == 1:
-        s = {m}
-        note = " · ".join(_MESES_ES_VTO[x - 1].title() for x in sorted(s))
-        return s, note
-    if freq == 2:
-        o = ((m - 1 + 6) % 12) + 1
-        s = {m, o}
-        note = " · ".join(_MESES_ES_VTO[x - 1].title() for x in sorted(s))
-        return s, note
-    if freq >= 4:
-        s = {((m - 1 - 3 * k) % 12) + 1 for k in range(4)}
-        note = " · ".join(_MESES_ES_VTO[x - 1].title() for x in sorted(s))
-        return s, note
-    s = {m}
-    note = _MESES_ES_VTO[m - 1].title()
-    return s, note
-
-
-def monitor_on_usd_vencimientos_por_mes_df() -> pd.DataFrame:
-    """
-    ON USD activas del catálogo: **calendario por mes de pago de cupón** (enero…diciembre).
-
-    Cada fila es un (ticker, mes calendario): una misma ON puede repetirse en varios meses si paga
-    varias veces al año. Referencia educativa: fechas inferidas desde vencimiento + frecuencia del catálogo.
-    """
-    rows: list[dict[str, Any]] = []
-    for ticker, meta in INSTRUMENTOS_RF.items():
-        if str(meta.get("tipo", "")).upper() != "ON_USD" or not meta.get("activo"):
-            continue
-        ven_raw = meta.get("vencimiento")
-        ts = pd.to_datetime(ven_raw, errors="coerce")
-        if pd.isna(ts):
-            continue
-        d = ts.date()
-        if not isinstance(d, date):
-            continue
-        meses_cup, cal_label = _meses_calendario_pago_cupon(meta, d)
-        lamina = meta.get("lamina_min")
-        if lamina is None:
-            lamina = meta.get("lamina_vn")
-        try:
-            lamina_i = int(lamina) if lamina is not None else 1_000
-        except (TypeError, ValueError):
-            lamina_i = 1_000
-        try:
-            tir = float(meta.get("tir_ref") or 0.0)
-        except (TypeError, ValueError):
-            tir = 0.0
-        try:
-            cupon = float(meta.get("cupon_anual") or 0.0) * 100.0
-        except (TypeError, ValueError):
-            cupon = 0.0
-        ven_str = d.strftime("%d/%m/%Y")
-        frec_lbl = _frecuencia_cupon_label(meta)
-        emisor = str(meta.get("emisor") or "—")
-
-        for mes_ord in sorted(meses_cup):
-            mes_lab = _MESES_ES_VTO[mes_ord - 1].title()
-            rows.append({
-                "_mes_ord": mes_ord,
-                "_vto_key": d.year * 10_000 + d.month * 100 + d.day,
-                "Mes": mes_lab,
-                "Vencimiento": ven_str,
-                "Ticker": ticker,
-                "Emisor": emisor,
-                "TIR ref. %": round(tir, 2),
-                "Cupón %": round(cupon, 2),
-                "Frec. cupón": frec_lbl,
-                "Pagos en el año (cupón)": cal_label,
-                "Lámina mín.": lamina_i,
-            })
-    if not rows:
-        return pd.DataFrame()
-    df = pd.DataFrame(rows)
-    df = df.sort_values(["_mes_ord", "_vto_key", "Ticker"], ascending=[True, True, True]).reset_index(
-        drop=True
-    )
-    return df.drop(columns=["_mes_ord", "_vto_key"])
-
-
-def _calif_rank(cal: str) -> int:
-    return _CALIF_RANK.get(str(cal or "").strip().upper(), 0)
-
-
 def top_instrumentos_rf(
     n: int = 4,
     universo_renta: dict[str, dict[str, Any]] | None = None,
@@ -1839,7 +818,7 @@ def generar_vector_flujos(
     flujos: list[dict] = []
     n_futuros = len(futuros)
 
-    for i, c_str in enumerate(futuros):
+    for _i, c_str in enumerate(futuros):
         es_ultimo = (c_str == futuros[-1])
 
         capital = 0.0
@@ -1968,7 +947,7 @@ def tickers_rf_por_tipo_ampliado(tipo: str) -> list[str]:
 
 def calcular_duration_rf_unificado(
     ticker: str,
-    fecha_liq: "date | None" = None,
+    fecha_liq: date | None = None,
 ) -> dict[str, Any]:
     """
     Punto de entrada unificado de duration para todos los tipos de RF.
@@ -2229,6 +1208,48 @@ def lamina_min_on(ticker: str) -> int:
         return max(1, int(meta.get("lamina_min") or 1))
     except (TypeError, ValueError):
         return 1
+
+
+def completar_lamina_vn_filas(filas: list[dict]) -> list[str]:
+    """
+    M2: autocompleta LAMINA_VN de filas de renta fija desde el catálogo, in-place.
+
+    Una ON cargada sin lámina se valúa mal (la prueba funcional lo expuso). Acá,
+    antes de persistir, toda fila RF cuyo LAMINA_VN falte (NaN/None/≤0) toma la
+    lámina del catálogo (``lamina_min_on``). Devuelve la lista de avisos legibles
+    (autocompletadas + RF sin catálogo que el usuario debe completar a mano).
+
+    No lanza; filas sin TICKER o no-RF se ignoran. Pura (sin Streamlit/red).
+    """
+    avisos: list[str] = []
+    for f in filas:
+        tk = str(f.get("TICKER", "") or "").strip().upper()
+        if not tk:
+            continue
+        meta = get_meta(tk)
+        tipo = str(f.get("TIPO", "") or "").strip().upper()
+        es_rf = meta is not None or tipo in TIPOS_RF
+        if not es_rf:
+            continue
+        lam = f.get("LAMINA_VN")
+        try:
+            lam_f = float(lam)
+            falta = lam_f != lam_f or lam_f <= 0  # NaN o no-positivo
+        except (TypeError, ValueError):
+            falta = True
+        if not falta:
+            continue
+        if meta is not None:
+            lamina = lamina_min_on(tk)
+            f["LAMINA_VN"] = float(lamina)
+            avisos.append(
+                f"**{tk}**: lámina autocompletada en {lamina:,} VN USD desde el catálogo."
+            )
+        else:
+            avisos.append(
+                f"**{tk}**: renta fija fuera del catálogo — especificá la lámina (VN) a mano."
+            )
+    return avisos
 
 
 def monto_minimo_compra_on(ticker: str, ccl: float) -> dict[str, float]:

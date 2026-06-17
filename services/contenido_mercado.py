@@ -8,7 +8,6 @@ from typing import Any
 
 import pandas as pd
 
-
 DISCLAIMER_REDES = (
     "Contenido educativo y de divulgación general. No constituye recomendación "
     "personalizada de inversión, oferta pública ni asesoramiento financiero. "

@@ -96,7 +96,7 @@ def resumen_correlacion_promedio(corr: pd.DataFrame) -> pd.DataFrame:
 
 def render_heatmap_correlaciones(
     tickers: list[str],
-    pesos: dict[str, float] = None,    # {ticker: peso%} para mostrar contexto
+    pesos: dict[str, float] | None = None,    # {ticker: peso%} para mostrar contexto
     periodo: str = "1y",
 ):
     """

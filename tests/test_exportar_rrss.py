@@ -9,8 +9,9 @@ kaleido = pytest.importorskip("kaleido")
 
 
 def test_exportar_instagram_dimensiones():
-    from services.market_stress_map import exportar_para_rrss
     import plotly.graph_objects as go
+
+    from services.market_stress_map import exportar_para_rrss
 
     fig      = go.Figure(go.Scatter(x=[1, 2], y=[1, 2]))
     fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
@@ -21,8 +22,9 @@ def test_exportar_instagram_dimensiones():
 
 
 def test_exportar_linkedin_dimensiones():
-    from services.market_stress_map import exportar_para_rrss
     import plotly.graph_objects as go
+
+    from services.market_stress_map import exportar_para_rrss
 
     fig      = go.Figure()
     fake_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100

@@ -38,7 +38,9 @@ def render_timeline_posiciones(
         st.info("Sin posiciones para mostrar.")
         return
 
-    from config import RATIOS_CEDEAR
+    from core.instrument_master import get_master
+
+    master = get_master()
 
     today   = date.today()
     filas   = []
@@ -58,7 +60,7 @@ def render_timeline_posiciones(
             fecha_ini = today
 
         px_ars  = float(precios_actuales.get(ticker, 0))
-        ratio   = float(RATIOS_CEDEAR.get(ticker, 1.0))
+        ratio   = master.ratio(ticker)
         px_usd_actual = (px_ars / ccl) * ratio if ccl > 0 and ratio > 0 else 0.0
 
         pnl_pct = ((px_usd_actual / ppc_usd) - 1) * 100 if ppc_usd > 0 and px_usd_actual > 0 else 0.0
@@ -99,7 +101,7 @@ def render_timeline_posiciones(
     # ── Gantt chart ───────────────────────────────────────────────────
     fig = go.Figure()
 
-    for i, row in df.iterrows():
+    for _i, row in df.iterrows():
         color  = color_barra(row["pnl_pct"])
         grosor = max(12, min(40, int(row["peso_pct"] * 1.5)))
 

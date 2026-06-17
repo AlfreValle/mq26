@@ -7,16 +7,17 @@ from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+
 from core.auth import has_feature
 from ui.mq26_ux import dataframe_auto_height
 from ui.rbac import can_action as _can_action_rbac
 
 
-
 def _render_historial_snapshots(ctx: dict) -> None:
     """Historial de snapshots de optimización del cliente/cartera activa."""
-    from services.portfolio_snapshot import listar_snapshots
     import plotly.graph_objects as go
+
+    from services.portfolio_snapshot import listar_snapshots
 
     cid = ctx.get("cliente_id")
     cartera = str(ctx.get("cartera_activa", "") or "")
@@ -89,12 +90,12 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
 
     # ── 1) ANÁLISIS DISPONIBLES (MQ26 auto + externos) ───────────────────────
     try:
+        from core.instrument_master import get_master
         from services.bdi_reports import (
             listar_tickers_con_bdi,
             obtener_reporte_bdi,
             reporte_bdi_html,
         )
-        from config import RATIOS_CEDEAR
 
         bdi_tickers = listar_tickers_con_bdi()
         if bdi_tickers:
@@ -105,7 +106,7 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
                 r = obtener_reporte_bdi(t)
                 if r is None:
                     continue
-                ratio = float(RATIOS_CEDEAR.get(t.upper(), 1) or 1)
+                ratio = get_master().ratio(t)
                 px_ars = r.precio_actual_usd * ccl / ratio if ratio > 0 else 0
                 target_ars = r.precio_objetivo_usd * ccl / ratio if ratio > 0 else 0
                 filas.append({
@@ -145,7 +146,7 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
                 if sel_bdi != "—":
                     r_sel = obtener_reporte_bdi(sel_bdi)
                     if r_sel:
-                        ratio_sel = float(RATIOS_CEDEAR.get(sel_bdi.upper(), 1) or 1)
+                        ratio_sel = get_master().ratio(sel_bdi)
                         st.markdown(
                             reporte_bdi_html(r_sel, ccl=ccl, ratio_cedear=ratio_sel),
                             unsafe_allow_html=True,
@@ -162,9 +163,8 @@ def _render_seccion_perlas_reporte(ctx: dict, perfil: str, ccl: float) -> None:
     # ── 2) PERLAS DINÁMICAS DEL SCORING ──────────────────────────────────────
     try:
         from services.perlas_service import (
-            detectar_perlas_desde_scoring,
-            seleccionar_perlas,
             construir_tesis_html,
+            detectar_perlas_desde_scoring,
         )
 
         df_scores = st.session_state.get("df_scores")
@@ -254,23 +254,8 @@ def render_tab_reporte(ctx: dict) -> None:
     rec_px = ctx.get("precio_records") or {}
     if isinstance(df_ag, pd.DataFrame) and not df_ag.empty and "TICKER" in df_ag.columns:
         def _label_fuente_precio(tk) -> str:
-            from core.price_engine import PriceSource
-
-            r = rec_px.get(str(tk).upper().strip())
-            if r is None:
-                return "—"
-            src = getattr(r, "source", None)
-            if src in (PriceSource.LIVE_YFINANCE, PriceSource.LIVE_BYMA):
-                return "LIVE"
-            if src == PriceSource.FALLBACK_BD:
-                return "FALLBACK_BD"
-            if src == PriceSource.FALLBACK_HARD:
-                return "FALLBACK_HARD"
-            if src == PriceSource.FALLBACK_PPC:
-                return "FALLBACK_PPC"
-            if src == PriceSource.MISSING:
-                return "MISSING"
-            return getattr(src, "label", str(src)) if src else "—"
+            from core.price_engine import label_fuente_con_frescura
+            return label_fuente_con_frescura(rec_px.get(str(tk).upper().strip()))
 
         df_ag = df_ag.copy()
         df_ag["FUENTE_PRECIO"] = df_ag["TICKER"].astype(str).map(_label_fuente_precio)
@@ -811,7 +796,7 @@ def render_tab_reporte(ctx: dict) -> None:
     if _extra_names:
         st.divider()
         _subtabs = st.tabs(_extra_names)
-        _tab_map = dict(zip(_extra_tabs, _subtabs))
+        _tab_map = dict(zip(_extra_tabs, _subtabs, strict=True))
 
         if "ficha_empresa" in _tab_map:
             with _tab_map["ficha_empresa"]:
@@ -862,6 +847,7 @@ def render_tab_reporte(ctx: dict) -> None:
             with _tab_map["retiro"]:
                 import numpy as np
                 import plotly.graph_objects as go
+
                 from core.retirement_goal import (
                     calcular_aporte_necesario,
                     simulate_retirement,
@@ -960,7 +946,9 @@ def render_tab_reporte(ctx: dict) -> None:
                 with col_c2:
                     with st.spinner("Cargando datos históricos..."):
                         try:
-                            from services.comparador_instrumentos import generar_comparador_instrumentos
+                            from services.comparador_instrumentos import (
+                                generar_comparador_instrumentos,
+                            )
                             fig_comp = generar_comparador_instrumentos(
                                 start=start_comp,
                                 capital=float(capital_comp),

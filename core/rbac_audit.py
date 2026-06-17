@@ -24,7 +24,7 @@ def get_effective_role(session_state: dict) -> Role:
     r = session_state.get("mq_role", "analyst")
     if r not in ROLES_ORDER:
         return "analyst"
-    return r  # type: ignore[return-value]
+    return r
 
 
 def require_can_edit_optimization_params(session_state: dict) -> None:

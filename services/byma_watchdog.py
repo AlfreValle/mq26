@@ -5,7 +5,7 @@ Sin Streamlit. Retorna estado y mensaje para que la UI decida cómo mostrarlo.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from core.structured_logging import log_degradacion
@@ -20,13 +20,14 @@ def check_byma_status(timeout: float = 8.0) -> dict[str, Any]:
     global _LAST_OK, _LAST_ERR
 
     import time
+
     from services.byma_market_data import _fetch_tipo
 
     t0 = time.perf_counter()
     try:
         data = _fetch_tipo("cedears")
         latencia = round((time.perf_counter() - t0) * 1000, 0)
-        _LAST_OK = datetime.now(timezone.utc)
+        _LAST_OK = datetime.now(UTC)
         _LAST_ERR = None
         return {
             "ok": True,
@@ -46,7 +47,7 @@ def check_byma_status(timeout: float = 8.0) -> dict[str, Any]:
                 "Los precios mostrados pueden no estar actualizados. "
                 "Intentá actualizar en unos minutos."
             ),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
 

@@ -19,7 +19,6 @@ from services.fundamentals_cache import (  # noqa: F401
     precargar_fundamentales,
 )
 
-
 # ─── Helpers de normalización de escalas (críticos contra bug 1380%) ──────────
 
 def pct_seguro(valor, decimals: int = 1) -> float | None:
