@@ -94,14 +94,16 @@ es diferenciación.
 
 ### Prioridad MEDIA — calidad y deuda
 
-- **M5 · mypy informativo a cero.** ~151 errores (`arg-type`/`operator` por
-  ndarray/pandas). Bajar gradualmente y promover a bloqueante.
+- **M5 · mypy informativo a cero.** 🔄 *(en curso)* 142→136: limpiado el ruido
+  seguro (type:ignore obsoletos, anotaciones faltantes). Restan 136 de deuda
+  estructural pandas/numpy (arg-type/operator) — gradual, no se fuerza.
 - **M6 · Comisión mínima fija por boleto** ✅ *(hecho)* `decision_engine`
   cobra `max(comisión variable, COMISION_MINIMA_ARS=250)`. La advertencia de
   "operación chica" ahora es cuantitativamente exacta: una compra de ARS 8.000
   paga ~3.3% vs ~0.74% una grande. 4 tests.
-- **M7 · Cobertura 60→75%.** La puerta está en 60 (real medido 64%). Ratchet
-  hacia 75 sumando tests donde más se tocó: motores de recomendación y RF.
+- **M7 · Cobertura 60→75%.** 🔄 *(en curso)* Real subió a 66.7% con los tests
+  de la sesión; puerta ratcheada 60→**65** (blinda lo ganado). Seguir hacia 75
+  sumando tests de ramas de error en motores.
 - **M8 · Refactor interno de `render_tab_optimizacion`** (~830 líneas en una
   función). El archivo ya está partido; falta descomponer la función (no es
   movimiento puro).
@@ -122,9 +124,9 @@ es diferenciación.
 
 | Capa | Estado |
 |---|---|
-| Tests | 2272+ pasan; integración por rol cubierta; suite `-n 4` en ~1:35 |
+| Tests | 2282 pasan; integración por rol cubierta; suite `-n 4` en ~1:35 |
 | Lint | ruff bloqueante en CI, verde |
-| Tipos | mypy H06 strict bloqueante (verde); informativo ~151 (no bloqueante) |
+| Tipos | mypy H06 strict bloqueante (verde); informativo 136 (no bloqueante) |
 | Smoke | streamlit headless en cada PR (HTTP 200) |
 | Monitor | 🩺 Salud datos en vivo (proveedores, frescura, datos de referencia) |
 | Auditoría | toda recomendación persistida con motivos y trazabilidad |

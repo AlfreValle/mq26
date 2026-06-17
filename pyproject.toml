@@ -113,9 +113,10 @@ omit = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-# cov-fail-under: baseline real medido 62.4% (2026-06-11, suite completa local).
-# Puerta en 60 para bloquear regresiones; subir gradualmente (ratchet) hacia 75.
-addopts = "-v --tb=short --cov=services --cov=core --cov-report=term-missing --cov-fail-under=60"
+# cov-fail-under (ratchet): real medido 66.7% (2026-06-16, suite completa local).
+# Puerta en 65 (deja ~1.5 de margen para variación paralelo/secuencial).
+# Subir gradualmente hacia 75 a medida que sumen tests; nunca bajar.
+addopts = "-v --tb=short --cov=services --cov=core --cov-report=term-missing --cov-fail-under=65"
 markers = [
     "integration: tests que requieren red real (yfinance, BYMA, APIs externas). Excluir con -m 'not integration'.",
     "slow: tests de larga duración (backtests, optimizaciones HRP).",
