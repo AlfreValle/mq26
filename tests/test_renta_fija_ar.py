@@ -505,3 +505,43 @@ class TestPrecioReferenciaArsDesdeCatalogo:
         con_ccl = precio_referencia_ars_desde_catalogo(t_ars, 1429.0)
         sin_ccl = precio_referencia_ars_desde_catalogo(t_ars, 0.0)
         assert con_ccl == sin_ccl > 0
+
+
+class TestCompletarLaminaVnFilas:
+    """M2: autocompletado de lámina RF en la carga (helper service-level)."""
+
+    def test_autocompleta_on_del_catalogo(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas, lamina_min_on
+
+        filas = [{"TICKER": "PN43O", "TIPO": "ON_USD", "LAMINA_VN": float("nan")}]
+        avisos = completar_lamina_vn_filas(filas)
+        assert filas[0]["LAMINA_VN"] == float(lamina_min_on("PN43O"))
+        assert filas[0]["LAMINA_VN"] > 0
+        assert any("PN43O" in a and "lámina" in a.lower() for a in avisos)
+
+    def test_no_pisa_lamina_valida(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        filas = [{"TICKER": "PN43O", "TIPO": "ON_USD", "LAMINA_VN": 500.0}]
+        avisos = completar_lamina_vn_filas(filas)
+        assert filas[0]["LAMINA_VN"] == 500.0  # respeta lo que el usuario puso
+        assert avisos == []
+
+    def test_rf_fuera_de_catalogo_avisa_sin_romper(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        filas = [{"TICKER": "XXNOEXISTE", "TIPO": "ON_USD", "LAMINA_VN": float("nan")}]
+        avisos = completar_lamina_vn_filas(filas)
+        assert any("XXNOEXISTE" in a and "mano" in a for a in avisos)
+
+    def test_cedear_se_ignora(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        filas = [{"TICKER": "AAPL", "TIPO": "CEDEAR", "LAMINA_VN": float("nan")}]
+        avisos = completar_lamina_vn_filas(filas)
+        assert avisos == []  # RV no lleva lámina
+
+    def test_fila_sin_ticker_no_rompe(self):
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        assert completar_lamina_vn_filas([{"TICKER": "", "LAMINA_VN": float("nan")}]) == []

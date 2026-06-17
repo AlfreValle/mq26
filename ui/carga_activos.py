@@ -211,6 +211,15 @@ def _persist_filas(
     advertencias = _validar_tickers(filas, ctx)
     for adv in advertencias:
         st.warning(adv)
+    # M2: completar lámina de renta fija desde el catálogo antes de persistir
+    # (una ON sin LAMINA_VN se valúa mal). Avisos informativos, no bloquean.
+    try:
+        from core.renta_fija_ar import completar_lamina_vn_filas
+
+        for aviso in completar_lamina_vn_filas(filas):
+            st.info(aviso)
+    except Exception as _e_lam:
+        _log.warning("completar_lamina_vn_filas falló (no bloquea): %s", _e_lam)
     try:
         df_prev = ed.cargar_transaccional().copy()
     except Exception as e:

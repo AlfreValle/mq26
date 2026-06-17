@@ -1210,6 +1210,48 @@ def lamina_min_on(ticker: str) -> int:
         return 1
 
 
+def completar_lamina_vn_filas(filas: list[dict]) -> list[str]:
+    """
+    M2: autocompleta LAMINA_VN de filas de renta fija desde el catálogo, in-place.
+
+    Una ON cargada sin lámina se valúa mal (la prueba funcional lo expuso). Acá,
+    antes de persistir, toda fila RF cuyo LAMINA_VN falte (NaN/None/≤0) toma la
+    lámina del catálogo (``lamina_min_on``). Devuelve la lista de avisos legibles
+    (autocompletadas + RF sin catálogo que el usuario debe completar a mano).
+
+    No lanza; filas sin TICKER o no-RF se ignoran. Pura (sin Streamlit/red).
+    """
+    avisos: list[str] = []
+    for f in filas:
+        tk = str(f.get("TICKER", "") or "").strip().upper()
+        if not tk:
+            continue
+        meta = get_meta(tk)
+        tipo = str(f.get("TIPO", "") or "").strip().upper()
+        es_rf = meta is not None or tipo in TIPOS_RF
+        if not es_rf:
+            continue
+        lam = f.get("LAMINA_VN")
+        try:
+            lam_f = float(lam)
+            falta = lam_f != lam_f or lam_f <= 0  # NaN o no-positivo
+        except (TypeError, ValueError):
+            falta = True
+        if not falta:
+            continue
+        if meta is not None:
+            lamina = lamina_min_on(tk)
+            f["LAMINA_VN"] = float(lamina)
+            avisos.append(
+                f"**{tk}**: lámina autocompletada en {lamina:,} VN USD desde el catálogo."
+            )
+        else:
+            avisos.append(
+                f"**{tk}**: renta fija fuera del catálogo — especificá la lámina (VN) a mano."
+            )
+    return avisos
+
+
 def monto_minimo_compra_on(ticker: str, ccl: float) -> dict[str, float]:
     """
     Devuelve el monto mínimo de compra para una ON dada la lámina y el CCL.

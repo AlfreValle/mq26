@@ -82,10 +82,10 @@ es diferenciación.
   monitor solo *avisa*. Cron mensual (`scripts/cron_update_*` ya existen) que
   actualice CCL_HISTORICO y alerte si el catálogo RF supera 45 días. Cierra C3
   por diseño.
-- **M2 · Convención de carga RF a prueba de error.** La prueba funcional mostró
-  que cargar una ON sin `LAMINA_VN`/convención correcta la vuelve insignificante
-  (el sistema avisa, pero el dato entra). Validación dura en el alta: rechazar o
-  autocompletar lámina desde el catálogo (InstrumentMaster ya tiene `lamina_min`).
+- **M2 · Convención de carga RF a prueba de error.** ✅ *(hecho)* Toda fila RF
+  sin `LAMINA_VN` se autocompleta desde el catálogo (`completar_lamina_vn_filas`
+  en el embudo `_persist_filas`); las ONs fuera de catálogo avisan al usuario.
+  6 tests. Cierra el hallazgo de la prueba funcional.
 - **M3 · Tests de integración por rol en CI** ✅ *(hecho)*. `test_flujo_roles_integracion.py`
   cubre estudio + asesor con 3 perfiles e invariantes de negocio. Extender a:
   rol inversor (primera cartera) y rol admin (flags + salud).
