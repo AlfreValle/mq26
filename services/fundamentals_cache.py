@@ -196,7 +196,7 @@ def _fetch_yfinance(ticker: str) -> FundamentalsSnapshot:
     try:
         import yfinance as yf
         t = yf.Ticker(ticker)
-        info = {}
+        info: dict = {}
         try:
             info = t.info or {}
         except Exception as e_info:

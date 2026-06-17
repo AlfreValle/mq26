@@ -195,7 +195,7 @@ def _seleccionar_rv_para_perfil(
     try:
         from config import UNIVERSO_MERVAL_SCORING
     except ImportError:
-        UNIVERSO_MERVAL_SCORING = []  # type: ignore[no-redef]
+        UNIVERSO_MERVAL_SCORING = []
 
     n_max = n_max or _N_MAX_RV.get(perfil, 12)
     max_por_sector = max_por_sector if max_por_sector is not None else _MAX_POR_SECTOR_RV.get(perfil, 3)

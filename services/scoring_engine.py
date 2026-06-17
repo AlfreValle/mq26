@@ -1155,7 +1155,7 @@ def calcular_cartera_optima(
             candidatos = pd.concat([candidatos, defensivos_disponibles.head(2)])
 
     # Seleccionar top N con diversificación sectorial
-    seleccionados = []
+    seleccionados: list = []
     sectores_incluidos = set()
     for _, row in candidatos.iterrows():
         if len(seleccionados) >= n_posiciones:
