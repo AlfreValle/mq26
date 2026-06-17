@@ -24,7 +24,7 @@ streamlit-authenticator>=0.3.0
 pyyaml>=6.0.0
 
 # Sprint 6: monitoreo de errores en producción (opcional — solo si SENTRY_DSN definida)
-sentry-sdk>=1.40.0
+sentry-sdk>=2.63.0
 
 # Dev: tests + cobertura (P3-QA-01)
 pytest>=7.4.0
