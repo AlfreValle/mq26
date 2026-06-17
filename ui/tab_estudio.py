@@ -774,9 +774,10 @@ def render_tab_estudio(ctx: dict) -> None:
 
     _render_dashboard_estudio(ctx)
 
-    # ── Dashboard de clientes ──────────────────────────────────────────────
-    st.dataframe(df, use_container_width=True, hide_index=True)
-
+    # ── Seleccionar cliente para abrir / generar informe ───────────────────
+    # La lista completa de clientes ya la muestra la Torre de control arriba
+    # (_render_dashboard_estudio). Acá solo el selector + ficha rápida, sin
+    # repetir la tabla (evita la redundancia visual de dos st.dataframe).
     col_sel, col_nuevo = st.columns([3, 1])
     with col_sel:
         if "ID" in df.columns:
