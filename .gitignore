@@ -74,4 +74,5 @@ commercial/landing/site.config.js
 /it
 
 # Herramientas de IA / Entornos de trabajo
-.claude/
+# (.claude se maneja arriba: ignorar todo salvo skills/ y agents/; NO re-ignorar
+#  todo acá, pisaría las negaciones y bloquearía skills/agents nuevos)
