@@ -6,6 +6,12 @@ Versión mejorada: integra costos de broker y filtra solo órdenes con alpha_net
 
 import pandas as pd
 
+# Comisión mínima fija por boleto (ARS). Los brokers cobran un piso por orden
+# (IOL/BullMarket ~ARS 200-300): por eso las operaciones chicas pagan, en %,
+# mucho más que las grandes. Sin este piso el costo es 100% proporcional y el
+# % de fricción no varía con el monto (hallazgo de revisión quant).
+COMISION_MINIMA_ARS = 250.0
+
 
 def calcular_costos_operacion(
     ticker: str,
@@ -15,9 +21,15 @@ def calcular_costos_operacion(
     comision_pct: float = 0.006,   # IOL: 0.6%, BullMarket: ~0.5%
     derechos_mep: float = 0.0004,  # derechos de mercado ~0.04%
     spread_pct: float = 0.001,     # spread implícito estimado ~0.1%
+    comision_minima_ars: float = COMISION_MINIMA_ARS,
 ) -> dict:
     valor_nocional = nominales * precio_ars
-    costo_total = valor_nocional * (comision_pct + derechos_mep + spread_pct)
+    comision_var = valor_nocional * comision_pct
+    # El broker cobra el mayor entre la comisión variable y el piso fijo.
+    comision = max(comision_var, comision_minima_ars) if valor_nocional > 0 else 0.0
+    derechos = valor_nocional * derechos_mep
+    spread = valor_nocional * spread_pct
+    costo_total = comision + derechos + spread
     return {
         "ticker": ticker,
         "tipo_op": tipo_op,
@@ -25,9 +37,10 @@ def calcular_costos_operacion(
         "precio_ars": precio_ars,
         "valor_nocional": round(valor_nocional, 2),
         "costo_total": round(costo_total, 2),
-        "comision": round(valor_nocional * comision_pct, 2),
-        "derechos": round(valor_nocional * derechos_mep, 2),
-        "spread": round(valor_nocional * spread_pct, 2),
+        "comision": round(comision, 2),
+        "comision_minima_aplicada": comision_var < comision_minima_ars and valor_nocional > 0,
+        "derechos": round(derechos, 2),
+        "spread": round(spread, 2),
     }
 
 

@@ -96,10 +96,10 @@ es diferenciación.
 
 - **M5 · mypy informativo a cero.** ~151 errores (`arg-type`/`operator` por
   ndarray/pandas). Bajar gradualmente y promover a bloqueante.
-- **M6 · Comisión mínima fija por boleto** en `decision_engine`. Hoy los costos
-  son 100% proporcionales; agregar el mínimo fijo del broker haría la
-  advertencia de "operación chica" cuantitativamente exacta (hallazgo del
-  revisor quant).
+- **M6 · Comisión mínima fija por boleto** ✅ *(hecho)* `decision_engine`
+  cobra `max(comisión variable, COMISION_MINIMA_ARS=250)`. La advertencia de
+  "operación chica" ahora es cuantitativamente exacta: una compra de ARS 8.000
+  paga ~3.3% vs ~0.74% una grande. 4 tests.
 - **M7 · Cobertura 60→75%.** La puerta está en 60 (real medido 64%). Ratchet
   hacia 75 sumando tests donde más se tocó: motores de recomendación y RF.
 - **M8 · Refactor interno de `render_tab_optimizacion`** (~830 líneas en una

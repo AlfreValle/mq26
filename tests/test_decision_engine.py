@@ -178,3 +178,39 @@ class TestGenerarReporteDecision:
         ej, bl = filtrar_por_alpha_neto(ordenes, {"MSFT": 0.003}, horizonte_dias=252)
         r = generar_reporte_decision(ej, bl)
         assert "Capital" in r or "capital" in r
+
+
+class TestComisionMinimaFija:
+    """M6: piso fijo por boleto — las operaciones chicas pagan más en %."""
+
+    def test_operacion_chica_usa_minimo_fijo(self):
+        from services.decision_engine import COMISION_MINIMA_ARS, calcular_costos_operacion
+
+        # nocional 8000 → comisión variable 0.6% = 48 < 250 (piso) → aplica piso
+        c = calcular_costos_operacion("X", "COMPRA", 1, 8_000.0)
+        assert c["comision"] == COMISION_MINIMA_ARS
+        assert c["comision_minima_aplicada"] is True
+
+    def test_operacion_grande_usa_variable(self):
+        from services.decision_engine import calcular_costos_operacion
+
+        # nocional 300k → comisión variable 0.6% = 1800 > 250 → variable
+        c = calcular_costos_operacion("X", "COMPRA", 1, 300_000.0)
+        assert c["comision"] == pytest.approx(1_800.0)
+        assert c["comision_minima_aplicada"] is False
+
+    def test_pct_costo_decrece_con_tamano(self):
+        from services.decision_engine import calcular_costos_operacion
+
+        chica = calcular_costos_operacion("X", "COMPRA", 1, 8_000.0)
+        grande = calcular_costos_operacion("X", "COMPRA", 1, 300_000.0)
+        pct_chica = chica["costo_total"] / 8_000.0
+        pct_grande = grande["costo_total"] / 300_000.0
+        assert pct_chica > pct_grande
+
+    def test_nocional_cero_sin_comision(self):
+        from services.decision_engine import calcular_costos_operacion
+
+        c = calcular_costos_operacion("X", "COMPRA", 0, 0.0)
+        assert c["comision"] == 0.0
+        assert c["comision_minima_aplicada"] is False

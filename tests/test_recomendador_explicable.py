@@ -249,5 +249,14 @@ class TestCostosOperacion:
         recs = rx.explicar_compras(RRFake(compras_recomendadas=[item]))
         d = recs[0].datos
         assert d.get("costo_operacion_ars", 0) > 0
-        assert abs(d["costo_operacion_pct"] - 0.74) < 0.05  # % sobre el monto real
         assert any("Operación chica" in a for a in recs[0].advertencias)
+
+    def test_minimo_fijo_castiga_operacion_chica(self):
+        # M6: con el piso fijo, el % de costo de una operación chica es muy
+        # superior al de una grande (antes era constante ~0.74%).
+        chica = ItemFake(unidades=1, precio_ars_estimado=8_000.0, monto_ars=8_000.0)
+        grande = ItemFake(unidades=1, precio_ars_estimado=300_000.0, monto_ars=300_000.0)
+        pct_chica = rx.explicar_compras(RRFake(compras_recomendadas=[chica]))[0].datos["costo_operacion_pct"]
+        pct_grande = rx.explicar_compras(RRFake(compras_recomendadas=[grande]))[0].datos["costo_operacion_pct"]
+        assert pct_chica > pct_grande * 2  # el piso fijo pesa en la chica
+        assert pct_grande < 1.0            # la grande paga ~0.74% proporcional
