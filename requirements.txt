@@ -21,7 +21,7 @@ alembic>=1.13.0
 
 # Sprint 5: autenticación multi-asesor (opcional — solo si AUTH_CONFIG está definida)
 streamlit-authenticator>=0.3.0
-pyyaml>=6.0.0
+pyyaml>=6.0.3
 
 # Sprint 6: monitoreo de errores en producción (opcional — solo si SENTRY_DSN definida)
 sentry-sdk>=1.40.0
