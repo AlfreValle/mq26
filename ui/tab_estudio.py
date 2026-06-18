@@ -455,6 +455,361 @@ def _render_ficha_cliente_rapida(cid: int, nombre: str, ctx: dict) -> None:
     )
 
 
+# Objetivo del aporte → perfil efectivo que usa el motor (CARTERA_IDEAL).
+# Permite que el asesor incline la recomendación sin tocar el perfil de riesgo
+# guardado del cliente. Default = perfil del cliente.
+_OBJETIVOS_APORTE_ESTUDIO: list[tuple[str, str]] = [
+    ("🛡️ Preservar capital", "Conservador"),
+    ("⚖️ Equilibrio", "Moderado"),
+    ("🚀 Crecimiento", "Arriesgado"),
+]
+
+
+def _ctx_scoped_cliente(cid: int, nombre: str, ctx: dict) -> dict:
+    """ctx superficial apuntado al cliente seleccionado (perfil, horizonte, cartera).
+
+    Garantiza que recomendar/persistir trabajen sobre ESTE cliente y no sobre el
+    activo en sesión — evita cruzar datos entre clientes del estudio.
+    """
+    sc = dict(ctx)
+    nombre_corto = str(nombre).split("|")[0].strip()
+    perfil_v, horiz = _perfil_horizonte_cliente(int(cid), ctx)
+    sc["cliente_id"] = int(cid)
+    sc["cliente_nombre"] = nombre
+    sc["cliente_perfil"] = perfil_v
+    sc["cliente_horizonte_label"] = horiz
+    df_trans = ctx.get("df_trans")
+    lbl = _etiqueta_cartera_para_cliente(
+        nombre_corto, df_trans if isinstance(df_trans, pd.DataFrame) else pd.DataFrame()
+    )
+    if not lbl or lbl.endswith("(sin datos)"):
+        lbl = f"{nombre_corto} | Cartera principal"
+    sc["cartera_activa"] = lbl
+    return sc
+
+
+def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
+    """Wizard de capital del cliente seleccionado (pasos 3-5 del flujo de estudio).
+
+    Paso 3: cuánto capital agregar + objetivo. Paso 4: recomendar activos a
+    comprar (editable). Paso 5: adjuntar a la cartera del cliente (opcional,
+    con confirmación). Reusa el motor de recomendación; no duplica lógica cuant.
+    """
+    from services.cartera_service import metricas_resumen
+    from services.diagnostico_cartera import diagnosticar
+    from ui.inversor._helpers import (
+        _TIPOS_EDICION_PRIMERA_CARTERA,
+        _precios_para_recomendar,
+        _tipo_universo_ticker,
+    )
+
+    if not can_action(ctx, "write"):
+        st.caption(
+            "Necesitás permiso de escritura en Estudio para agregar capital y recomendar."
+        )
+        return
+
+    nombre_corto = str(nombre).split("|")[0].strip()
+    sc = _ctx_scoped_cliente(int(cid), nombre, ctx)
+    perfil_cli = str(sc["cliente_perfil"])
+    horiz = str(sc["cliente_horizonte_label"])
+    ccl = float(ctx.get("ccl") or 1150.0)
+    rr_key = f"est_wiz_rr_{cid}"
+
+    # ── Paso 3: capital + objetivo ─────────────────────────────────────────
+    st.markdown(
+        '<p class="mq-estudio-torre-kicker">💰 Paso 3 — Agregar capital y objetivo</p>',
+        unsafe_allow_html=True,
+    )
+    col_cap, col_obj = st.columns([3, 2])
+    with col_cap:
+        capital_ars = st.number_input(
+            "¿Cuánto capital quiere agregar? (ARS)",
+            min_value=0.0,
+            max_value=1_000_000_000.0,
+            value=float(st.session_state.get(f"est_wiz_cap_{cid}", 500_000.0)),
+            step=50_000.0,
+            format="%.0f",
+            key=f"est_wiz_cap_{cid}",
+            help="El motor distribuye este monto según el objetivo y el perfil del cliente.",
+        )
+    with col_obj:
+        _labels = [lbl for lbl, _ in _OBJETIVOS_APORTE_ESTUDIO]
+        _default_idx = next(
+            (i for i, (_, p) in enumerate(_OBJETIVOS_APORTE_ESTUDIO) if p == perfil_cli),
+            1,
+        )
+        obj_label = st.selectbox(
+            "Objetivo del aporte",
+            _labels,
+            index=_default_idx,
+            key=f"est_wiz_obj_{cid}",
+            help=f"Perfil de riesgo guardado del cliente: {perfil_cli}. Podés inclinar este aporte sin cambiarlo.",
+        )
+    perfil_ef = dict(_OBJETIVOS_APORTE_ESTUDIO).get(obj_label, perfil_cli)
+    perfil_ef = perfil_diagnostico_valido(perfil_ef)
+
+    st.caption(
+        f"~ USD {capital_ars / max(ccl, 1.0):,.0f} (CCL {ccl:,.0f}) · "
+        f"objetivo orienta la cartera a perfil **{perfil_ef}**"
+    )
+
+    if st.button(
+        "🧠 Recomendar activos a comprar",
+        type="primary",
+        use_container_width=True,
+        key=f"est_wiz_calc_{cid}",
+        disabled=capital_ars <= 0,
+    ):
+        with st.spinner("Calculando recomendación…"):
+            try:
+                df_pos = _cargar_cartera_cliente(int(cid), nombre, ctx)
+                precios_d = _precios_para_recomendar(ctx)
+                if df_pos is None or df_pos.empty:
+                    # Cliente sin posiciones → primera cartera desde cero.
+                    from services.recomendacion_capital import generar_primera_cartera
+
+                    rr = generar_primera_cartera(
+                        capital_ars=float(capital_ars),
+                        perfil=perfil_ef,
+                        ccl=ccl,
+                        precios_dict=precios_d,
+                        universo_df=ctx.get("universo_df"),
+                        cliente_nombre=nombre_corto,
+                        df_analisis=ctx.get("df_analisis"),
+                        df_scores=None,
+                    )
+                else:
+                    # Cliente con posiciones → recomendar sobre su diagnóstico.
+                    from services.recomendacion_capital import recomendar
+
+                    diag = diagnosticar(
+                        df_ag=df_pos,
+                        perfil=perfil_ef,
+                        horizonte_label=horiz,
+                        metricas=metricas_resumen(df_pos),
+                        ccl=ccl,
+                        universo_df=ctx.get("universo_df"),
+                        senales_salida=None,
+                        cliente_nombre=nombre_corto,
+                    )
+                    rr = recomendar(
+                        df_ag=df_pos,
+                        perfil=perfil_ef,
+                        horizonte_label=horiz,
+                        capital_ars=float(capital_ars),
+                        ccl=ccl,
+                        precios_dict=precios_d,
+                        diagnostico=diag,
+                        universo_df=ctx.get("universo_df"),
+                        cliente_nombre=nombre_corto,
+                    )
+                st.session_state[rr_key] = {
+                    "rr": rr,
+                    "capital": float(capital_ars),
+                    "perfil": perfil_ef,
+                }
+                # Audit: simulación de recomendación para este cliente.
+                try:
+                    from services.audit_trail import registrar_recomendacion_evento
+
+                    registrar_recomendacion_evento(
+                        evento="SIMULACION_RECOMENDACION",
+                        origen="estudio_wizard_capital",
+                        cliente_id=int(cid),
+                        cliente_nombre=nombre_corto,
+                        tenant_id=str(ctx.get("tenant_id", "default") or "default"),
+                        actor=str(ctx.get("login_user", "") or ""),
+                        correlation_id=str(st.session_state.get("session_correlation_id", "")),
+                        cartera=str(sc["cartera_activa"]),
+                        perfil=perfil_ef,
+                        capital_ars=float(capital_ars),
+                        filas=len(list(getattr(rr, "compras_recomendadas", None) or [])),
+                        payload={"objetivo": obj_label},
+                    )
+                except Exception:
+                    pass
+                st.rerun()
+            except Exception as e:
+                st.error(f"No se pudo calcular la recomendación: {e}")
+
+    # ── Paso 4: activos recomendados (editable) ────────────────────────────
+    res = st.session_state.get(rr_key)
+    if not res:
+        return
+    rr = res["rr"]
+    cap_calc = float(res.get("capital", 0) or 0)
+    perfil_res = str(res.get("perfil") or perfil_ef)
+
+    st.markdown(
+        '<p class="mq-estudio-torre-kicker">🧾 Paso 4 — Activos recomendados</p>',
+        unsafe_allow_html=True,
+    )
+    if getattr(rr, "alerta_mercado", False):
+        st.warning(f"⚠️ {getattr(rr, 'mensaje_alerta', 'Alerta de mercado.')}")
+
+    items = list(getattr(rr, "compras_recomendadas", None) or [])
+    if not items:
+        st.info(
+            "No se encontraron compras posibles con ese capital. "
+            "Probá con otro monto u objetivo."
+        )
+        return
+
+    _udf = ctx.get("universo_df")
+    _rows: list[dict] = []
+    for it in items:
+        _tk = str(getattr(it, "ticker", "") or "").strip().upper()
+        if not _tk:
+            continue
+        _rows.append(
+            {
+                "Ticker": _tk,
+                "Unidades": int(getattr(it, "unidades", 0) or 0),
+                "Precio_ARS": float(getattr(it, "precio_ars_estimado", 0) or 0),
+                "TIPO": _tipo_universo_ticker(_tk, _udf),
+                "Notas": str(getattr(it, "justificacion", "") or "")[:120],
+            }
+        )
+    df_ed = pd.DataFrame(_rows)
+    edited = st.data_editor(
+        df_ed,
+        num_rows="dynamic",
+        use_container_width=True,
+        hide_index=True,
+        key=f"est_wiz_editor_{cid}",
+        column_config={
+            "Ticker": st.column_config.TextColumn("Ticker", width="small"),
+            "Unidades": st.column_config.NumberColumn("Unidades", min_value=0, step=1, width="small"),
+            "Precio_ARS": st.column_config.NumberColumn("Precio ARS c/u", min_value=0.0, format="%.2f"),
+            "TIPO": st.column_config.SelectboxColumn(
+                "Tipo", options=_TIPOS_EDICION_PRIMERA_CARTERA, width="small"
+            ),
+            "Notas": st.column_config.TextColumn("Notas (guía)", width="large"),
+        },
+    )
+    try:
+        _nu = pd.to_numeric(edited["Unidades"], errors="coerce").fillna(0)
+        _npx = pd.to_numeric(edited["Precio_ARS"], errors="coerce").fillna(0)
+        monto_editado = float((_nu * _npx).sum())
+    except Exception:
+        monto_editado = sum(float(getattr(it, "monto_ars", 0) or 0) for it in items)
+    remanente = float(getattr(rr, "capital_remanente_ars", 0) or 0)
+    st.caption(
+        f"Total tabla ≈ **${monto_editado:,.0f} ARS** · queda en efectivo (ref.) "
+        f"${remanente:,.0f} ARS · perfil {perfil_res}"
+    )
+
+    # Pilar 3: plan explicado (el porqué de cada compra), si el flag está activo.
+    try:
+        from ui.inversor._helpers import _flag_plan_explicado
+
+        if _flag_plan_explicado(ctx):
+            from services.recomendador_explicable import construir_plan_accion
+
+            _plan = construir_plan_accion(
+                perfil=perfil_res,
+                rr=rr,
+                capital_ars=cap_calc,
+                precio_records=ctx.get("precio_records"),
+            )
+            with st.expander("🧭 Por qué estos activos — plan explicado", expanded=False):
+                from ui.components.plan_accion_view import render_plan_accion
+
+                render_plan_accion(_plan, key_prefix=f"est_wiz_plan_{cid}")
+    except Exception:
+        pass
+
+    # ── Paso 5: adjuntar a la cartera del cliente ──────────────────────────
+    st.markdown(
+        '<p class="mq-estudio-torre-kicker">📎 Paso 5 — Adjuntar a la cartera del cliente</p>',
+        unsafe_allow_html=True,
+    )
+    st.caption(f"Al confirmar, las compras se registran en: **`{sc['cartera_activa']}`**")
+    _confirm = st.checkbox(
+        "Confirmo que el cliente ejecutó estas operaciones en su broker",
+        key=f"est_wiz_confirm_{cid}",
+    )
+    col_adj, col_reset = st.columns(2)
+    with col_adj:
+        if st.button(
+            "📎 Adjuntar a la cartera principal",
+            type="primary",
+            use_container_width=True,
+            key=f"est_wiz_adjuntar_{cid}",
+            disabled=not _confirm,
+        ):
+            from ui.carga_activos import _persist_filas
+
+            _ccl_ok = float(ctx.get("ccl") or 0.0)
+            if _ccl_ok <= 0:
+                st.error("CCL inválido: no se puede derivar PPC USD.")
+            elif edited.empty:
+                st.warning("La tabla está vacía.")
+            else:
+                _filas: list[dict] = []
+                for _, row in edited.iterrows():
+                    _tick = str(row.get("Ticker", "")).strip().upper()
+                    _u = int(pd.to_numeric(row.get("Unidades", 0), errors="coerce") or 0)
+                    _px = float(pd.to_numeric(row.get("Precio_ARS", 0), errors="coerce") or 0.0)
+                    _ti = str(row.get("TIPO", "CEDEAR") or "CEDEAR").strip().upper()
+                    if _ti in ("NAN", "NONE", "", "COMPRA", "VENTA"):
+                        _ti = "CEDEAR"
+                    if not _tick or _u <= 0 or _px <= 0:
+                        continue
+                    _ppc_ars = round(_px, 4)
+                    _filas.append(
+                        {
+                            "FECHA_COMPRA": date.today(),
+                            "TICKER": _tick,
+                            "CANTIDAD": _u,
+                            "PPC_USD": round(_ppc_ars / max(_ccl_ok, 1e-9), 6),
+                            "PPC_ARS": _ppc_ars,
+                            "TIPO": _ti,
+                            "LAMINA_VN": float("nan"),
+                        }
+                    )
+                if not _filas:
+                    st.error(
+                        "No hay filas válidas: cada una necesita Ticker, Unidades > 0 y Precio ARS > 0."
+                    )
+                else:
+                    try:
+                        from services.audit_trail import registrar_recomendacion_evento
+
+                        registrar_recomendacion_evento(
+                            evento="EJECUCION_CONFIRMADA",
+                            origen="estudio_wizard_capital",
+                            cliente_id=int(cid),
+                            cliente_nombre=nombre_corto,
+                            tenant_id=str(ctx.get("tenant_id", "default") or "default"),
+                            actor=str(ctx.get("login_user", "") or ""),
+                            correlation_id=str(st.session_state.get("session_correlation_id", "")),
+                            cartera=str(sc["cartera_activa"]),
+                            perfil=perfil_res,
+                            capital_ars=float(cap_calc),
+                            filas=len(_filas),
+                            payload={"confirmacion_broker": True},
+                        )
+                    except Exception:
+                        pass
+                    _persist_filas(
+                        sc,
+                        _filas,
+                        "agregar",
+                        cartera_override=str(sc["cartera_activa"]),
+                        session_keys_clear=[rr_key, f"est_wiz_confirm_{cid}"],
+                    )
+    with col_reset:
+        if st.button(
+            "🔄 Recalcular con otro monto",
+            use_container_width=True,
+            key=f"est_wiz_reset_{cid}",
+        ):
+            st.session_state.pop(rr_key, None)
+            st.rerun()
+
+
 def _render_plan_cliente_estudio(cid: int, nombre: str, ctx: dict) -> None:
     """Resumen de plan / mix ideal (misma lógica que inversor, sin duplicar motor cuant)."""
     df_ag = _cargar_cartera_cliente(cid, nombre, ctx)
@@ -809,6 +1164,13 @@ def render_tab_estudio(ctx: dict) -> None:
                 st.rerun()
 
             _render_ficha_cliente_rapida(int(cid), _nom_btn, ctx)
+
+            # Pasos 3-5: agregar capital → objetivo → recomendar → adjuntar.
+            # Expander para no abrumar la ficha; se abre al gestionar el aporte.
+            with st.expander(
+                f"💰 Agregar capital y recomendar — {_nom_corto}", expanded=False
+            ):
+                _render_wizard_capital_estudio(int(cid), _nom_btn, ctx)
 
             if col_rpt.button("📄 Generar informe", key="btn_estudio_rpt",
                               use_container_width=True):
