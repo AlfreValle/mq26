@@ -264,6 +264,9 @@ def render_sidebar(
                 st.session_state.pop(k, None)
             st.session_state.pop("mq_cartera_activa_sidebar", None)
             st.session_state.pop("_mq_cartera_sync_key", None)
+            # #11: forzar el selector de cliente al volver (incluido el admin,
+            # que de lo contrario entraría directo al panel sin pasar por él).
+            st.session_state["mq26_forzar_selector_cliente"] = True
             st.rerun()
 
     st.sidebar.divider()

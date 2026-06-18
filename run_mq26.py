@@ -475,6 +475,24 @@ def _pantalla_ingreso():
         unsafe_allow_html=True,
     )
 
+    # #11: el admin no necesita elegir cliente — puede entrar directo al panel.
+    # El selector de abajo queda disponible por si quiere trabajar una cartera.
+    if _ing_role in ("super_admin", "admin"):
+        if st.button(
+            "🛠 Entrar al panel de administración (sin cliente) →",
+            key="btn_admin_sin_cliente",
+            use_container_width=True,
+            type="primary",
+        ):
+            st.session_state["mq26_forzar_selector_cliente"] = False
+            st.session_state.pop("cliente_id", None)
+            st.rerun()
+        st.caption(
+            "Como administrador no necesitás un cliente para entrar. "
+            "Elegí uno abajo solo si querés trabajar su cartera."
+        )
+        st.divider()
+
     col_sel, col_sep, col_nuevo = st.columns([5, 1, 5])
 
     with col_sel:
@@ -746,7 +764,17 @@ def _pantalla_ingreso():
     )
     st.stop()
 
-if "cliente_id" not in st.session_state:
+# #11 (dictamen): admin/super_admin no necesitan elegir cliente para entrar.
+# Caen directo al panel de administración; pueden elegir un cliente cuando
+# quieran con "🔄 Cambiar cliente" en el sidebar (que fuerza el selector) o
+# trabajar cualquier cartera del tenant desde el selectbox del sidebar.
+from ui.rbac import entra_sin_cliente as _entra_sin_cliente
+
+_admin_entra_directo = _entra_sin_cliente(
+    get_user_role("mq26"),
+    forzar_selector=bool(st.session_state.get("mq26_forzar_selector_cliente", False)),
+)
+if "cliente_id" not in st.session_state and not _admin_entra_directo:
     _pantalla_ingreso()
 
 

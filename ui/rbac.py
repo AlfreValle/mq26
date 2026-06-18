@@ -30,6 +30,21 @@ def user_role_lower(ctx: dict | None) -> str:
     return str((ctx or {}).get("user_role") or "").strip().lower()
 
 
+# Roles que administran el SaaS y no necesitan un cliente seleccionado para entrar.
+ROLES_SIN_CLIENTE: set[str] = {"admin", "super_admin"}
+
+
+def entra_sin_cliente(role: str | None, forzar_selector: bool = False) -> bool:
+    """#11 (dictamen): ¿el rol entra directo sin elegir cliente?
+
+    Admin/super_admin caen directo al panel; el resto debe pasar por el selector.
+    ``forzar_selector`` (set por "Cambiar cliente" en el sidebar) obliga a mostrar
+    el selector también al admin, para que pueda elegir un cliente cuando quiera.
+    """
+    r = str(role or "").strip().lower()
+    return r in ROLES_SIN_CLIENTE and not bool(forzar_selector)
+
+
 def has_role(ctx: dict | None, allowed: Container[str]) -> bool:
     r = user_role_lower(ctx)
     return r in {str(x).strip().lower() for x in allowed}
