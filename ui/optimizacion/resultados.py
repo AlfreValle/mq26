@@ -17,7 +17,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core.logging_config import get_logger
-from ui.mq26_ux import dataframe_auto_height
+from ui.mq26_ux import dataframe_auto_height, plotly_template_actual
 from ui.rbac import can_action as _can_action_rbac
 
 _log = get_logger(__name__)
@@ -411,7 +411,7 @@ def _renderizar_resultados(ctx: dict) -> None:
                         xaxis_title="Volatilidad anual (%)",
                         yaxis_title="Retorno anual (%)",
                         height=500,
-                        template="plotly_dark",
+                        template=plotly_template_actual(),
                     )
                     st.plotly_chart(fig_fe, use_container_width=True)
         else:

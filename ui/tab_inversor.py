@@ -414,7 +414,12 @@ def render_tab_inversor(ctx: dict) -> None:
             "Renta Fija y Renta Variable tienen KPIs distintos. "
             "El objetivo RF/RV está definido por tu perfil de riesgo."
         )
-        with st.expander("Estado de situacion - universo analizado", expanded=False):
+        with st.expander("Estado de situación — universo analizado", expanded=False):
+            st.caption(
+                "Cuántos instrumentos (CEDEARs, acciones, bonos, ON) analizó el "
+                "motor en esta sesión para sugerirte. Un universo más grande da "
+                "más opciones; no es algo que tengas que tocar."
+            )
             try:
                 _, df_est = _estado_universo_inversor_cached()
                 st.dataframe(df_est, hide_index=True, use_container_width=True)

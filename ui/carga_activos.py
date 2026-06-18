@@ -483,7 +483,13 @@ def _render_carga_on(ctx: dict) -> None:
         vn = st.number_input("Valor nominal (USD)", min_value=0.0, value=0.0, step=100.0, key="ca_on_vn")
     with c2:
         par_def = float(meta["paridad_ref"]) if meta else 100.0
-        par = st.number_input("Paridad % (precio limpio)", min_value=0.01, value=par_def, step=0.5, key="ca_on_par")
+        par = st.number_input(
+            "Paridad % (precio limpio)", min_value=0.01, value=par_def, step=0.5,
+            key="ca_on_par",
+            help="Las ONs/bonos se cotizan como % del valor nominal. Ejemplo: si "
+            "pagaste ARS 9.700 por USD 100 nominales, la paridad es ~97%. "
+            "Rango típico de mercado: 80–115%. Mirá el comprobante de tu broker.",
+        )
     with c3:
         fc = st.date_input("Fecha", value=date.today(), key="ca_on_fecha")
     if par > 115:
@@ -759,7 +765,14 @@ def _render_importar_broker(ctx: dict) -> None:
                     )
                 st.info(resumen)
         if df_imp is not None and not df_imp.empty:
+            _n_imp = len(df_imp)
+            st.caption(
+                f"Vista previa: primeras {min(30, _n_imp)} de **{_n_imp}** operaciones. "
+                "Revisá ticker, cantidad y precio antes de confirmar."
+            )
             st.dataframe(df_imp.head(30), use_container_width=True)
+            if _n_imp > 30:
+                st.info(f"Hay {_n_imp - 30} fila(s) más que no se muestran en el preview, pero se importarán.")
             incluir_v = st.checkbox(
                 "Incluir ventas del archivo (reducen o cierran posiciones)",
                 value=False,

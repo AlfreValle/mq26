@@ -10,7 +10,7 @@ import streamlit as st
 
 from core.structured_logging import log_degradacion
 from services.risk_var import calcular_var_cvar
-from ui.mq26_ux import dataframe_auto_height
+from ui.mq26_ux import dataframe_auto_height, plotly_template_actual
 
 # ── Glosario de métricas de riesgo en lenguaje humano (U39 Must) ─────────
 _GLOSARIO_RIESGO = {
@@ -319,7 +319,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                             fig_eq_dual.add_hline(y=1.0, line_dash="dot", line_color="gray")
                             fig_eq_dual.update_layout(
                                 title=f"Equity Curve Dual — {period_bt}",
-                                template="plotly_dark", hovermode="x unified", height=420)
+                                template=plotly_template_actual(), hovermode="x unified", height=420)
                             st.plotly_chart(fig_eq_dual, use_container_width=True)
 
                             # Alpha acumulado
@@ -329,7 +329,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                                 title=f"Alpha Acumulado Óptima vs {benchmark_bt}",
                                 color_discrete_sequence=["#27AE60"])
                             fig_alpha.add_hline(y=0, line_dash="solid", line_color="white")
-                            fig_alpha.update_layout(template="plotly_dark")
+                            fig_alpha.update_layout(template=plotly_template_actual())
                             st.plotly_chart(fig_alpha, use_container_width=True)
 
                     except Exception as e:
@@ -440,7 +440,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                             fig_hist.update_layout(
                                 barmode="overlay",
                                 title=f"Distribución de Retornos — {esc_sel}",
-                                template="plotly_dark", height=380)
+                                template=plotly_template_actual(), height=380)
                             st.plotly_chart(fig_hist, use_container_width=True)
 
                             # Trayectorias del óptimo
@@ -456,7 +456,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                             fig_tray = px.line(df_tray, x="Día",
                                                y=[c for c in df_tray.columns if c != "Día"],
                                                title=f"Trayectorias Óptima — {esc_sel}")
-                            fig_tray.update_layout(template="plotly_dark", showlegend=False)
+                            fig_tray.update_layout(template=plotly_template_actual(), showlegend=False)
                             st.plotly_chart(fig_tray, use_container_width=True)
 
                     except Exception as e:
@@ -497,7 +497,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                             ))
                             fig_hm.update_layout(
                                 title="Matriz de Correlaciones (Pearson, retornos diarios)",
-                                height=420, template="plotly_dark",
+                                height=420, template=plotly_template_actual(),
                             )
                             st.plotly_chart(fig_hm, use_container_width=True)
 
@@ -598,7 +598,7 @@ def render_tab_riesgo(ctx: dict) -> None:
             fig_ccl.update_layout(
                 title="Valor de la Cartera ARS según escenario CCL",
                 xaxis_title="Variación CCL", yaxis_title="Valor ARS",
-                height=350, template="plotly_dark",
+                height=350, template=plotly_template_actual(),
             )
             st.plotly_chart(fig_ccl, use_container_width=True)
             st.caption("💡 Los valores USD no cambian; solo varía la expresión en ARS.")
@@ -672,7 +672,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                         fig_btr.update_layout(
                             title="Equity Curve Real vs Benchmark",
                             yaxis_title="Capital (base inicial)", height=400,
-                            template="plotly_dark",
+                            template=plotly_template_actual(),
                         )
                         st.plotly_chart(fig_btr, use_container_width=True)
 
@@ -782,7 +782,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                 _fig_hist.update_layout(
                     title="Distribución de Retornos Diarios — Cartera",
                     xaxis_title="Retorno diario (%)", yaxis_title="Frecuencia",
-                    height=420, template="plotly_dark",
+                    height=420, template=plotly_template_actual(),
                 )
                 st.plotly_chart(_fig_hist, use_container_width=True)
 
@@ -1052,7 +1052,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                         ))
                         fig_roll.update_layout(
                             title="Correlación estática — ventana completa",
-                            height=400, template="plotly_dark",
+                            height=400, template=plotly_template_actual(),
                         )
                         st.plotly_chart(fig_roll, use_container_width=True, key="heatmap_corr_roll")
 
@@ -1152,7 +1152,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                     fig_sens.update_layout(
                         title="Sensibilidad del Sharpe a la tasa libre de riesgo",
                         xaxis_title="Tasa libre de riesgo (rf)", yaxis_title="Sharpe Ratio",
-                        height=360, template="plotly_dark",
+                        height=360, template=plotly_template_actual(),
                     )
                     st.plotly_chart(fig_sens, use_container_width=True, key="fig_sens")
                     st.caption(f"Sharpe con rf={RISK_FREE_RATE:.0%}: **{(_mu_s - RISK_FREE_RATE)/_sig_s:.3f}**")
@@ -1208,7 +1208,7 @@ def render_tab_riesgo(ctx: dict) -> None:
                     ))
                     fig_mrc.update_layout(
                         title="Contribución Marginal al Riesgo Total (%)",
-                        height=320, template="plotly_dark", showlegend=False,
+                        height=320, template=plotly_template_actual(), showlegend=False,
                     )
                     st.plotly_chart(fig_mrc, use_container_width=True, key="fig_mrc")
                 except Exception as _e_mrc:

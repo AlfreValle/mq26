@@ -219,8 +219,14 @@ def render_main_tabs(ctx: dict, app_kind: AppKind, role: str) -> None:
                 try:
                     spec.render(ctx)
                 except Exception:
-                    _LOG.exception("Fallo render pestaña tab_id=%s", spec.tab_id)
+                    import uuid as _uuid
+
+                    _err_id = _uuid.uuid4().hex[:8]
+                    _LOG.exception(
+                        "Fallo render pestaña tab_id=%s err_id=%s", spec.tab_id, _err_id
+                    )
                     st.error(
-                        "Servicio momentáneamente fuera de servicio. "
-                        "Reintentá en unos minutos o contactá al equipo técnico."
+                        "Esta sección tuvo un problema y no se pudo mostrar. "
+                        "Reintentá en unos minutos; si persiste, pasale este código "
+                        f"al equipo técnico: **{_err_id}**."
                     )

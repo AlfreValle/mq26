@@ -29,6 +29,13 @@ def _session_light_mode() -> bool:
         return True
 
 
+def plotly_template_actual() -> str:
+    """Template Plotly según el tema activo: 'plotly_white' en modo claro retail,
+    'plotly_dark' en oscuro. Evita la caja oscura flotando sobre fondo blanco
+    cuando el usuario activa el modo claro (antes se forzaba 'plotly_dark')."""
+    return "plotly_white" if _session_light_mode() else "plotly_dark"
+
+
 def plotly_chart_layout_base(*, light: bool | None = None, **overrides) -> dict:
     """
     Layout Plotly alineado a tokens MQ26 (P3-UX-02): Barlow + color de eje legible

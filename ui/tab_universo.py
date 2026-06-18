@@ -10,6 +10,7 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 from core.structured_logging import log_degradacion
+from ui.mq26_ux import plotly_template_actual
 
 # ── Cálculo de indicadores técnicos (sin librerías externas) ──────────────────
 
@@ -544,7 +545,7 @@ def render_tab_universo(ctx: dict) -> None:
                         fig_v.update_layout(
                             title=f"{ticker_velas} | {period_velas} | {indicador_sel}",
                             xaxis_rangeslider_visible=False,
-                            template="plotly_dark", height=700,
+                            template=plotly_template_actual(), height=700,
                             legend=dict(orientation="h", yanchor="bottom", y=1.01),
                         )
                         st.plotly_chart(fig_v, use_container_width=True)

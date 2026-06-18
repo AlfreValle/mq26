@@ -12,7 +12,7 @@ import streamlit as st
 from core.logging_config import get_logger
 from core.panel_precios import validar_panel_precios
 from core.structured_logging import log_degradacion
-from ui.mq26_ux import dataframe_auto_height
+from ui.mq26_ux import dataframe_auto_height, plotly_template_actual
 
 # Resultados del Lab extraídos a ui/optimizacion/ (Fase 2.1) — re-export.
 from ui.optimizacion.resultados import (  # noqa: F401
@@ -308,7 +308,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
                     ))
                 fig_eq.update_layout(
                     title=f"Período: {comp_res['period']} | Todas las carteras base 100",
-                    height=420, template="plotly_dark",
+                    height=420, template=plotly_template_actual(),
                     legend=dict(orientation="h", yanchor="bottom", y=-0.2),
                 )
                 st.plotly_chart(fig_eq, use_container_width=True)
@@ -820,7 +820,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
                             xaxis_title="Volatilidad anual (%)",
                             yaxis_title="Retorno anual (%)",
                             height=500,
-                            template="plotly_dark",
+                            template=plotly_template_actual(),
                         )
                         st.plotly_chart(fig_fe, use_container_width=True)
             else:

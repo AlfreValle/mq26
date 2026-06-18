@@ -34,25 +34,24 @@ Alto impacto / bajo esfuerzo, visibles de inmediato para ambos compradores.
 
 ## P0 — Bloquean la venta (sprints de fondo)
 
-- [ ] **A · Login confuso (ambos)** (`run_mq26.py` pantalla de ingreso). Dos
-  formas de login (legacy/SaaS) sin guía; el usuario no sabe qué hacer al entrar.
-  → login consciente del rol + copy de ayuda ("¿primera vez? pedí tu usuario a
-  tu asesor"). **[M]**
-- [ ] **B · Jerga sin traducir (retail)** (`ui/tab_inversor.py`, `ui/carga_activos.py`).
-  Sharpe, CVaR, CCL, CEDEAR, TIR, "paridad %" sin tooltip; glosario enterrado.
-  → tooltips inline (`get_tooltip` en `ui/mq26_ux.py`) + subir el glosario.
-  Parcialmente cubierto por el selector de perfil. **[M]**
-- [ ] **C · Carga de activos cruda (retail)** (`ui/carga_activos.py`). "¿ARS o USD
-  MEP?" sin explicar, "paridad %" sin ejemplo, warnings en rojo que asustan.
-  → help con ejemplos ("pagaste ARS 9.700 por USD 100 → paridad 97%"), campo
-  "monto pagado" que calcula paridad, warnings informativos no alarmistas. **[M]**
-- [ ] **D · Se pierde el estado al cambiar de cliente (asesor)** (`ui/sidebar.py`,
-  `run_mq26.py`). Cambiar cliente = rerun total: se pierde el trabajo en
-  Optimización/Riesgo; sin spinner parece colgada. → snapshot de estado por
-  `cliente_id` + spinner al cambiar. **[M–L]**
-- [ ] **Entregables · Email del informe sin fallback** (`ui/tab_estudio.py`). Si
-  no hay Gmail en `.env`, la opción de enviar al cliente desaparece. → SMTP
-  configurable desde panel admin. **[M]**
+- [~] **A · Login** (`run_mq26.py`). REVISADO: NO era dual confuso — es un
+  `if/else` limpio (SaaS **o** legacy, nunca ambos). El form legacy guía bien.
+  No se toca el componente de auth (compartido, funciona). Mensaje de "sin
+  clientes" para viewer ya orienta. **[descartado tras revisión]**
+- [x] **B · Jerga (retail)** (`ui/tab_inversor.py`, `ui/carga_activos.py`).
+  REVISADO: ya tenía tooltips `help=` en las métricas y `GLOSARIO_INVERSOR`.
+  Cerrado lo real: caption de la tabla de universo + typo "situación";
+  selector de perfil con tokens; help de paridad con ejemplo. **[hecho]**
+- [x] **C · Carga de activos (retail)** (`ui/carga_activos.py`). REVISADO: el
+  CEDEAR ya tenía radio con help, warnings informativos y preview. Cerrado lo
+  real: help de "paridad %" con ejemplo (ON/bono) + aviso de preview truncado
+  ("primeras 30 de N"). **[hecho]**
+- [~] **D · Estado al cambiar de cliente (asesor)** (`ui/sidebar.py`,
+  `run_mq26.py`). Parcial: el spinner de tab ya existe. El snapshot de estado
+  por `cliente_id` cross-tab es M–L y riesgoso a ciegas → **follow-up con la app
+  corriendo para verificar**.
+- [ ] **Entregables · Email/PDF** (`ui/tab_estudio.py`). SMTP configurable + PDF
+  directo son infra; **follow-up con verificación en browser** (no a ciegas).
 
 ---
 
@@ -70,22 +69,20 @@ Alto impacto / bajo esfuerzo, visibles de inmediato para ambos compradores.
   (`ui/carga_activos.py`). **[S]**
 - [ ] Escaneo de universo (perlas): progreso real, no solo spinner; refrescar al
   terminar (`ui/tab_perlas.py`). **[S]**
-- [ ] Plotly en tabs profesionales con `template="plotly_dark"` → romper modo
-  claro: pasar a `plotly_chart_layout_base` (`ui/tab_riesgo.py`,
-  `ui/tab_optimizacion.py`, `ui/optimizacion/resultados.py`, `ui/tab_universo.py`).
-  **[M]**
+- [x] Plotly en tabs profesionales con `template="plotly_dark"` → rompía modo
+  claro. → nuevo helper `plotly_template_actual()` (17 gráficos en riesgo,
+  optimización, resultados, universo, cartera). **[hecho]**
 - [ ] Ficha rápida del cliente recalcula diagnóstico al abrir (lento con red
   lenta): caché por fingerprint persistente (`ui/tab_estudio.py`). **[M]**
-- [ ] Render de tab que falla muestra error genérico sin ID para reportar
-  (`ui/navigation.py`). **[S]**
+- [x] Render de tab que falla muestra error genérico sin ID para reportar
+  (`ui/navigation.py`). → ahora da un código corto reportable. **[hecho]**
 
 ---
 
 ## P2 — Pulido y confianza
 
-- [ ] `style.css` se autoviola: clases `mq-estudio-*` hardcodean hex en vez de
-  `--c-green/yellow/red(-muted)` (raíz de inconsistencia; pantalla principal del
-  asesor) (`assets/style.css`). **[S]**
+- [x] `style.css` se autoviolaba: clases `mq-estudio-*` con hex. → tokens
+  `--c-green/yellow/red(-muted)` + `--c-text-3`/`--c-surface-2`. **[hecho]**
 - [ ] Checkbox "Confirmo que ejecuté…" ambiguo → aclarar que MQ26 es seguimiento,
   no ejecución (`ui/inversor/primera_cartera.py`). **[S]**
 - [ ] Cambiar perfil no recalcula KPIs automáticamente → hint/rerun

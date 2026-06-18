@@ -18,7 +18,7 @@ from ui.cartera.posicion_neta import (  # noqa: F401
     _paridad_implicita_pct_on_usd_desde_fila,
     _render_posicion_neta,
 )
-from ui.mq26_ux import dataframe_auto_height
+from ui.mq26_ux import dataframe_auto_height, plotly_template_actual
 from ui.rbac import can_action as _can_action_rbac
 
 
@@ -488,7 +488,7 @@ def _render_historial_timeline(ctx, df_ag, ccl):
                     title="Cartera actual por valor ARS",
                     labels={"VALOR_ARS": "Valor ARS", "TICKER": "Activo"},
                 )
-                fig_bar.update_layout(template="plotly_dark", height=max(300, len(df_bar) * 42))
+                fig_bar.update_layout(template=plotly_template_actual(), height=max(300, len(df_bar) * 42))
                 st.plotly_chart(fig_bar, use_container_width=True)
             else:
                 st.warning(f"Timeline: {e}")
@@ -525,7 +525,7 @@ def _render_historial_timeline(ctx, df_ag, ccl):
                         ))
                         fig_hm.update_layout(
                             title="Retorno Mensual de la Cartera (%)", height=300,
-                            template="plotly_dark", margin=dict(t=40, b=20, l=60, r=20),
+                            template=plotly_template_actual(), margin=dict(t=40, b=20, l=60, r=20),
                         )
                         st.plotly_chart(fig_hm, use_container_width=True, key="heatmap_mensual")
             except Exception as _e_hm:
