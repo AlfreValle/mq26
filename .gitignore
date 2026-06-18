@@ -2,6 +2,9 @@
 .env
 *.env
 !.env.example
+# Backups locales de .env con secretos reales — nunca commitear
+.env.*backup
+*.session_backup
 
 # Entornos virtuales locales
 .venv/
