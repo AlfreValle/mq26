@@ -67,30 +67,37 @@ _OBS_PRIO_MAP = {
 
 
 # ── Perfiles para el selector visual ──────────────────────────────────────────
+# Colores del sistema de diseño (tokens --c-*), no hex Material sueltos:
+# gradiente de riesgo verde→azul→amarillo→rojo. El "bg" usa el muted del token
+# para que las tarjetas se adapten al tema (claro/oscuro) sin grises fijos.
 _PERFILES_INFO: dict[str, dict] = {
     "Conservador": {
         "icono": "🛡️",
         "lema": "Priorizo no perder.",
         "rf_rv": "60% RF · 40% RV",
-        "color": "#2196F3",
+        "color": "var(--c-green)",
+        "bg": "var(--c-green-muted)",
     },
     "Moderado": {
         "icono": "⚖️",
         "lema": "Equilibrio riesgo/retorno.",
         "rf_rv": "50% RF · 50% RV",
-        "color": "#4CAF50",
+        "color": "var(--c-accent)",
+        "bg": "var(--c-accent-muted)",
     },
     "Arriesgado": {
         "icono": "📈",
         "lema": "Acepto volatilidad.",
         "rf_rv": "35% RF · 65% RV",
-        "color": "#FF9800",
+        "color": "var(--c-yellow)",
+        "bg": "var(--c-yellow-muted)",
     },
     "Muy arriesgado": {
         "icono": "🚀",
         "lema": "Máximo potencial.",
         "rf_rv": "30% RF · 70% RV",
-        "color": "#F44336",
+        "color": "var(--c-red)",
+        "bg": "var(--c-red-muted)",
     },
 }
 
@@ -117,8 +124,8 @@ def _render_selector_perfil_cards(ctx: dict) -> None:
     cols = st.columns(4)
     for col, (nombre, info) in zip(cols, _PERFILES_INFO.items(), strict=False):
         activo = nombre == perfil_actual
-        borde = f"2px solid {info['color']}" if activo else "1px solid #424242"
-        bg = f"{info['color']}18" if activo else "transparent"
+        borde = f"2px solid {info['color']}" if activo else "1px solid var(--c-border)"
+        bg = info["bg"] if activo else "transparent"
         with col:
             st.markdown(
                 f"<div style='border:{borde};border-radius:8px;padding:0.55rem 0.6rem;"
@@ -278,15 +285,18 @@ def _render_config_perfil(ctx: dict) -> None:
 
 
 def _render_inv_onboarding_hub() -> None:
-    """Onboarding ligero (3 pasos); el inversor puede ocultar la guía."""
-    if st.session_state.get("inv_hub_onboarding_done"):
-        return
-    with st.expander("Tu recorrido sugerido (3 pasos)", expanded=True):
+    """Onboarding ligero (3 pasos). Tras verlo queda colapsado pero SIEMPRE
+    accesible (antes se ocultaba para siempre — callejón sin salida)."""
+    seen = bool(st.session_state.get("inv_hub_onboarding_done"))
+    with st.expander("🧭 Tu recorrido sugerido (3 pasos)", expanded=not seen):
         for tit, txt in pasos_onboarding_hub():
             st.markdown(f"**{tit}** — {txt}")
-        if st.button("Listo, ocultar esta guía", key="inv_hub_onboarding_btn"):
-            st.session_state["inv_hub_onboarding_done"] = True
-            st.rerun()
+        if not seen:
+            if st.button("Listo, ya lo vi", key="inv_hub_onboarding_btn"):
+                st.session_state["inv_hub_onboarding_done"] = True
+                st.rerun()
+        else:
+            st.caption("Esta guía queda acá por si querés volver a verla.")
 
 
 @st.cache_data(ttl=300, show_spinner=False)

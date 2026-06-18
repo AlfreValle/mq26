@@ -250,8 +250,12 @@ def render_sidebar(
         unsafe_allow_html=True,
     )
 
-    # Mostrar "Cambiar cliente" excepto cuando el inversor tiene un solo cliente
-    if role != "inversor" or len(df_clientes) > 1:
+    # "Cambiar cliente" solo tiene sentido si hay un cliente activo que cambiar.
+    # El admin que entró directo al panel (sin cliente, #11) no lo ve: para elegir
+    # uno usa el selector que aparece al entrar, no un botón de "cambiar".
+    # Y el inversor con un único cliente tampoco (no hay alternativas).
+    _mostrar_cambiar = bool(cliente_id) and (role != "inversor" or len(df_clientes) > 1)
+    if _mostrar_cambiar:
         if st.sidebar.button(
             "🔄 Cambiar cliente", key="btn_cambiar_cliente", use_container_width=True
         ):
@@ -266,6 +270,14 @@ def render_sidebar(
             st.session_state.pop("_mq_cartera_sync_key", None)
             # #11: forzar el selector de cliente al volver (incluido el admin,
             # que de lo contrario entraría directo al panel sin pasar por él).
+            st.session_state["mq26_forzar_selector_cliente"] = True
+            st.rerun()
+    elif not cliente_id and str(role or "").lower() in ("admin", "super_admin"):
+        # Admin que entró directo al panel (#11): camino claro para elegir un
+        # cliente cuando quiera trabajar su cartera, sin el ambiguo "Cambiar".
+        if st.sidebar.button(
+            "👤 Elegir un cliente", key="btn_elegir_cliente", use_container_width=True
+        ):
             st.session_state["mq26_forzar_selector_cliente"] = True
             st.rerun()
 

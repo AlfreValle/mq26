@@ -18,7 +18,7 @@ from core.renta_fija_ar import (
     tir_ponderada_cartera,
 )
 from ui.inversor._helpers import _log_degradacion
-from ui.mq26_ux import dataframe_auto_height
+from ui.mq26_ux import dataframe_auto_height, plotly_chart_layout_base
 
 
 def _render_panel_rf_kpis(ctx: dict, df_ag: pd.DataFrame, ccl: float, diag) -> None:
@@ -150,17 +150,17 @@ def _render_panel_rf_kpis(ctx: dict, df_ag: pd.DataFrame, ccl: float, diag) -> N
         pesos = [round(w * 100, 1) for _, w in ladder]
         fig_l = _go.Figure(_go.Bar(
             x=años, y=pesos,
-            marker_color="#2196F3",
+            marker_color="#4f8ef7",  # --c-accent (azul de marca); Plotly no lee CSS vars
             text=[f"{p:.1f}%" for p in pesos],
             textposition="outside",
         ))
-        fig_l.update_layout(
+        # plotly_chart_layout_base: fondo transparente + eje legible en claro/oscuro
+        # (antes forzaba fondo a mano y rompía el modo claro retail).
+        fig_l.update_layout(**plotly_chart_layout_base(
             title="Ladder de vencimientos RF (% de cartera)",
             height=240, margin=dict(t=36, b=20, l=10, r=10),
             yaxis_title="%", xaxis_title="Año vto.",
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-        )
+        ))
         st.plotly_chart(fig_l, use_container_width=True, key="ladder_vtos_rf")
     else:
         st.info("No hay posiciones de renta fija con vencimiento cargado en el catálogo.")
