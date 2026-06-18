@@ -772,12 +772,21 @@ def render_tab_estudio(ctx: dict) -> None:
         _render_wizard_onboarding(ctx)
         return
 
-    _render_dashboard_estudio(ctx)
+    # ── Flujo primario: elegir el cliente a gestionar ──────────────────────
+    # Carga diferida (P-estudio): el diagnóstico de TODOS los clientes (Torre de
+    # control) es caro y antes corría en cada rerun — de ahí la lentitud al
+    # "Abrir". Ahora queda detrás de un expander colapsado: solo se calcula si
+    # el asesor lo pide. El camino normal es seleccionar un cliente (barato) y
+    # ver su detalle (diagnóstico de uno solo).
+    st.markdown(
+        '<p class="mq-estudio-torre-kicker">👤 Elegí el cliente a gestionar</p>',
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("📊 Tablero general — diagnóstico de todos los clientes (cálculo completo)", expanded=False):
+        _render_dashboard_estudio(ctx)
 
     # ── Seleccionar cliente para abrir / generar informe ───────────────────
-    # La lista completa de clientes ya la muestra la Torre de control arriba
-    # (_render_dashboard_estudio). Acá solo el selector + ficha rápida, sin
-    # repetir la tabla (evita la redundancia visual de dos st.dataframe).
     col_sel, col_nuevo = st.columns([3, 1])
     with col_sel:
         if "ID" in df.columns:
