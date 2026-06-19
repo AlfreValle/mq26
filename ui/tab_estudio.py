@@ -488,6 +488,45 @@ def _ctx_scoped_cliente(cid: int, nombre: str, ctx: dict) -> dict:
     return sc
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def _scores_universo_wizard() -> pd.DataFrame:
+    """Scoring 60/20/20 (técnico/fundamental/sectorial) del universo para el wizard.
+
+    Se cachea 30 min: el wizard lo dispara solo si no hay scores en sesión, así el
+    asesor no tiene que ir a Universo/Perlas antes. Si falla (red/datos), devuelve
+    vacío y el motor cae al scoring básico por sector.
+    """
+    from services.scoring_engine import escanear_universo_completo
+
+    return escanear_universo_completo(
+        incluir_cedears=True,
+        incluir_merval=True,
+        incluir_bonos=False,
+        incluir_internacional=False,
+        incluir_fci=False,
+        max_activos=80,
+    )
+
+
+def _obtener_scores_para_wizard() -> pd.DataFrame | None:
+    """Scores del scanner: de sesión si existen, si no los calcula (cacheado).
+
+    Garantiza que el wizard recomiende SIEMPRE por análisis técnico + fundamental
+    + sectorial, sin pasos manuales. Degrada a None (scoring básico) si no hay datos.
+    """
+    df = st.session_state.get("df_scores")
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        return df
+    try:
+        df = _scores_universo_wizard()
+    except Exception:
+        return None
+    if isinstance(df, pd.DataFrame) and not df.empty:
+        st.session_state["df_scores"] = df
+        return df
+    return None
+
+
 def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
     """Wizard de capital del cliente seleccionado (pasos 3-5 del flujo de estudio).
 
@@ -562,13 +601,12 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
         with st.spinner("Calculando recomendación…"):
             try:
                 precios_d = _precios_para_recomendar(ctx)
-                # Scoring técnico/fundamental/sectorial (scanner 60/20/20): si está
-                # disponible, el motor elige los MEJORES activos por score en vez de
-                # un fallback estático por sector. Es la diferencia entre "una cartera
-                # razonable" y "los mejores activos recomendables" que pide el negocio.
-                _df_scores_wiz = st.session_state.get("df_scores")
-                if not isinstance(_df_scores_wiz, pd.DataFrame) or _df_scores_wiz.empty:
-                    _df_scores_wiz = None
+                # Scoring técnico/fundamental/sectorial (scanner 60/20/20): el wizard
+                # lo trae SOLO (sin pasos manuales). Si no está en sesión, lo calcula
+                # acá (cacheado 30 min). Así el motor elige los MEJORES activos por
+                # score y no un fallback estático por sector.
+                with st.spinner("Analizando el universo para elegir los mejores activos…"):
+                    _df_scores_wiz = _obtener_scores_para_wizard()
                 # El wizard responde "¿qué compro con ESTE capital nuevo?": arma una
                 # canasta de despliegue total para el monto, tenga o no posiciones el
                 # cliente. Antes, los clientes CON posiciones usaban recomendar()
@@ -638,9 +676,9 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
         )
     else:
         st.caption(
-            "Selección con scoring básico por sector. Para elegir por análisis "
-            "técnico + fundamental completo, corré el escaneo en **Universo / Perlas** "
-            "y volvé a recomendar."
+            "Selección con scoring básico por sector (no se pudo analizar el "
+            "universo en vivo ahora). La recomendación sigue siendo válida; "
+            "reintentá más tarde para la selección técnica + fundamental completa."
         )
     if getattr(rr, "alerta_mercado", False):
         st.warning(f"⚠️ {getattr(rr, 'mensaje_alerta', 'Alerta de mercado.')}")
