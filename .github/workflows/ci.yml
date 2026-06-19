@@ -98,12 +98,29 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        # Pin de versión: con `@railway/cli` sin fijar, npm trae la última y un
+        # cambio rompiente del CLI tira el deploy sin que toquemos nada.
+        run: npm install -g @railway/cli@5.17.0
 
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --detach
+          RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE }}
+        run: |
+          set -x
+          railway --version
+          # Si el proyecto tiene varios servicios, `railway up` exige --service.
+          # Se agrega solo si está el secret (no rompe el caso de 1 servicio).
+          if [ -n "$RAILWAY_TOKEN" ]; then
+            if [ -n "$RAILWAY_SERVICE" ]; then
+              railway up --detach --service "$RAILWAY_SERVICE"
+            else
+              railway up --detach
+            fi
+          else
+            echo "::error::Falta el secret RAILWAY_TOKEN — no se puede deployar."
+            exit 1
+          fi
 
       - name: Smoke post-deploy
         env:
