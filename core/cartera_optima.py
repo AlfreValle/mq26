@@ -21,6 +21,25 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def n_activos_objetivo(capital_ars: float) -> int:
+    """Cantidad de activos objetivo según el capital (más capital → más
+    diversificación). Tramos definidos por negocio:
+
+      ≤ 3.000.000 ARS  →  8 activos
+      3 a 5.000.000    → 10
+      5 a 10.000.000   → 12
+      > 10.000.000     → 15
+    """
+    cap = float(capital_ars or 0.0)
+    if cap <= 3_000_000:
+        return 8
+    if cap <= 5_000_000:
+        return 10
+    if cap <= 10_000_000:
+        return 12
+    return 15
+
+
 # ─── CONSTRAINTS por perfil (no pesos fijos: RANGOS) ──────────────────────────
 #
 # Los constraints definen el ESPACIO de carteras válidas. Los pesos exactos
@@ -280,6 +299,7 @@ def cartera_optima_para_perfil(
     ccl: float,
     df_scores=None,
     precios_ars: dict[str, float] | None = None,
+    n_total_objetivo: int | None = None,
 ) -> dict[str, float]:
     """
     Calcula la cartera ÓPTIMA para un perfil sin pesos hardcoded.
@@ -335,11 +355,19 @@ def cartera_optima_para_perfil(
     pct_rv_resto = max(0.0, clases["RV"] - pct_etfs_total)
     ya_asignados = set(resultado.keys())
     capital_rv_ars = capital_ars * pct_rv_resto if capital_ars > 0 else 0
+    # Cantidad de RV objetivo: si el negocio pide un total de activos según el
+    # capital, derivar la RV restando las anclas ya elegidas (ETFs + ONs). Si no,
+    # usar el máximo del perfil.
+    if n_total_objetivo is not None:
+        n_anclas = len(etfs_elegidos) + len(ons_seleccionadas)
+        n_rv_target = max(2, int(n_total_objetivo) - n_anclas)
+    else:
+        n_rv_target = c["n_rv_max"]
     rv_dict = _seleccionar_rv_dinamico(
         perfil=perfil,
         peso_total=pct_rv_resto,
         df_scores=df_scores,
-        n_max=c["n_rv_max"],
+        n_max=n_rv_target,
         excluir=ya_asignados,
         precios_ars=precios_ars,
         capital_pool_ars=capital_rv_ars,

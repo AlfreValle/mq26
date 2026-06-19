@@ -954,15 +954,23 @@ def generar_primera_cartera(
     # core/cartera_optima.py (constraints estructurales + selección por scoring).
     # Si la función dinámica falla por algún motivo, fallback al hardcoded.
     try:
-        from core.cartera_optima import cartera_optima_para_perfil
+        from core.cartera_optima import (
+            cartera_optima_para_perfil,
+            n_activos_objetivo,
+        )
+        # Cantidad de activos escala con el capital (más capital → más diversificación).
         _ideal_raw = cartera_optima_para_perfil(
             perfil=perfil_n,
             capital_ars=cap,
             ccl=ccl_f,
             df_scores=df_scores,
             precios_ars=precios_dict,
+            n_total_objetivo=n_activos_objetivo(cap),
         )
-        logger.info("cartera_optima dinámica usada para perfil %s", perfil_n)
+        logger.info(
+            "cartera_optima dinámica usada para perfil %s (objetivo %d activos)",
+            perfil_n, n_activos_objetivo(cap),
+        )
     except Exception as _e:
         logger.warning("cartera_optima dinámica falló (%s) — fallback a CARTERA_IDEAL", _e)
         _ideal_raw = CARTERA_IDEAL.get(perfil_n, CARTERA_IDEAL["Moderado"])

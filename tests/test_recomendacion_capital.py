@@ -25,6 +25,20 @@ def test_generar_primera_cartera_desplegar_todo_invierte_casi_todo():
     assert rem_full < rem_base
 
 
+def test_n_activos_objetivo_escala_por_capital():
+    """La cantidad de activos objetivo escala por tramo de capital (negocio)."""
+    from core.cartera_optima import n_activos_objetivo
+
+    assert n_activos_objetivo(1_000_000) == 8
+    assert n_activos_objetivo(3_000_000) == 8       # límite inferior inclusive
+    assert n_activos_objetivo(3_000_001) == 10
+    assert n_activos_objetivo(5_000_000) == 10
+    assert n_activos_objetivo(7_500_000) == 12
+    assert n_activos_objetivo(10_000_000) == 12
+    assert n_activos_objetivo(10_000_001) == 15
+    assert n_activos_objetivo(50_000_000) == 15
+
+
 def test_desplegar_todo_menos_5pct_con_pocos_activos():
     """Regresión: con scanner activo la cartera trae POCOS activos; cada uno topaba
     el cap de overweight y dejaba ~21% en efectivo. La fase 3 debe colocar el
