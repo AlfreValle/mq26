@@ -495,8 +495,6 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
     comprar (editable). Paso 5: adjuntar a la cartera del cliente (opcional,
     con confirmación). Reusa el motor de recomendación; no duplica lógica cuant.
     """
-    from services.cartera_service import metricas_resumen
-    from services.diagnostico_cartera import diagnosticar
     from ui.inversor._helpers import (
         _TIPOS_EDICION_PRIMERA_CARTERA,
         _precios_para_recomendar,
@@ -563,50 +561,26 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
     ):
         with st.spinner("Calculando recomendación…"):
             try:
-                df_pos = _cargar_cartera_cliente(int(cid), nombre, ctx)
                 precios_d = _precios_para_recomendar(ctx)
-                if df_pos is None or df_pos.empty:
-                    # Cliente sin posiciones → primera cartera desde cero.
-                    from services.recomendacion_capital import generar_primera_cartera
+                # El wizard responde "¿qué compro con ESTE capital nuevo?": arma una
+                # canasta de despliegue total para el monto, tenga o no posiciones el
+                # cliente. Antes, los clientes CON posiciones usaban recomendar()
+                # (rebalanceo por déficit), que dejaba el capital nuevo casi sin
+                # invertir (hasta 88% en efectivo) cuando ya estaban cerca del ideal.
+                # generar_primera_cartera(desplegar_todo=True) garantiza <5% ocioso.
+                from services.recomendacion_capital import generar_primera_cartera
 
-                    rr = generar_primera_cartera(
-                        capital_ars=float(capital_ars),
-                        perfil=perfil_ef,
-                        ccl=ccl,
-                        precios_dict=precios_d,
-                        universo_df=ctx.get("universo_df"),
-                        cliente_nombre=nombre_corto,
-                        df_analisis=ctx.get("df_analisis"),
-                        df_scores=None,
-                        # El asesor pide invertir este capital → desplegar (casi) todo,
-                        # sin reservar 20% perlas ni cercar el bucket de renta AR manual.
-                        desplegar_todo=True,
-                    )
-                else:
-                    # Cliente con posiciones → recomendar sobre su diagnóstico.
-                    from services.recomendacion_capital import recomendar
-
-                    diag = diagnosticar(
-                        df_ag=df_pos,
-                        perfil=perfil_ef,
-                        horizonte_label=horiz,
-                        metricas=metricas_resumen(df_pos),
-                        ccl=ccl,
-                        universo_df=ctx.get("universo_df"),
-                        senales_salida=None,
-                        cliente_nombre=nombre_corto,
-                    )
-                    rr = recomendar(
-                        df_ag=df_pos,
-                        perfil=perfil_ef,
-                        horizonte_label=horiz,
-                        capital_ars=float(capital_ars),
-                        ccl=ccl,
-                        precios_dict=precios_d,
-                        diagnostico=diag,
-                        universo_df=ctx.get("universo_df"),
-                        cliente_nombre=nombre_corto,
-                    )
+                rr = generar_primera_cartera(
+                    capital_ars=float(capital_ars),
+                    perfil=perfil_ef,
+                    ccl=ccl,
+                    precios_dict=precios_d,
+                    universo_df=ctx.get("universo_df"),
+                    cliente_nombre=nombre_corto,
+                    df_analisis=ctx.get("df_analisis"),
+                    df_scores=None,
+                    desplegar_todo=True,
+                )
                 st.session_state[rr_key] = {
                     "rr": rr,
                     "capital": float(capital_ars),
