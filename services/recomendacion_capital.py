@@ -894,6 +894,8 @@ def generar_primera_cartera(
     df_analisis: pd.DataFrame | None = None,
     favoritos_mes: dict[str, Any] | None = None,
     df_scores: pd.DataFrame | None = None,
+    *,
+    desplegar_todo: bool = False,
 ) -> RecomendacionResult:
     """
     Genera la primera cartera para un inversor nuevo (sin posiciones previas).
@@ -965,8 +967,10 @@ def generar_primera_cartera(
         logger.warning("cartera_optima dinámica falló (%s) — fallback a CARTERA_IDEAL", _e)
         _ideal_raw = CARTERA_IDEAL.get(perfil_n, CARTERA_IDEAL["Moderado"])
 
-    # Separar reserva táctica de Perlas (20%)
-    _peso_perlas = float(_ideal_raw.get("_PERLAS_POOL", 0.0))
+    # Separar reserva táctica de Perlas (20%). Con desplegar_todo=True (wizard de
+    # capital del asesor: "invertí este capital") NO se reserva pólvora seca —
+    # ese 20% va al core para que el efectivo libre quede <5%.
+    _peso_perlas = 0.0 if desplegar_todo else float(_ideal_raw.get("_PERLAS_POOL", 0.0))
     _capital_perlas_ars = round(cap * _peso_perlas, 2)
     _capital_core_ars   = cap - _capital_perlas_ars
 
@@ -1115,7 +1119,10 @@ def generar_primera_cartera(
     # El presupuesto de _RENTA_AR (bonos AR, gestión manual vía broker) NO se toca.
     # Estrategia: ordenar compras por precio ASC (cheapest-first) para maximizar
     # la cantidad de unidades que se pueden absorber con el remanente.
-    _renta_ar_presupuesto = float(ideal.get("_RENTA_AR", 0.0)) * cap
+    # Con desplegar_todo=True no se cerca el presupuesto de _RENTA_AR (bonos AR
+    # de gestión manual): si no hay RF AR cotizable que comprar, ese capital se
+    # redistribuye a RV en el mop-up en vez de quedar como efectivo ocioso.
+    _renta_ar_presupuesto = 0.0 if desplegar_todo else float(ideal.get("_RENTA_AR", 0.0)) * cap
     _capital_en_titulos = cap - _renta_ar_presupuesto   # base real de la inversión en títulos
     _MAX_EFECTIVO_PCT = 0.05   # regla 95/100%: máximo 5% idle
     _pesos_ideales = {tk: float(w) for tk, w in ideal.items() if tk != "_RENTA_AR"}
@@ -1162,8 +1169,9 @@ def generar_primera_cartera(
     # Si tras la fase 1 quedó >5% del core sin invertir, completar con tickers
     # CERCANOS A SU TARGET (no los más baratos) hasta tope overweight 1.5×.
     # Esto invierte el 95-100% del CORE sin concentrar en el más barato.
-    # El 20% de perlas QUEDA aparte (no se toca).
-    _OVERWEIGHT_MAX = 1.50
+    # El 20% de perlas QUEDA aparte (no se toca), salvo desplegar_todo (no hay
+    # perlas reservadas y el techo de overweight sube para absorber el residual).
+    _OVERWEIGHT_MAX = 3.0 if desplegar_todo else 1.50
     for _ in range(len(compras) * 5 + 10):
         _efectivo_libre = capital_restante - _renta_ar_presupuesto
         # Umbral relativo al CORE (no al total), porque perlas no se invierten acá
@@ -1227,19 +1235,28 @@ def generar_primera_cartera(
     pct_post = monto_rf_compras / cap if cap > 0 else 0.0
 
     _n_perlas = len(_perlas_seleccionadas)
-    _perlas_txt = (
-        f" · {_n_perlas} perla(s) identificada(s) — ${_capital_perlas_ars:,.0f} ARS reservados."
-        if _n_perlas > 0
-        else f" · ${_capital_perlas_ars:,.0f} ARS reservados para perlas (esperando oportunidad)."
-    )
-
-    resumen = _trunc(
-        f"CORE (80%): {len(compras)} activo(s) por ${cap - capital_restante - _capital_perlas_ars:,.0f} ARS "
-        f"(~USD {(cap - capital_restante - _capital_perlas_ars) / ccl_f:,.0f}). "
-        f"Renta fija ~{pct_post*100:.0f}%."
-        + _perlas_txt,
-        300,
-    )
+    if desplegar_todo:
+        _perlas_txt = ""
+        _capital_invertido = cap - capital_restante
+        resumen = _trunc(
+            f"{len(compras)} activo(s) por ${_capital_invertido:,.0f} ARS "
+            f"(~USD {_capital_invertido / ccl_f:,.0f}, {_capital_invertido / cap * 100:.0f}% del capital). "
+            f"Renta fija ~{pct_post*100:.0f}%. Efectivo libre ${capital_restante:,.0f}.",
+            300,
+        )
+    else:
+        _perlas_txt = (
+            f" · {_n_perlas} perla(s) identificada(s) — ${_capital_perlas_ars:,.0f} ARS reservados."
+            if _n_perlas > 0
+            else f" · ${_capital_perlas_ars:,.0f} ARS reservados para perlas (esperando oportunidad)."
+        )
+        resumen = _trunc(
+            f"CORE (80%): {len(compras)} activo(s) por ${cap - capital_restante - _capital_perlas_ars:,.0f} ARS "
+            f"(~USD {(cap - capital_restante - _capital_perlas_ars) / ccl_f:,.0f}). "
+            f"Renta fija ~{pct_post*100:.0f}%."
+            + _perlas_txt,
+            300,
+        )
 
     return RecomendacionResult(
         cliente_nombre=cliente_nombre,

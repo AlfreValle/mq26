@@ -578,6 +578,9 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
                         cliente_nombre=nombre_corto,
                         df_analisis=ctx.get("df_analisis"),
                         df_scores=None,
+                        # El asesor pide invertir este capital → desplegar (casi) todo,
+                        # sin reservar 20% perlas ni cercar el bucket de renta AR manual.
+                        desplegar_todo=True,
                     )
                 else:
                     # Cliente con posiciones → recomendar sobre su diagnóstico.

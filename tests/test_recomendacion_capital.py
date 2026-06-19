@@ -2,7 +2,27 @@
 import pandas as pd
 
 from core.renta_fija_ar import es_renta_fija
-from services.recomendacion_capital import recomendar
+from services.recomendacion_capital import generar_primera_cartera, recomendar
+
+
+def test_generar_primera_cartera_desplegar_todo_invierte_casi_todo():
+    """desplegar_todo=True (wizard de capital del asesor) deja <5% en efectivo;
+    sin la flag reserva pólvora seca (perlas + renta AR) y deja bastante más.
+    Regresión del hallazgo del dictamen: Arriesgado dejaba ~34% ocioso."""
+    cap = 15_000_000.0
+    kw = dict(
+        capital_ars=cap, perfil="Arriesgado", ccl=1450.0, precios_dict={},
+        universo_df=None, cliente_nombre="T", df_analisis=None, df_scores=None,
+    )
+    rr_full = generar_primera_cartera(**kw, desplegar_todo=True)
+    rr_base = generar_primera_cartera(**kw, desplegar_todo=False)
+    assert rr_full.compras_recomendadas, "debe haber compras"
+    rem_full = float(rr_full.capital_remanente_ars)
+    rem_base = float(rr_base.capital_remanente_ars)
+    # Con la flag, el efectivo ocioso queda <5% del capital.
+    assert rem_full <= cap * 0.05, f"efectivo {rem_full / cap:.1%} debería ser <5%"
+    # Y estrictamente menos efectivo que sin la flag (que reserva el 20% perlas).
+    assert rem_full < rem_base
 
 
 def test_recomendacion_prioriza_defensa_primero():
