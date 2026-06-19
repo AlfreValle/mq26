@@ -81,8 +81,6 @@ def exportar_para_rrss(fig: go.Figure, formato: str = "instagram") -> bytes:
     w, h = DIMENSIONES.get(formato, DIMENSIONES["instagram"])
     return fig.to_image(format="png", width=w, height=h, scale=2)
 
-DIMENSIONES = {"instagram": (1080, 1080), "linkedin": (1200, 627), "twitter": (1200, 675)}
-
 
 def exportar_ficha_para_rrss(fig: go.Figure, formato: str = "instagram") -> bytes:
     """Exporta figura de velas como PNG para redes sociales. Requiere kaleido==0.2.1."""
