@@ -25,6 +25,29 @@ def test_generar_primera_cartera_desplegar_todo_invierte_casi_todo():
     assert rem_full < rem_base
 
 
+def test_desplegar_todo_menos_5pct_con_pocos_activos():
+    """Regresión: con scanner activo la cartera trae POCOS activos; cada uno topaba
+    el cap de overweight y dejaba ~21% en efectivo. La fase 3 debe colocar el
+    residual igual y dejar <5%, aun con un universo de scoring chico."""
+    scores = pd.DataFrame(
+        [
+            {"Ticker": "AAPL", "Sector": "Tech", "Score_Total": 80.0},
+            {"Ticker": "MSFT", "Sector": "Tech", "Score_Total": 75.0},
+            {"Ticker": "KO", "Sector": "Consumo", "Score_Total": 60.0},
+        ]
+    )
+    cap = 12_000_000.0
+    rr = generar_primera_cartera(
+        capital_ars=cap, perfil="Arriesgado", ccl=1500.0, precios_dict={},
+        universo_df=None, cliente_nombre="T", df_analisis=None,
+        df_scores=scores, desplegar_todo=True,
+    )
+    assert rr.compras_recomendadas
+    assert float(rr.capital_remanente_ars) <= cap * 0.05, (
+        f"efectivo {rr.capital_remanente_ars / cap:.1%} debería ser <5% aun con pocos activos"
+    )
+
+
 def test_recomendacion_prioriza_defensa_primero():
     df = pd.DataFrame(
         [{"TICKER": "NVDA", "VALOR_ARS": 1_000_000.0, "TIPO": "CEDEAR", "PESO_PCT": 1.0}]

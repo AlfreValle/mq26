@@ -1218,6 +1218,51 @@ def generar_primera_cartera(
         if not _progreso:
             break  # ningún ticker cabe en el residual — se acepta el remanente
 
+    # ── FASE 3 (solo desplegar_todo): colocar el residual sin tope de overweight ─
+    # Con pocos holdings, todos topan el cap de la fase 2 y dejan residual (ej. 5
+    # activos → 21% sin colocar). El asesor pidió desplegar el capital. Pase 1:
+    # distribuir el remanente PROPORCIONAL al monto actual (mantiene el balance, no
+    # vuelca en el más barato). Pase 2: limpiar el sobrante chico de a una lámina
+    # en el título más barato que entre, hasta dejar <5%.
+    if desplegar_todo and compras:
+        _min_cash = cap * _MAX_EFECTIVO_PCT
+        _total_actual = sum(c.monto_ars for c in compras) or 1.0
+        _residual = capital_restante - _min_cash
+        if _residual > 0:
+            for _item in compras:
+                _px = _item.precio_ars_estimado
+                if _px <= 0:
+                    continue
+                _lam = _lamina_min_on(_item.ticker)
+                _alloc = _residual * (_item.monto_ars / _total_actual)
+                _extra_raw = int(_alloc // _px)
+                _extra = (_extra_raw // _lam) * _lam if _lam > 1 else _extra_raw
+                _cost = _extra * _px
+                if _extra >= max(1, _lam) and _cost <= capital_restante:
+                    _item.unidades += _extra
+                    _item.monto_ars += _cost
+                    _item.monto_usd += _cost / ccl_f
+                    capital_restante -= _cost
+        for _ in range(len(compras) * 5 + 20):
+            if capital_restante <= _min_cash:
+                break
+            _progreso = False
+            for _item in sorted(compras, key=lambda it: it.precio_ars_estimado):
+                _px = _item.precio_ars_estimado
+                if _px <= 0:
+                    continue
+                _lam = _lamina_min_on(_item.ticker)
+                if capital_restante < _px * _lam:
+                    continue
+                _item.unidades += _lam
+                _item.monto_ars += _lam * _px
+                _item.monto_usd += _lam * _px / ccl_f
+                capital_restante -= _lam * _px
+                _progreso = True
+                break
+            if not _progreso:
+                break  # ni el título más barato entra en el residual
+
     # ── Si _RENTA_AR tiene peso pero no hay RF cotizable con precio → pendiente informativo
     renta_ar_w = float(ideal.get("_RENTA_AR", 0.0))
     if renta_ar_w > 1e-6:
