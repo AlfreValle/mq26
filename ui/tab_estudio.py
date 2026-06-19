@@ -562,6 +562,13 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
         with st.spinner("Calculando recomendación…"):
             try:
                 precios_d = _precios_para_recomendar(ctx)
+                # Scoring técnico/fundamental/sectorial (scanner 60/20/20): si está
+                # disponible, el motor elige los MEJORES activos por score en vez de
+                # un fallback estático por sector. Es la diferencia entre "una cartera
+                # razonable" y "los mejores activos recomendables" que pide el negocio.
+                _df_scores_wiz = st.session_state.get("df_scores")
+                if not isinstance(_df_scores_wiz, pd.DataFrame) or _df_scores_wiz.empty:
+                    _df_scores_wiz = None
                 # El wizard responde "¿qué compro con ESTE capital nuevo?": arma una
                 # canasta de despliegue total para el monto, tenga o no posiciones el
                 # cliente. Antes, los clientes CON posiciones usaban recomendar()
@@ -578,9 +585,10 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
                     universo_df=ctx.get("universo_df"),
                     cliente_nombre=nombre_corto,
                     df_analisis=ctx.get("df_analisis"),
-                    df_scores=None,
+                    df_scores=_df_scores_wiz,
                     desplegar_todo=True,
                 )
+                st.session_state[f"est_wiz_scored_{cid}"] = _df_scores_wiz is not None
                 st.session_state[rr_key] = {
                     "rr": rr,
                     "capital": float(capital_ars),
@@ -622,6 +630,18 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
         '<p class="mq-estudio-torre-kicker">🧾 Paso 4 — Activos recomendados</p>',
         unsafe_allow_html=True,
     )
+    # Transparencia sobre la base de la selección: scanner completo vs scoring básico.
+    if st.session_state.get(f"est_wiz_scored_{cid}"):
+        st.caption(
+            "Selección por **scanner técnico + fundamental + sectorial** (60/20/20) "
+            "sobre la última cotización disponible."
+        )
+    else:
+        st.caption(
+            "Selección con scoring básico por sector. Para elegir por análisis "
+            "técnico + fundamental completo, corré el escaneo en **Universo / Perlas** "
+            "y volvé a recomendar."
+        )
     if getattr(rr, "alerta_mercado", False):
         st.warning(f"⚠️ {getattr(rr, 'mensaje_alerta', 'Alerta de mercado.')}")
 
