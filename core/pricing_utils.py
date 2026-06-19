@@ -59,12 +59,17 @@ ACCIONES_LOCALES: set[str] = {
     "GCDI", "INVJ", "DGCU2", "EDN", "METR", "GBAN",
 }
 
-# Tipos de instrumento que se cotizan en ARS sin conversión USD
+# Tipos de instrumento cuyo costo se reconstruye con la convención de RENTA FIJA
+# (PPC_ARS por nominal o paridad%×CCL), NO con la rama CEDEAR (×CCL sobre PPC_USD).
+# Clasificar por TIPO (no por prefijo de ticker) evita que un BONCER/BOPREAL con
+# ticker no reconocido (ej. DICP, BPA27) caiga a la rama CEDEAR y se infle 100×.
 TIPOS_LOCALES_ARS: set[str] = {
     "ACCION_LOCAL", "ACCION", "BONO", "BONO_ARS", "BONO_USD",
     "LETRA", "LETE", "LEDES", "LECAP", "LECER", "LEDE",
     "FCI", "CUOTA_PARTE", "ON", "ON_ARS", "ON_USD",
     "BONO_CORP", "FIDEICOMISO", "CHEQUE", "CAUCIONES",
+    # Familias del panel BYMA que antes caían a la rama CEDEAR:
+    "BONCER", "BOPREAL", "DUAL", "USD_LINKED",
 }
 
 # Renta fija local: convención BYMA suele ser precio por lámina de nominal (p. ej. 100 o 1.000 VN).

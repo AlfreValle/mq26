@@ -100,3 +100,44 @@ def test_agregar_cartera_fifo_rf_normaliza_ppc_por_paridad(monkeypatch):
     out = eng.agregar_cartera_fifo(df, "X")
     inv = float(out.iloc[0]["INV_ARS_HISTORICO"])
     assert inv == 14649.0
+
+
+# ── Regresión: escala de valuación RF (paridad % = porcentaje del nominal) ─────
+# Bug del dictamen: el precio de referencia ARS devolvía v*paridad (sin /100),
+# sobrevaluando letras/LECAP/BONCER 100×; y BONCER/BOPREAL caían a la rama CEDEAR
+# del costo (×CCL sobre paridad entera), con P&L falso de -99%.
+
+def test_precio_referencia_paridad_es_porcentaje_ars_y_usd():
+    from core.renta_fija_ar import get_meta, precio_referencia_ars_desde_catalogo
+    from core.renta_fija_catalogo import INSTRUMENTOS_RF
+
+    ccl = 1500.0
+    # Un ticker de cada moneda presente en el catálogo.
+    por_moneda: dict[str, str] = {}
+    for tk in INSTRUMENTOS_RF:
+        mon = str(get_meta(tk).get("moneda", "")).upper()
+        por_moneda.setdefault(mon, tk)
+    assert por_moneda, "catálogo RF vacío"
+    for mon, tk in por_moneda.items():
+        par = float(get_meta(tk).get("paridad_ref", 0) or 0)
+        if par <= 0:
+            continue
+        px = precio_referencia_ars_desde_catalogo(tk, ccl, vn=1.0)
+        esperado = (par / 100.0) * ccl if mon == "USD" else (par / 100.0)
+        assert abs(px - esperado) < 1e-6, f"{tk} ({mon}): {px} != {esperado}"
+        # Nunca debe ser ~paridad entera (el bug 100×): un VN vale O(1) ARS en
+        # ARS y O(CCL) en USD, jamás O(100) en ARS.
+        if mon != "USD":
+            assert px < par, f"{tk}: precio/VN {px} parece sin /100 (bug 100×)"
+
+
+def test_familias_rf_clasifican_como_local_no_cedear():
+    """BONCER/BOPREAL/DUAL/USD_LINKED deben reconstruir costo por convención RF,
+    no por la rama CEDEAR (que ignora PPC_ARS e infla 100×)."""
+    from core.pricing_utils import es_instrumento_local_ars
+
+    # Por TIPO, independiente del prefijo del ticker (DICP no matchea prefijos).
+    assert es_instrumento_local_ars("DICP", "BONCER") is True
+    assert es_instrumento_local_ars("BPA27", "BOPREAL") is True
+    assert es_instrumento_local_ars("XXX", "DUAL") is True
+    assert es_instrumento_local_ars("YYY", "USD_LINKED") is True

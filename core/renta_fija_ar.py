@@ -138,7 +138,12 @@ def precio_referencia_ars_desde_catalogo(
     y PriceEngine, con el riesgo de divergir.
 
     - moneda USD: paridad% sobre VN USD × CCL → ARS por VN.
-    - moneda ARS: ``paridad_ref`` ya es ARS por VN (BONCER/LECAP).
+    - moneda ARS / ARS_CER: paridad% sobre VN ARS → ARS por VN (sin CCL).
+
+    ``paridad_ref`` SIEMPRE es un porcentaje del nominal (ej. 97.8 = 97.8%), tanto
+    para USD como para ARS. Lo único que cambia es el ``× CCL`` en los USD. Antes
+    el caso ARS devolvía ``v * paridad`` (sin /100) y sobrevaluaba letras/LECAP/
+    BONCER 100×.
 
     Devuelve 0.0 si el ticker no está en catálogo, la paridad no es válida
     o falta CCL para instrumentos USD.
@@ -158,7 +163,7 @@ def precio_referencia_ars_desde_catalogo(
         if c <= 0:
             return 0.0
         return v * (paridad / 100.0) * c
-    return v * paridad
+    return v * (paridad / 100.0)
 
 
 def meta_on_usd_unidades_resumen(ticker: str) -> dict[str, Any] | None:
