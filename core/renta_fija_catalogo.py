@@ -28,7 +28,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
     # Convención: paridad_ref = % de VN USD; precio ARS/100VN ≈ paridad × CCL
     # CCL referencia: AR$ 1.511,27 (2026-06-18). Paridades de precio ARS live (data912)
     # / CCL; tir_ref = YTM por DCF con interés corrido (validado vs DNC7O 7.76≈7.73).
-    # RUCDO y MGCEO sin actualizar (quotes ilíquidos/stale al 2026-06-18). MD sin recalcular.
+    # RUCDO actualizado con IOL 2026-06-22 (con volumen). MGCEO sin actualizar (IOL stale,
+    # 0 volumen). MRCAO/YCA6O siguen activas (vencen 01/07 — las flaggea el monitor).
+    # MGCHO/RCCJO sin dato (no figuran en IOL). MD sin recalcular.
     # DV01 = modified_duration × paridad_ref / 10000  (USD por bp por 100 VN)
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -166,13 +168,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.085,
         "frecuencia":   2,
         "calificacion": "A", "ley": "Argentina",
-        "tir_ref":      6.5,             # muy corto plazo — spread reducido
-        "paridad_ref":  101.2,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      1.81,            # YTM DCF 2026-06-22 (premium a ~5m del vto; IOL con volumen)
+        "paridad_ref":  102.89,
+        "fecha_ref":    "2026-06-22",
         "activo": True,
         "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    144_615.0,  # 101.2 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    155_500.0,  # 102.89 × 1511.27 por 100 VN (IOL)
         "modified_duration": 0.47,
         "dv01_por_100vn":    0.0048,
     },
@@ -186,6 +188,8 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "calificacion": "BBB+", "ley": "Nueva York",
         "tir_ref":      5.8,             # MELI investment grade, spread ajustado
         "paridad_ref":  102.8,
+        # 2026-06-22: IOL muestra $142.000 con monto operado 0 (quote stale, no reflejó
+        # el rally). Implicaría paridad 94 / TIR 8.4% — inconsistente para BBB+. Sin actualizar.
         "fecha_ref":    "2026-05-27",
         "activo": True,
         "lamina_min":   1_000, "callable": False,
@@ -205,7 +209,7 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "tir_ref":      5.8,             # ~35 días restantes → spread mínimo
         "paridad_ref":  100.8,
         "fecha_ref":    "2026-05-27",
-        "activo": True,                  # vence en ~35 días (jul-26), aún activo
+        "activo": True,                  # vence 01/07/2026 — el monitor lo flaggea como crítico
         "lamina_min":   1_000, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    144_043.0,  # 100.8 × 1429 por 100 VN
@@ -223,7 +227,7 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "tir_ref":      5.8,             # ~35 días restantes → precio cercano a par+accrued
         "paridad_ref":  101.0,
         "fecha_ref":    "2026-05-27",
-        "activo": True,                  # vence en ~35 días (jul-26), aún activo
+        "activo": True,                  # vence 01/07/2026 — el monitor lo flaggea como crítico
         "lamina_min":   1, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    144_329.0,  # 101.0 × 1429 por 100 VN
