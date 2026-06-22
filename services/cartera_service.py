@@ -99,9 +99,9 @@ PRECIOS_FALLBACK_ARS: dict[str, float] = {
     "PAMP":  4800,
     # ON Corporativas AR (CARTERA_IDEAL — aprox. ARS/lámina, actualizar mensualmente)
     # Precio ≈ paridad_% × CCL / 100 por 1 VN USD; lámina mínima 1 (modo CEDEAR en Balanz)
-    # CCL referencia: AR$ 1.429 (2026-05-27)
-    "PN43O": 1_473.0,   # PAE ON 2037 — paridad 103.0% × CCL 1429 / 100 ≈ 1.472 por 1 VN
-    "TLCTO": 1_465.0,   # Telecom ON 2036 — paridad 102.5% × CCL 1429 / 100 ≈ 1.465 por 1 VN
+    # CCL referencia: AR$ 1.511,27 (2026-06-18) — coherente con catálogo RF
+    "PN43O": 1_640.0,   # PAE ON 2037 — paridad 108.5% × CCL 1511.27 / 100 ≈ 1.640 por 1 VN
+    "TLCTO": 1_680.0,   # Telecom ON 2036 — paridad 111.16% × CCL 1511.27 / 100 ≈ 1.680 por 1 VN
     # RV Argentina (CARTERA_IDEAL perfiles Arriesgado/Muy arriesgado)
     "GGAL":  3_500.0,   # Grupo Galicia CEDEAR
     "YPFD":  55_000.0,  # YPF CEDEAR (precio por certificado, ratio alto)
