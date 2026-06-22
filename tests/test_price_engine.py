@@ -220,12 +220,12 @@ class TestTryOnUsd:
             return PriceEngine()
 
     def test_tlcto_resuelve_con_catalogo(self):
-        """TLCTO (paridad_ref=102.5%) × CCL 1429 → 1464.72 ARS por VN USD."""
+        """TLCTO (paridad_ref=111.16%) × CCL 1429 → 1588.48 ARS por VN USD."""
         engine = self._engine()
         rec = engine._try_on_usd("TLCTO", ccl=1429.0, ratio=1.0)
         assert rec is not None
         assert rec.source == PriceSource.FALLBACK_CATALOGO_RF
-        assert rec.precio_cedear_ars == pytest.approx(102.5 / 100 * 1429, rel=1e-4)
+        assert rec.precio_cedear_ars == pytest.approx(111.16 / 100 * 1429, rel=1e-4)
 
     def test_ym34o_resuelve_con_catalogo(self):
         engine = self._engine()
@@ -256,8 +256,9 @@ class TestTryOnUsd:
     def test_get_portfolio_ons_cobertura_total(self):
         """get_portfolio para las ONs del catálogo debe dar 100% cobertura."""
         engine = self._engine()
+        # MGCHO/RCCJO marcados inactivos (no cotizan en IOL) → no se exige cobertura
         ons = ["TLCTO", "YM34O", "PN43O", "DNC7O", "YCA6O",
-               "MRCAO", "YMCXO", "RCCJO", "IRCPO", "MGCHO"]
+               "MRCAO", "YMCXO", "IRCPO"]
         with patch.object(engine, "_try_live", return_value=None), \
              patch.object(engine, "_try_byma", return_value=None):
             records = engine.get_portfolio(ons, ccl=1429.0, precios_live_override={})

@@ -227,7 +227,8 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "tir_ref":      5.8,             # ~35 días restantes → precio cercano a par+accrued
         "paridad_ref":  101.0,
         "fecha_ref":    "2026-05-27",
-        "activo": True,                  # vence 01/07/2026 — el monitor lo flaggea como crítico
+        # 2026-06-22: no figura en IOL (real YPF corta: YCAMO). Activo hasta vto 01/07 (lo flaggea el monitor).
+        "activo": True,                  # vence 01/07/2026 — se auto-resuelve al vto
         "lamina_min":   1, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    144_329.0,  # 101.0 × 1429 por 100 VN
@@ -258,8 +259,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "calificacion": "BBB+", "ley": "Nueva York",
         "tir_ref":      5.6,
         "paridad_ref":  101.8,
+        # 2026-06-22: ticker MGCHO no figura en IOL → phantom (se excluye del motor).
         "fecha_ref":    "2026-05-27",
-        "activo": True,
+        "activo": False,                 # ver task reconciliación de tickers RF
         "lamina_min":   1_000, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    145_471.0,  # 101.8 × 1429 por 100 VN
@@ -276,8 +278,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "calificacion": "AA-", "ley": "Nueva York",
         "tir_ref":      6.5,
         "paridad_ref":  102.5,
+        # 2026-06-22: ticker RCCJO no figura en IOL; la ON Pampa vigente es RCCRO.
         "fecha_ref":    "2026-05-27",
-        "activo": True,
+        "activo": False,                 # phantom — remapear a RCCRO en task reconciliación
         "lamina_min":   1, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    146_473.0,  # 102.5 × 1429 por 100 VN
