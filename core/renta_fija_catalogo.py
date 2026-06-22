@@ -283,7 +283,8 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
     # BONOS SOBERANOS USD — Ley Argentina (AL) y Ley Nueva York (GD)
     # Cupón step-up (ver prospecto reestructuración 2020); cupon_anual = 0.0
     # en el motor de cashflow ilustrativo (flujos reales en calendario oficial).
-    # TIR y paridad actualizados al 2026-05-27; MD = Duration Modificada aprox.
+    # TIR, paridad y MD actualizados al 2026-06-18 (informe diario Banco Hipotecario,
+    # CCL AR$ 1.511,27; cruzado con informe Banco Provincia 19-jun-26). MD = Duration Modificada.
     # ══════════════════════════════════════════════════════════════════════════
 
     "GD29": {
@@ -292,9 +293,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2029-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,   # step-up; ver prospecto 2020
         "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.0,   "paridad_ref":  71.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 2.60,
+        "tir_ref":   5.41,  "paridad_ref":  93.70,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 1.46,
     },
     "AL29": {
         "emisor": "República Argentina", "descripcion": "Bonar 2029",
@@ -302,9 +303,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2029-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.3,   "paridad_ref":  69.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 2.60,
+        "tir_ref":   6.78,  "paridad_ref":  91.91,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 1.44,
     },
     "GD30": {
         "emisor": "República Argentina", "descripcion": "Global 2030",
@@ -312,9 +313,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2030-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.2,   "paridad_ref":  69.5,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 3.10,
+        "tir_ref":   6.25,  "paridad_ref":  90.95,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 1.90,
     },
     "AL30": {
         "emisor": "República Argentina", "descripcion": "Bonar 2030",
@@ -322,9 +323,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2030-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.6,   "paridad_ref":  67.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 3.00,
+        "tir_ref":   7.37,  "paridad_ref":  89.12,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 1.87,
     },
     "GD35": {
         "emisor": "República Argentina", "descripcion": "Global 2035",
@@ -332,9 +333,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2035-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.5,   "paridad_ref":  78.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 5.00,
+        "tir_ref":   8.45,  "paridad_ref":  82.54,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 5.38,
     },
     "AL35": {
         "emisor": "República Argentina", "descripcion": "Bonar 2035",
@@ -342,9 +343,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2035-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.8,   "paridad_ref":  76.5,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 4.90,
+        "tir_ref":   9.12,  "paridad_ref":  79.74,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 5.33,
     },
     "AE38": {
         "emisor": "República Argentina", "descripcion": "Bonar 2038",
@@ -352,9 +353,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2038-01-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   9.2,   "paridad_ref":  82.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 5.80,
+        "tir_ref":   9.85,  "paridad_ref":  80.12,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 4.53,
     },
     "GD41": {
         "emisor": "República Argentina", "descripcion": "Global 2041",
@@ -362,9 +363,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2041-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.8,   "paridad_ref":  74.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 7.20,
+        "tir_ref":   8.57,  "paridad_ref":  77.20,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 5.96,
     },
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -454,11 +455,11 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual": 0.08,             # CER + 8% real (bono legacy reestructuración)
         "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":    8.5,   "paridad_ref": 96.5,
-        "fecha_ref":  "2026-05-27", "activo": True,
+        "tir_ref":    7.49,  "paridad_ref": 95.34,  # informe Banco Hipotecario 2026-06-18 (TIR real)
+        "fecha_ref":  "2026-06-18", "activo": True,
         "lamina_min":    1,
         "spread_real":   0.08,
-        "duration_real": 3.80,
+        "duration_real": 3.05,
         "forma_amortizacion": "Amortización trimestral sobre VN ajustado por CER",
     },
 
