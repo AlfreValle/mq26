@@ -382,7 +382,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual": 0.05, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
         "tir_ref":   6.5,   "paridad_ref":  98.2,
-        "fecha_ref": "2026-05-27", "activo": True,
+        # 2026-06-22: ticker BPA27 no cotiza en IOL. BOPREAL vigentes 2027 = BPOA7/BPOB7/
+        # BPOC7/BPOD7 (ver task reconciliación). Inactivo hasta re-mapear con cupón/ISIN.
+        "fecha_ref": "2026-05-27", "activo": False,
         "lamina_min": 1,
         "forma_amortizacion": "Bullet al vencimiento",
         "modified_duration": 0.65,
@@ -395,7 +397,8 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual": 0.03, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
         "tir_ref":   7.5,   "paridad_ref":  95.5,
-        "fecha_ref": "2026-05-27", "activo": True,
+        # 2026-06-22: ticker BPJ27 no cotiza en IOL (ver BPA27). Inactivo hasta re-mapear.
+        "fecha_ref": "2026-05-27", "activo": False,
         "lamina_min": 1,
         "forma_amortizacion": "Bullet al vencimiento",
         "modified_duration": 0.95,
