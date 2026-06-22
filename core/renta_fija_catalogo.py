@@ -409,45 +409,45 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
 
     "TX26": {
         "emisor": "Tesoro Nacional",
-        "descripcion": "Boncer Jun 2026 (TX26)",
+        "descripcion": "Bonte CER+2% Nov 2026 (TX26)",
         "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2026-06-30",
-        "cupon_anual": 0.0,              # CER + 0% puro
+        "vencimiento": "2026-11-09",     # ISIN ARARGE3209W8 (informe BP) — no 30/06
+        "cupon_anual": 0.02,             # CER + 2% (informe BP "Bonte 2026 CER+2%")
         "frecuencia": 2,
         "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.0,   "paridad_ref": 99.8,  # vence en ~34 días; precio ≈ VN
-        "fecha_ref":  "2026-05-27", "activo": True,
+        "tir_ref":    0.47,  "paridad_ref": 100.59,  # informe Banco Hipotecario 2026-06-18 (TIR real)
+        "fecha_ref":  "2026-06-18", "activo": True,
         "lamina_min":    1,
-        "spread_real":   0.0,
-        "duration_real": 0.09,          # ~33 días = 0.09 años
+        "spread_real":   0.02,
+        "duration_real": 0.39,          # MD informe (≈143 días al vto)
     },
     "TX28": {
         "emisor": "Tesoro Nacional",
-        "descripcion": "Boncer Nov 2028 (TX28)",
+        "descripcion": "Bonte CER+2.25% Nov 2028 (TX28)",
         "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2028-11-30",
-        "cupon_anual": 0.0025,           # CER + 0.25%
+        "vencimiento": "2028-11-09",     # ISIN ARARGE3209X6 (informe BP)
+        "cupon_anual": 0.0225,           # CER + 2.25% (informe BP)
         "frecuencia": 2,
         "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.3,   "paridad_ref": 98.5,
-        "fecha_ref":  "2026-05-27", "activo": True,
+        "tir_ref":    5.41,  "paridad_ref": 95.95,  # informe Banco Hipotecario 2026-06-18 (TIR real)
+        "fecha_ref":  "2026-06-18", "activo": True,
         "lamina_min":    1,
-        "spread_real":   0.0025,
-        "duration_real": 2.40,
+        "spread_real":   0.0225,
+        "duration_real": 1.32,          # MD informe
     },
     "TZXD7": {
         "emisor": "Tesoro Nacional",
         "descripcion": "Boncer Dic 2027 (TZXD7)",
         "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2027-12-31",
-        "cupon_anual": 0.005,            # CER + 0.5%
+        "vencimiento": "2027-12-15",     # informe BH/BP — no 31/12
+        "cupon_anual": 0.005,            # CER + 0.5% (sin fuente nueva — sin cambiar)
         "frecuencia": 2,
         "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.6,   "paridad_ref": 97.8,
-        "fecha_ref":  "2026-05-27", "activo": True,
+        "tir_ref":    5.43,  "paridad_ref": 92.42,  # informe Banco Hipotecario 2026-06-18 (TIR real)
+        "fecha_ref":  "2026-06-18", "activo": True,
         "lamina_min":    1,
         "spread_real":   0.005,
-        "duration_real": 1.55,
+        "duration_real": 1.45,          # MD informe
     },
     "DICP": {
         "emisor": "República Argentina",
