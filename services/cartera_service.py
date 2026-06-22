@@ -85,7 +85,8 @@ def _get_div_yield_cached(ticker: str) -> float:
     return dy
 
 # ─── PRECIOS FALLBACK (última conciliación Balanz 11/03/2026) ─────────────────
-# Actualizar mensualmente con el resumen Balanz.
+# Actualizar mensualmente con el resumen del broker (actual: IOL). Los valores de
+# CEDEARs de abajo son la conciliación Balanz de mar-2026 hasta el próximo resumen IOL.
 # Formato: {TICKER: precio_ARS_por_CEDEAR}
 PRECIOS_FALLBACK_ARS: dict[str, float] = {
     # Cartera Alfredo y Andrea – Retiro (Balanz 11/03/2026)
