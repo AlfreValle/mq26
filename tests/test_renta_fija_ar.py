@@ -69,9 +69,9 @@ class TestTirPonderadaCartera:
         assert tir_ponderada_cartera(pd.DataFrame()) is None
 
     def test_un_solo_on_usa_tir(self):
-        # TIR de TLCTO actualizada a 7.5% (era 8.0% en datos de mar-26)
+        # TIR de TLCTO actualizada a 6.88% (YTM DCF 2026-06-18; era 7.5% en may-26)
         df = pd.DataFrame([{"TICKER": "TLCTO", "PESO_PCT": 1.0, "TIPO": "ON"}])
-        assert abs(float(tir_ponderada_cartera(df)) - 7.5) < 1e-6
+        assert abs(float(tir_ponderada_cartera(df)) - 6.88) < 1e-6
 
     def test_mix_ponderado(self):
         u = _univ_sample()
@@ -364,23 +364,23 @@ class TestMontoMinimoCompraOn:
     """monto_minimo_compra_on: monto en USD/ARS para 1 lámina completa."""
 
     def test_tlcto_monto_min_usd_aprox_paridad(self):
-        """TLCTO lám=1 → monto_min_usd ≈ paridad/100 ≈ 1.025 USD."""
+        """TLCTO lám=1 → monto_min_usd ≈ paridad/100 ≈ 1.112 USD (paridad 111.16, jun-26)."""
         m = monto_minimo_compra_on("TLCTO", ccl=1429.0)
         assert m["lamina_vn_usd"] == 1
-        assert m["monto_min_usd"] == pytest.approx(1.025, rel=0.05)
-        assert m["monto_min_ars"] == pytest.approx(1025 * 1429 / 1000, rel=0.05)
+        assert m["monto_min_usd"] == pytest.approx(1.1116, rel=0.05)
+        assert m["monto_min_ars"] == pytest.approx(1111.6 * 1429 / 1000, rel=0.05)
 
     def test_pn43o_monto_min_usd_aprox_1030(self):
-        """PN43O lám=1000 → monto_min_usd ≈ 1000 × 103% ≈ 1030 USD."""
+        """PN43O lám=1000 → monto_min_usd ≈ 1000 × 108.5% ≈ 1085 USD (paridad jun-26)."""
         m = monto_minimo_compra_on("PN43O", ccl=1429.0)
         assert m["lamina_vn_usd"] == 1_000
-        assert m["monto_min_usd"] == pytest.approx(1030.0, rel=0.05)
+        assert m["monto_min_usd"] == pytest.approx(1085.0, rel=0.05)
 
     def test_tsc4o_monto_min_usd_aprox_9780(self):
-        """TSC4O lám=10000 → monto_min_usd ≈ 10000 × 97.8% ≈ 9780 USD."""
+        """TSC4O lám=10000 → monto_min_usd ≈ 10000 × 107.39% ≈ 10739 USD (paridad jun-26)."""
         m = monto_minimo_compra_on("TSC4O", ccl=1429.0)
         assert m["lamina_vn_usd"] == 10_000
-        assert m["monto_min_usd"] == pytest.approx(9_780.0, rel=0.05)
+        assert m["monto_min_usd"] == pytest.approx(10_739.0, rel=0.05)
 
     def test_campos_obligatorios_presentes(self):
         m = monto_minimo_compra_on("TLCTO", ccl=1429.0)
@@ -398,14 +398,14 @@ class TestOnsComprablesParaCapital:
     """ons_comprables_para_capital filtra por lámina y horizonte."""
 
     def test_tsc4o_excluida_con_1000_usd(self):
-        """TSC4O requiere ~9.780 USD; no aparece con USD 1.000."""
+        """TSC4O requiere ~10.739 USD; no aparece con USD 1.000."""
         result = ons_comprables_para_capital(1_000.0, horizonte_meses=12)
         tickers = [o["ticker"] for o in result]
         assert "TSC4O" not in tickers
 
-    def test_tsc4o_incluida_con_10000_usd(self):
-        """Con USD 10.000 se puede comprar 1 lámina de TSC4O."""
-        result = ons_comprables_para_capital(10_000.0, horizonte_meses=12)
+    def test_tsc4o_incluida_con_11000_usd(self):
+        """Con USD 11.000 se puede comprar 1 lámina de TSC4O (paridad 107.39, jun-26)."""
+        result = ons_comprables_para_capital(11_000.0, horizonte_meses=12)
         tickers = [o["ticker"] for o in result]
         assert "TSC4O" in tickers
 
@@ -450,9 +450,9 @@ class TestTirEstimadaConCcl:
     """tir_estimada_con_ccl recomputa TIR desde paridad_ref × CCL live."""
 
     def test_tlcto_devuelve_tir_ref(self):
-        """TLCTO paridad_ref=102.5 → tir ≈ tir_ref=7.5."""
+        """TLCTO paridad_ref=111.16 → tir ≈ tir_ref=6.88 (YTM DCF jun-26)."""
         tir = tir_estimada_con_ccl("TLCTO", ccl=1429.0)
-        assert tir == pytest.approx(7.5, abs=0.5)
+        assert tir == pytest.approx(6.88, abs=0.5)
 
     def test_ticker_cedear_devuelve_none(self):
         assert tir_estimada_con_ccl("AAPL", ccl=1429.0) is None

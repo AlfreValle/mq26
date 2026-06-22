@@ -26,7 +26,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
     # ══════════════════════════════════════════════════════════════════════════
     # OBLIGACIONES NEGOCIABLES en USD (ON_USD) — Hard Dollar / Cable
     # Convención: paridad_ref = % de VN USD; precio ARS/100VN ≈ paridad × CCL
-    # CCL referencia: AR$ 1.429 (implícito precio DNC7O, 2026-05-27)
+    # CCL referencia: AR$ 1.511,27 (2026-06-18). Paridades de precio ARS live (data912)
+    # / CCL; tir_ref = YTM por DCF con interés corrido (validado vs DNC7O 7.76≈7.73).
+    # RUCDO y MGCEO sin actualizar (quotes ilíquidos/stale al 2026-06-18). MD sin recalcular.
     # DV01 = modified_duration × paridad_ref / 10000  (USD por bp por 100 VN)
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -38,13 +40,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.07375,         # 7.375% (cupón fijo, Ley Argentina)
         "frecuencia":   2,
         "calificacion": "AA+", "ley": "Argentina",
-        "tir_ref":      6.8,             # compresión spread vs. 7.3% de mar-26
-        "paridad_ref":  103.0,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      6.31,            # YTM DCF 2026-06-18 (rally: paridad 103→108.5)
+        "paridad_ref":  108.50,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    147_187.0,  # 103.0 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    163_970.0,  # 108.50 × 1511.27 por 100 VN (data912)
         "modified_duration": 8.20,
         "dv01_por_100vn":    0.0847,
     },
@@ -56,13 +58,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.085,           # 8.5% — cupón verificado prospecto
         "frecuencia":   2,
         "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  105.5,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      6.78,            # YTM DCF 2026-06-18 (paridad 105.5→110.47)
+        "paridad_ref":  110.47,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    150_760.0,  # 105.5 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    166_950.0,  # 110.47 × 1511.27 por 100 VN (data912)
         "modified_duration": 6.00,
         "dv01_por_100vn":    0.0633,
     },
@@ -74,13 +76,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.085,           # 8.5% nominal anual
         "frecuencia":   2,
         "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      7.5,
-        "paridad_ref":  102.5,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      6.88,            # YTM DCF 2026-06-18 (rally: paridad 102.5→111.16)
+        "paridad_ref":  111.16,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1, "callable": True,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    146_473.0,  # 102.5 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    167_990.0,  # 111.16 × 1511.27 por 100 VN (data912)
         "modified_duration": 7.00,
         "dv01_por_100vn":    0.0718,
     },
@@ -92,13 +94,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.066,           # 6.6% — por debajo del mercado, cotiza bajo par
         "frecuencia":   2,
         "calificacion": "AA+", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  97.8,            # descuento por cupón < TIR de mercado
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      5.53,            # YTM DCF 2026-06-18 (rally fuerte: paridad 97.8→107.39)
+        "paridad_ref":  107.39,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   10_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    139_756.0,  # 97.8 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    162_300.0,  # 107.39 × 1511.27 por 100 VN (data912)
         "modified_duration": 6.80,
         "dv01_por_100vn":    0.0665,
     },
@@ -110,13 +112,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.0875,          # 8.75% — verificado, no 8.5%
         "frecuencia":   2,
         "calificacion": "AA-", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  106.5,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      7.59,            # YTM DCF 2026-06-18 (cupón 8.75% a paridad 107.19)
+        "paridad_ref":  107.19,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    152_189.0,  # 106.5 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    162_000.0,  # 107.19 × 1511.27 por 100 VN (data912)
         "modified_duration": 6.50,
         "dv01_por_100vn":    0.0692,
     },
@@ -128,13 +130,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.0975,          # 9.75% nominal anual — confirmado por usuario
         "frecuencia":   2,               # semestral: abril y octubre
         "calificacion": "A+", "ley": "Nueva York",
-        "tir_ref":      7.73,            # TIR informada por usuario 2026-05-27
-        "paridad_ref":  107.56,          # AR$ 153.650 / (1429 × 100/100) = 107.52 ≈ 107.56
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      7.76,            # YTM DCF 2026-06-18 (≈7.73 previo: paridad estable)
+        "paridad_ref":  107.19,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   100, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    153_650.0,  # precio de mercado informado por usuario
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    161_990.0,  # 107.19 × 1511.27 por 100 VN (data912)
         "modified_duration": 3.64,
         "dv01_por_100vn":    0.0391,
     },
@@ -146,13 +148,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.090,           # 9.0% nominal anual
         "frecuencia":   2,
         "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      8.0,
-        "paridad_ref":  103.0,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      6.13,            # YTM DCF 2026-06-18 (rally fuerte: paridad 103→112.16)
+        "paridad_ref":  112.16,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    147_187.0,  # 103.0 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    169_500.0,  # 112.16 × 1511.27 por 100 VN (data912)
         "modified_duration": 4.00,
         "dv01_por_100vn":    0.0412,
     },
