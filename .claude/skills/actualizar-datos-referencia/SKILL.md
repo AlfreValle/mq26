@@ -22,6 +22,7 @@ las recomendaciones. Cada uno tiene su lugar y su verificación.
 - Actualizar por instrumento: `paridad_ref`, `tir_ref`, `fecha_ref`, `activo` (False si dejó de cotizar), `ccl_ref` / `precio_ars_ref` si se recalculan.
 - La conversión paridad→ARS es automática vía `precio_referencia_ars_desde_catalogo()` — NO hardcodear precios derivados.
 - **Fuente importable**: soberanos/BOPREAL/BONCER/LECAP → informes diarios PDF de bancos (Banco Hipotecario `hipotecario.com.ar/media/informediario.pdf`, Banco Provincia `bancoprovincia.com.ar/CDN/Get/informe_financiero`) traen Ticker/TIR/MD/Paridad limpios (WebFetch los baja a disco, leer con Read). ONs corporativas → no figuran en esos informes: precio de `data912.com/live/arg_corp` (ARS/100VN), paridad = precio/CCL, y TIR por YTM/DCF con interés corrido. Ver [[fuentes-datos-referencia-rf]].
+- **Atajo ONs**: `python scripts/importar_rf_data912.py [--ccl X]` baja precios de data912, calcula paridad+TIR (DCF) y **propone el diff** de las ONs activas (marca quotes stale con volumen 0 y los excluye). No escribe el catálogo — revisar y pegar a mano.
 - Verificar: `python -m pytest tests/test_renta_fija_ar.py tests/test_on_pricing.py -q --no-cov`
 
 ## 3. Precios fallback hard (cuando se renueven)
