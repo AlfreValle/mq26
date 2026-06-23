@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import RATIOS_CEDEAR, SECTORES
 
 # ─── CCL HISTÓRICO ESTIMADO POR MES ───────────────────────────────────────────
-# Actualizar cuando llegue el resumen mensual de Balanz.
+# Actualizar mensualmente con el cierre del mes (el CCL no sale del broker).
 # Fuente: rava.com / ambito.com / BCRA
 CCL_HISTORICO: dict[str, float] = {
     # ── 2021 ──────────────────────────────────────────────────────────────────

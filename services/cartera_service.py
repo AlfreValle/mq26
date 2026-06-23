@@ -84,36 +84,37 @@ def _get_div_yield_cached(ticker: str) -> float:
     _DIV_YIELD_CACHE[ticker] = (dy, now)
     return dy
 
-# ─── PRECIOS FALLBACK (última conciliación Balanz 11/03/2026) ─────────────────
-# Actualizar mensualmente con el resumen Balanz.
+# ─── PRECIOS FALLBACK (última conciliación IOL 2026-06-22) ───────────────────
+# Actualizar mensualmente con el resumen del broker (actual: IOL). Precio = último
+# operado en ARS por unidad (CEDEAR/acción). CEDEARs NO derivar de data912 (ratios
+# ambiguos: jun-26 UNH data912 18.630 vs IOL 11.175). Fuente: export IOL.
 # Formato: {TICKER: precio_ARS_por_CEDEAR}
 PRECIOS_FALLBACK_ARS: dict[str, float] = {
-    # Cartera Alfredo y Andrea – Retiro (Balanz 11/03/2026)
-    "ABBV": 33140, "CAT": 51525, "COST": 30020, "CVX": 17420,
-    "KO":   22540, "LMT": 47180, "VALE": 11140, "VIST": 28740,
-    # Bull Market / Reto 2026
-    "AAPL": 18500, "AMZN":  2750, "BRKB": 31000, "GLD": 12800,
-    "MELI": 22000, "META":  37000, "MSFT": 18500, "SPY": 48000,
-    "UNH":  12000,
-    # Santi
-    "PAMP":  4800,
+    # CEDEARs y acciones — IOL último operado 2026-06-22
+    "ABBV": 34880, "CAT": 77125, "COST": 30040, "CVX": 16550,
+    "KO":   24200, "LMT": 37660, "VALE": 12020, "VIST": 34600,
+    "AAPL": 22830, "AMZN":  2479, "BRKB": 33880, "GLD": 11100,
+    "MELI": 20460, "META":  35700, "MSFT": 18940, "SPY": 18910,
+    "UNH":  11175,
+    # Acciones locales AR
+    "PAMP":  5155,
     # ON Corporativas AR (CARTERA_IDEAL — aprox. ARS/lámina, actualizar mensualmente)
-    # Precio ≈ paridad_% × CCL / 100 por 1 VN USD; lámina mínima 1 (modo CEDEAR en Balanz)
-    # CCL referencia: AR$ 1.429 (2026-05-27)
-    "PN43O": 1_473.0,   # PAE ON 2037 — paridad 103.0% × CCL 1429 / 100 ≈ 1.472 por 1 VN
-    "TLCTO": 1_465.0,   # Telecom ON 2036 — paridad 102.5% × CCL 1429 / 100 ≈ 1.465 por 1 VN
+    # Precio ≈ paridad_% × CCL / 100 por 1 VN USD; lámina mínima 1 (modo CEDEAR)
+    # CCL referencia: AR$ 1.511,27 (2026-06-18) — coherente con catálogo RF
+    "PN43O": 1_640.0,   # PAE ON 2037 — paridad 108.5% × CCL 1511.27 / 100 ≈ 1.640 por 1 VN
+    "TLCTO": 1_680.0,   # Telecom ON 2036 — paridad 111.16% × CCL 1511.27 / 100 ≈ 1.680 por 1 VN
     # RV Argentina (CARTERA_IDEAL perfiles Arriesgado/Muy arriesgado)
-    "GGAL":  3_500.0,   # Grupo Galicia CEDEAR
-    "YPFD":  55_000.0,  # YPF CEDEAR (precio por certificado, ratio alto)
+    "GGAL":   8_215.0,  # Grupo Galicia
+    "YPFD":  75_450.0,  # YPF
     # Tecnología adicional CARTERA_IDEAL
-    "NVDA":  15_000.0,  # NVIDIA CEDEAR
-    "GOOGL": 22_000.0,  # Alphabet CEDEAR
-    "PLTR":   8_500.0,  # Palantir CEDEAR
-    "IVW":   32_000.0,  # iShares S&P 500 Growth ETF CEDEAR
+    "NVDA":  13_290.0,  # NVIDIA CEDEAR
+    "GOOGL":  9_070.0,  # Alphabet CEDEAR
+    "PLTR":  62_400.0,  # Palantir CEDEAR
+    "IVW":   10_430.0,  # iShares S&P 500 Growth ETF CEDEAR
     # Defensivos adicionales
-    "JNJ":   15_200.0,  # Johnson & Johnson CEDEAR
-    "VZ":     9_800.0,  # Verizon CEDEAR
-    "PG":    18_400.0,  # Procter & Gamble CEDEAR
+    "JNJ":   23_440.0,  # Johnson & Johnson CEDEAR
+    "VZ":    17_410.0,  # Verizon CEDEAR
+    "PG":    15_250.0,  # Procter & Gamble CEDEAR
 }
 
 

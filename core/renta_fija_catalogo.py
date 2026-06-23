@@ -26,7 +26,11 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
     # ══════════════════════════════════════════════════════════════════════════
     # OBLIGACIONES NEGOCIABLES en USD (ON_USD) — Hard Dollar / Cable
     # Convención: paridad_ref = % de VN USD; precio ARS/100VN ≈ paridad × CCL
-    # CCL referencia: AR$ 1.429 (implícito precio DNC7O, 2026-05-27)
+    # CCL referencia: AR$ 1.511,27 (2026-06-18). Paridades de precio ARS live (data912)
+    # / CCL; tir_ref = YTM por DCF con interés corrido (validado vs DNC7O 7.76≈7.73).
+    # RUCDO actualizado con IOL 2026-06-22 (con volumen). MGCEO sin actualizar (IOL stale,
+    # 0 volumen). MRCAO/YCA6O siguen activas (vencen 01/07 — las flaggea el monitor).
+    # MGCHO/RCCJO sin dato (no figuran en IOL). MD sin recalcular.
     # DV01 = modified_duration × paridad_ref / 10000  (USD por bp por 100 VN)
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -38,13 +42,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.07375,         # 7.375% (cupón fijo, Ley Argentina)
         "frecuencia":   2,
         "calificacion": "AA+", "ley": "Argentina",
-        "tir_ref":      6.8,             # compresión spread vs. 7.3% de mar-26
-        "paridad_ref":  103.0,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      6.31,            # YTM DCF 2026-06-18 (rally: paridad 103→108.5)
+        "paridad_ref":  108.50,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    147_187.0,  # 103.0 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    163_970.0,  # 108.50 × 1511.27 por 100 VN (data912)
         "modified_duration": 8.20,
         "dv01_por_100vn":    0.0847,
     },
@@ -56,13 +60,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.085,           # 8.5% — cupón verificado prospecto
         "frecuencia":   2,
         "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  105.5,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      6.78,            # YTM DCF 2026-06-18 (paridad 105.5→110.47)
+        "paridad_ref":  110.47,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    150_760.0,  # 105.5 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    166_950.0,  # 110.47 × 1511.27 por 100 VN (data912)
         "modified_duration": 6.00,
         "dv01_por_100vn":    0.0633,
     },
@@ -74,13 +78,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.085,           # 8.5% nominal anual
         "frecuencia":   2,
         "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      7.5,
-        "paridad_ref":  102.5,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      6.88,            # YTM DCF 2026-06-18 (rally: paridad 102.5→111.16)
+        "paridad_ref":  111.16,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1, "callable": True,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    146_473.0,  # 102.5 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    167_990.0,  # 111.16 × 1511.27 por 100 VN (data912)
         "modified_duration": 7.00,
         "dv01_por_100vn":    0.0718,
     },
@@ -92,13 +96,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.066,           # 6.6% — por debajo del mercado, cotiza bajo par
         "frecuencia":   2,
         "calificacion": "AA+", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  97.8,            # descuento por cupón < TIR de mercado
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      5.53,            # YTM DCF 2026-06-18 (rally fuerte: paridad 97.8→107.39)
+        "paridad_ref":  107.39,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   10_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    139_756.0,  # 97.8 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    162_300.0,  # 107.39 × 1511.27 por 100 VN (data912)
         "modified_duration": 6.80,
         "dv01_por_100vn":    0.0665,
     },
@@ -110,13 +114,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.0875,          # 8.75% — verificado, no 8.5%
         "frecuencia":   2,
         "calificacion": "AA-", "ley": "Nueva York",
-        "tir_ref":      7.0,
-        "paridad_ref":  106.5,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      7.59,            # YTM DCF 2026-06-18 (cupón 8.75% a paridad 107.19)
+        "paridad_ref":  107.19,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    152_189.0,  # 106.5 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    162_000.0,  # 107.19 × 1511.27 por 100 VN (data912)
         "modified_duration": 6.50,
         "dv01_por_100vn":    0.0692,
     },
@@ -128,13 +132,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.0975,          # 9.75% nominal anual — confirmado por usuario
         "frecuencia":   2,               # semestral: abril y octubre
         "calificacion": "A+", "ley": "Nueva York",
-        "tir_ref":      7.73,            # TIR informada por usuario 2026-05-27
-        "paridad_ref":  107.56,          # AR$ 153.650 / (1429 × 100/100) = 107.52 ≈ 107.56
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      7.76,            # YTM DCF 2026-06-18 (≈7.73 previo: paridad estable)
+        "paridad_ref":  107.19,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   100, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    153_650.0,  # precio de mercado informado por usuario
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    161_990.0,  # 107.19 × 1511.27 por 100 VN (data912)
         "modified_duration": 3.64,
         "dv01_por_100vn":    0.0391,
     },
@@ -146,13 +150,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.090,           # 9.0% nominal anual
         "frecuencia":   2,
         "calificacion": "AA", "ley": "Nueva York",
-        "tir_ref":      8.0,
-        "paridad_ref":  103.0,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      6.13,            # YTM DCF 2026-06-18 (rally fuerte: paridad 103→112.16)
+        "paridad_ref":  112.16,
+        "fecha_ref":    "2026-06-18",
         "activo": True,
         "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    147_187.0,  # 103.0 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    169_500.0,  # 112.16 × 1511.27 por 100 VN (data912)
         "modified_duration": 4.00,
         "dv01_por_100vn":    0.0412,
     },
@@ -164,13 +168,13 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual":  0.085,
         "frecuencia":   2,
         "calificacion": "A", "ley": "Argentina",
-        "tir_ref":      6.5,             # muy corto plazo — spread reducido
-        "paridad_ref":  101.2,
-        "fecha_ref":    "2026-05-27",
+        "tir_ref":      1.81,            # YTM DCF 2026-06-22 (premium a ~5m del vto; IOL con volumen)
+        "paridad_ref":  102.89,
+        "fecha_ref":    "2026-06-22",
         "activo": True,
         "lamina_min":   1_000, "callable": False,
-        "ccl_ref":           1429.0,
-        "precio_ars_ref":    144_615.0,  # 101.2 × 1429 por 100 VN
+        "ccl_ref":           1511.27,
+        "precio_ars_ref":    155_500.0,  # 102.89 × 1511.27 por 100 VN (IOL)
         "modified_duration": 0.47,
         "dv01_por_100vn":    0.0048,
     },
@@ -184,6 +188,8 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "calificacion": "BBB+", "ley": "Nueva York",
         "tir_ref":      5.8,             # MELI investment grade, spread ajustado
         "paridad_ref":  102.8,
+        # 2026-06-22: IOL muestra $142.000 con monto operado 0 (quote stale, no reflejó
+        # el rally). Implicaría paridad 94 / TIR 8.4% — inconsistente para BBB+. Sin actualizar.
         "fecha_ref":    "2026-05-27",
         "activo": True,
         "lamina_min":   1_000, "callable": False,
@@ -203,7 +209,7 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "tir_ref":      5.8,             # ~35 días restantes → spread mínimo
         "paridad_ref":  100.8,
         "fecha_ref":    "2026-05-27",
-        "activo": True,                  # vence en ~35 días (jul-26), aún activo
+        "activo": True,                  # vence 01/07/2026 — el monitor lo flaggea como crítico
         "lamina_min":   1_000, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    144_043.0,  # 100.8 × 1429 por 100 VN
@@ -221,7 +227,8 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "tir_ref":      5.8,             # ~35 días restantes → precio cercano a par+accrued
         "paridad_ref":  101.0,
         "fecha_ref":    "2026-05-27",
-        "activo": True,                  # vence en ~35 días (jul-26), aún activo
+        # 2026-06-22: no figura en IOL (real YPF corta: YCAMO). Activo hasta vto 01/07 (lo flaggea el monitor).
+        "activo": True,                  # vence 01/07/2026 — se auto-resuelve al vto
         "lamina_min":   1, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    144_329.0,  # 101.0 × 1429 por 100 VN
@@ -252,8 +259,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "calificacion": "BBB+", "ley": "Nueva York",
         "tir_ref":      5.6,
         "paridad_ref":  101.8,
+        # 2026-06-22: ticker MGCHO no figura en IOL → phantom (se excluye del motor).
         "fecha_ref":    "2026-05-27",
-        "activo": True,
+        "activo": False,                 # ver task reconciliación de tickers RF
         "lamina_min":   1_000, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    145_471.0,  # 101.8 × 1429 por 100 VN
@@ -270,8 +278,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "calificacion": "AA-", "ley": "Nueva York",
         "tir_ref":      6.5,
         "paridad_ref":  102.5,
+        # 2026-06-22: ticker RCCJO no figura en IOL; la ON Pampa vigente es RCCRO.
         "fecha_ref":    "2026-05-27",
-        "activo": True,
+        "activo": False,                 # phantom — remapear a RCCRO en task reconciliación
         "lamina_min":   1, "callable": False,
         "ccl_ref":           1429.0,
         "precio_ars_ref":    146_473.0,  # 102.5 × 1429 por 100 VN
@@ -283,7 +292,8 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
     # BONOS SOBERANOS USD — Ley Argentina (AL) y Ley Nueva York (GD)
     # Cupón step-up (ver prospecto reestructuración 2020); cupon_anual = 0.0
     # en el motor de cashflow ilustrativo (flujos reales en calendario oficial).
-    # TIR y paridad actualizados al 2026-05-27; MD = Duration Modificada aprox.
+    # TIR, paridad y MD actualizados al 2026-06-18 (informe diario Banco Hipotecario,
+    # CCL AR$ 1.511,27; cruzado con informe Banco Provincia 19-jun-26). MD = Duration Modificada.
     # ══════════════════════════════════════════════════════════════════════════
 
     "GD29": {
@@ -292,9 +302,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2029-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,   # step-up; ver prospecto 2020
         "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.0,   "paridad_ref":  71.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 2.60,
+        "tir_ref":   5.41,  "paridad_ref":  93.70,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 1.46,
     },
     "AL29": {
         "emisor": "República Argentina", "descripcion": "Bonar 2029",
@@ -302,9 +312,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2029-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.3,   "paridad_ref":  69.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 2.60,
+        "tir_ref":   6.78,  "paridad_ref":  91.91,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 1.44,
     },
     "GD30": {
         "emisor": "República Argentina", "descripcion": "Global 2030",
@@ -312,9 +322,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2030-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.2,   "paridad_ref":  69.5,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 3.10,
+        "tir_ref":   6.25,  "paridad_ref":  90.95,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 1.90,
     },
     "AL30": {
         "emisor": "República Argentina", "descripcion": "Bonar 2030",
@@ -322,9 +332,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2030-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.6,   "paridad_ref":  67.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 3.00,
+        "tir_ref":   7.37,  "paridad_ref":  89.12,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 1.87,
     },
     "GD35": {
         "emisor": "República Argentina", "descripcion": "Global 2035",
@@ -332,9 +342,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2035-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.5,   "paridad_ref":  78.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 5.00,
+        "tir_ref":   8.45,  "paridad_ref":  82.54,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 5.38,
     },
     "AL35": {
         "emisor": "República Argentina", "descripcion": "Bonar 2035",
@@ -342,9 +352,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2035-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   8.8,   "paridad_ref":  76.5,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 4.90,
+        "tir_ref":   9.12,  "paridad_ref":  79.74,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 5.33,
     },
     "AE38": {
         "emisor": "República Argentina", "descripcion": "Bonar 2038",
@@ -352,9 +362,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2038-01-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":   9.2,   "paridad_ref":  82.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 5.80,
+        "tir_ref":   9.85,  "paridad_ref":  80.12,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 4.53,
     },
     "GD41": {
         "emisor": "República Argentina", "descripcion": "Global 2041",
@@ -362,9 +372,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "vencimiento": "2041-07-09",
         "cupon_anual": 0.0, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Nueva York",
-        "tir_ref":   8.8,   "paridad_ref":  74.0,
-        "fecha_ref": "2026-05-27", "activo": True,
-        "modified_duration": 7.20,
+        "tir_ref":   8.57,  "paridad_ref":  77.20,
+        "fecha_ref": "2026-06-18", "activo": True,
+        "modified_duration": 5.96,
     },
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -379,7 +389,9 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual": 0.05, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
         "tir_ref":   6.5,   "paridad_ref":  98.2,
-        "fecha_ref": "2026-05-27", "activo": True,
+        # 2026-06-22: ticker BPA27 no cotiza en IOL. BOPREAL vigentes 2027 = BPOA7/BPOB7/
+        # BPOC7/BPOD7 (ver task reconciliación). Inactivo hasta re-mapear con cupón/ISIN.
+        "fecha_ref": "2026-05-27", "activo": False,
         "lamina_min": 1,
         "forma_amortizacion": "Bullet al vencimiento",
         "modified_duration": 0.65,
@@ -392,7 +404,8 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual": 0.03, "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
         "tir_ref":   7.5,   "paridad_ref":  95.5,
-        "fecha_ref": "2026-05-27", "activo": True,
+        # 2026-06-22: ticker BPJ27 no cotiza en IOL (ver BPA27). Inactivo hasta re-mapear.
+        "fecha_ref": "2026-05-27", "activo": False,
         "lamina_min": 1,
         "forma_amortizacion": "Bullet al vencimiento",
         "modified_duration": 0.95,
@@ -406,45 +419,45 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
 
     "TX26": {
         "emisor": "Tesoro Nacional",
-        "descripcion": "Boncer Jun 2026 (TX26)",
+        "descripcion": "Bonte CER+2% Nov 2026 (TX26)",
         "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2026-06-30",
-        "cupon_anual": 0.0,              # CER + 0% puro
+        "vencimiento": "2026-11-09",     # ISIN ARARGE3209W8 (informe BP) — no 30/06
+        "cupon_anual": 0.02,             # CER + 2% (informe BP "Bonte 2026 CER+2%")
         "frecuencia": 2,
         "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.0,   "paridad_ref": 99.8,  # vence en ~34 días; precio ≈ VN
-        "fecha_ref":  "2026-05-27", "activo": True,
+        "tir_ref":    0.47,  "paridad_ref": 100.59,  # informe Banco Hipotecario 2026-06-18 (TIR real)
+        "fecha_ref":  "2026-06-18", "activo": True,
         "lamina_min":    1,
-        "spread_real":   0.0,
-        "duration_real": 0.09,          # ~33 días = 0.09 años
+        "spread_real":   0.02,
+        "duration_real": 0.39,          # MD informe (≈143 días al vto)
     },
     "TX28": {
         "emisor": "Tesoro Nacional",
-        "descripcion": "Boncer Nov 2028 (TX28)",
+        "descripcion": "Bonte CER+2.25% Nov 2028 (TX28)",
         "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2028-11-30",
-        "cupon_anual": 0.0025,           # CER + 0.25%
+        "vencimiento": "2028-11-09",     # ISIN ARARGE3209X6 (informe BP)
+        "cupon_anual": 0.0225,           # CER + 2.25% (informe BP)
         "frecuencia": 2,
         "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.3,   "paridad_ref": 98.5,
-        "fecha_ref":  "2026-05-27", "activo": True,
+        "tir_ref":    5.41,  "paridad_ref": 95.95,  # informe Banco Hipotecario 2026-06-18 (TIR real)
+        "fecha_ref":  "2026-06-18", "activo": True,
         "lamina_min":    1,
-        "spread_real":   0.0025,
-        "duration_real": 2.40,
+        "spread_real":   0.0225,
+        "duration_real": 1.32,          # MD informe
     },
     "TZXD7": {
         "emisor": "Tesoro Nacional",
         "descripcion": "Boncer Dic 2027 (TZXD7)",
         "tipo": "BONCER", "moneda": "ARS_CER",
-        "vencimiento": "2027-12-31",
-        "cupon_anual": 0.005,            # CER + 0.5%
+        "vencimiento": "2027-12-15",     # informe BH/BP — no 31/12
+        "cupon_anual": 0.005,            # CER + 0.5% (sin fuente nueva — sin cambiar)
         "frecuencia": 2,
         "calificacion": "AA-AR", "ley": "Argentina",
-        "tir_ref":    0.6,   "paridad_ref": 97.8,
-        "fecha_ref":  "2026-05-27", "activo": True,
+        "tir_ref":    5.43,  "paridad_ref": 92.42,  # informe Banco Hipotecario 2026-06-18 (TIR real)
+        "fecha_ref":  "2026-06-18", "activo": True,
         "lamina_min":    1,
         "spread_real":   0.005,
-        "duration_real": 1.55,
+        "duration_real": 1.45,          # MD informe
     },
     "DICP": {
         "emisor": "República Argentina",
@@ -454,11 +467,11 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "cupon_anual": 0.08,             # CER + 8% real (bono legacy reestructuración)
         "frecuencia": 2,
         "calificacion": "CCC", "ley": "Argentina",
-        "tir_ref":    8.5,   "paridad_ref": 96.5,
-        "fecha_ref":  "2026-05-27", "activo": True,
+        "tir_ref":    7.49,  "paridad_ref": 95.34,  # informe Banco Hipotecario 2026-06-18 (TIR real)
+        "fecha_ref":  "2026-06-18", "activo": True,
         "lamina_min":    1,
         "spread_real":   0.08,
-        "duration_real": 3.80,
+        "duration_real": 3.05,
         "forma_amortizacion": "Amortización trimestral sobre VN ajustado por CER",
     },
 
