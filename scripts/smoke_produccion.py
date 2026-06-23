@@ -14,6 +14,14 @@ import argparse
 import sys
 from urllib.parse import urljoin
 
+# Consola Windows (cp1252) no encodea caracteres como '→'; forzar utf-8 evita
+# que un print de éxito/fallo crashee con UnicodeEncodeError.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Smoke: GET /_stcore/health")
