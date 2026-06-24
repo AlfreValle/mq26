@@ -20,7 +20,9 @@ python-dateutil>=2.8.0
 alembic>=1.13.0
 
 # Sprint 5: autenticación multi-asesor (opcional — solo si AUTH_CONFIG está definida)
-streamlit-authenticator>=0.3.0
+# 0.4.x: API de login() cambió (escribe en session_state, no devuelve tupla) y el
+# constructor usa `cookie_key`; core/auth_saas.py está adaptado a esa convención.
+streamlit-authenticator>=0.4.2
 pyyaml>=6.0.0
 
 # Sprint 6: monitoreo de errores en producción (opcional — solo si SENTRY_DSN definida)

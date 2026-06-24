@@ -18,9 +18,10 @@ Formato de AUTH_CONFIG (YAML serializado, para Railway / variables de entorno):
       key: clave_secreta_aleatoria_larga
       name: mq26_auth_cookie
 
-Generar hash de contraseña:
+Generar hash de contraseña (streamlit-authenticator >= 0.4):
     import streamlit_authenticator as stauth
-    print(stauth.Hasher(["mi_password"]).generate())
+    print(stauth.Hasher.hash_passwords({"u": {"password": "mi_password"}}))
+    # (en 0.2/0.3 era: stauth.Hasher(["mi_password"]).generate())
 """
 from __future__ import annotations
 
@@ -43,11 +44,14 @@ def get_authenticator() -> Any | None:
         import streamlit_authenticator as stauth
         import yaml
         config = yaml.safe_load(raw)
+        # Argumentos POSICIONALES (robusto entre versiones): el 3er parámetro es
+        # la cookie key — en 0.4 se llama `cookie_key` y en 0.2/0.3 `key`. Pasarlo
+        # posicional evita el TypeError por el cambio de nombre del keyword.
         return stauth.Authenticate(
-            credentials=config["credentials"],
-            cookie_name=config["cookie"]["name"],
-            key=config["cookie"]["key"],
-            cookie_expiry_days=config["cookie"]["expiry_days"],
+            config["credentials"],
+            config["cookie"]["name"],
+            config["cookie"]["key"],
+            config["cookie"]["expiry_days"],
         )
     except ImportError as e:
         import warnings
@@ -95,19 +99,38 @@ def login_saas(authenticator: Any) -> tuple[str | None, bool | None, str | None]
     Ejecuta el widget de login de streamlit-authenticator.
     Retorna (name, authentication_status, username).
     authentication_status: True=ok, False=fallo, None=sin intentar.
-    Compatible con streamlit-authenticator >= 0.3.0 y >= 0.2.0.
+
+    Compatible con 0.4.x y con 0.2/0.3:
+    - 0.4: login() NO devuelve tupla — escribe en st.session_state
+      ('name', 'authentication_status', 'username'). Se lee de ahí.
+    - 0.2/0.3: login(form_name, location) devolvía la tupla; si una versión
+      vieja la devuelve, se usa directamente.
 
     Invariante: no lanza excepción al caller — cualquier fallo devuelve (None, None, None).
     """
     try:
+        import streamlit as st
+
+        result = None
         try:
-            # API 0.3.x
-            return authenticator.login("Ingresar", "main")
+            # API 0.4.x (también 0.3.2+): keyword `location`.
+            result = authenticator.login(location="main")
         except TypeError:
             try:
-                # API 0.3.x con kwargs
-                return authenticator.login(location="main")
+                # API 0.2/0.3 posicional (form_name, location).
+                result = authenticator.login("Ingresar", "main")
             except Exception:
-                return None, None, None
+                result = None
+
+        # Versiones viejas devuelven la tupla; usarla si vino.
+        if isinstance(result, (tuple, list)) and len(result) == 3:
+            return result[0], result[1], result[2]
+
+        # 0.4: los valores viven en session_state.
+        return (
+            st.session_state.get("name"),
+            st.session_state.get("authentication_status"),
+            st.session_state.get("username"),
+        )
     except Exception:
         return None, None, None
