@@ -356,6 +356,19 @@ def render_tab_inversor(ctx: dict) -> None:
     )
     st.caption(patrimonio_dual_line(valor_usd, valor_total, ccl))
 
+    # H1 explicabilidad: resumen en lenguaje natural — lo primero, en castellano
+    # simple, para el inversor que no es experto ("en una frase, cómo va mi plata").
+    try:
+        from services.resumen_natural import resumen_natural_cartera
+
+        _resumen = resumen_natural_cartera(
+            diag, metricas, ccl=ccl, nombre=str(ctx.get("cliente_nombre", "") or "")
+        )
+        if _resumen:
+            st.info(_resumen, icon="🗒️")
+    except Exception:
+        pass
+
     # Ancla CSS (M484–M486): tabs internos estilo “capítulo” sin afectar otras vistas.
     st.markdown(
         '<div class="mq-inv-inner-tabs-anchor" aria-hidden="true"></div>',
