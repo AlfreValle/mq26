@@ -1,0 +1,5 @@
+# Dependencias para los tests E2E (navegador real). No van en requirements.txt
+# de la app — solo se instalan donde se corren los E2E.
+# Tras instalar: python -m playwright install chromium
+playwright>=1.40.0
+pytest>=8.0.0

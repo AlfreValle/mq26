@@ -121,4 +121,5 @@ markers = [
     "integration: tests que requieren red real (yfinance, BYMA, APIs externas). Excluir con -m 'not integration'.",
     "slow: tests de larga duración (backtests, optimizaciones HRP).",
     "smoke: tests mínimos de humo para CI/CD rápido.",
+    "e2e: tests end-to-end en navegador real (Playwright). Requieren app corriendo; ver tests/e2e/README.md.",
 ]
