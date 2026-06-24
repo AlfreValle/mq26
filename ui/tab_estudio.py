@@ -692,18 +692,40 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
         return
 
     _udf = ctx.get("universo_df")
+    # "Por qué" en lenguaje simple (H1 explicabilidad): traduce el score del
+    # scanner (60/20/20) a palabras para el activo de RV; para RF usa la
+    # justificación del motor. Lookup de scores por ticker desde sesión.
+    from core.renta_fija_ar import es_renta_fija
+    from services.recomendador_explicable import porque_recomendado
+
+    _scores_df = st.session_state.get("df_scores")
+    _score_by_tk: dict[str, dict] = {}
+    if isinstance(_scores_df, pd.DataFrame) and not _scores_df.empty:
+        _tk_col = next(
+            (c for c in _scores_df.columns if str(c).lower() in ("ticker", "activo")), None
+        )
+        if _tk_col:
+            for _r in _scores_df.to_dict("records"):
+                _score_by_tk[str(_r.get(_tk_col, "")).strip().upper()] = _r
+
     _rows: list[dict] = []
     for it in items:
         _tk = str(getattr(it, "ticker", "") or "").strip().upper()
         if not _tk:
             continue
+        _porque = porque_recomendado(
+            _tk,
+            score_row=_score_by_tk.get(_tk),
+            justificacion=str(getattr(it, "justificacion", "") or ""),
+            es_renta_fija=es_renta_fija(_tk),
+        )
         _rows.append(
             {
                 "Ticker": _tk,
                 "Unidades": int(getattr(it, "unidades", 0) or 0),
                 "Precio_ARS": float(getattr(it, "precio_ars_estimado", 0) or 0),
                 "TIPO": _tipo_universo_ticker(_tk, _udf),
-                "Notas": str(getattr(it, "justificacion", "") or "")[:120],
+                "Por qué": _porque[:160],
             }
         )
     df_ed = pd.DataFrame(_rows)
@@ -720,7 +742,7 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
             "TIPO": st.column_config.SelectboxColumn(
                 "Tipo", options=_TIPOS_EDICION_PRIMERA_CARTERA, width="small"
             ),
-            "Notas": st.column_config.TextColumn("Notas (guía)", width="large"),
+            "Por qué": st.column_config.TextColumn("Por qué te lo recomendamos", width="large"),
         },
     )
     try:
@@ -748,7 +770,7 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
                 capital_ars=cap_calc,
                 precio_records=ctx.get("precio_records"),
             )
-            with st.expander("🧭 Por qué estos activos — plan explicado", expanded=False):
+            with st.expander("🧭 Por qué estos activos — plan explicado", expanded=True):
                 from ui.components.plan_accion_view import render_plan_accion
 
                 render_plan_accion(_plan, key_prefix=f"est_wiz_plan_{cid}")
