@@ -164,6 +164,51 @@ def _costos_operacion(
     return traz, advert
 
 
+# ─── "Por qué" en lenguaje simple (retail) — H1 explicabilidad ────────────────
+
+def _nivel_palabra(valor: float, alto: float, medio: float, palabras: tuple[str, str, str]) -> str:
+    """Traduce un score 0-100 a una de tres palabras (alto/medio/bajo)."""
+    if valor >= alto:
+        return palabras[0]
+    if valor >= medio:
+        return palabras[1]
+    return palabras[2]
+
+
+def porque_recomendado(
+    ticker: str,
+    *,
+    score_row: dict[str, Any] | None = None,
+    justificacion: str = "",
+    es_renta_fija: bool = False,
+) -> str:
+    """Frase en lenguaje simple (para un inversor que no es experto) de POR QUÉ
+    se recomienda el activo. Sin tecnicismos crudos.
+
+    - Renta variable con score del scanner (60% fundamental / 20% técnico /
+      20% sector): traduce Score_Fund/Tec/Sector a palabras.
+    - Renta fija o sin score: usa la justificación del motor (TIR/calificación).
+
+    Función pura (sin Streamlit). No re-decide: solo traduce.
+    """
+    just = str(justificacion or "").strip()
+    if es_renta_fija or not isinstance(score_row, dict) or not score_row:
+        return just or "Renta fija para tu objetivo (renta estable)."
+
+    try:
+        total = float(score_row.get("Score_Total", 0) or 0)
+        fund = float(score_row.get("Score_Fund", 0) or 0)
+        tec = float(score_row.get("Score_Tec", 0) or 0)
+        sec = float(score_row.get("Score_Sector", 0) or 0)
+    except (TypeError, ValueError):
+        return just or "Activo seleccionado para tu perfil."
+
+    f = _nivel_palabra(fund, 65, 50, ("fundamentales sólidos", "fundamentales razonables", "fundamentales flojos"))
+    t = _nivel_palabra(tec, 65, 50, ("momento técnico favorable", "técnico neutro", "técnico débil"))
+    s = _nivel_palabra(sec, 65, 50, ("sector con viento a favor", "sector neutral", "sector en contra"))
+    return f"Puntaje {total:.0f}/100 — {f}, {t}, {s}."
+
+
 # ─── Compras: envuelve RecomendacionResult (recomendacion_capital) ────────────
 
 def explicar_compras(
