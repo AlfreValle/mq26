@@ -777,12 +777,32 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
     except Exception:
         pass
 
+    # ── Guardrails: validar el plan antes de adjuntar (H1) ─────────────────
+    # Capa explícita de reglas duras (concentración, mix de perfil, capital,
+    # monto mínimo, precio). No bloquea salvo ERROR; lo demás se avisa.
+    _hay_error_guardrail = False
+    try:
+        from services.guardrails import hay_errores, validar_recomendacion
+
+        _violaciones = validar_recomendacion(rr, perfil=perfil_res, capital_ars=cap_calc)
+        _hay_error_guardrail = hay_errores(_violaciones)
+        for _v in _violaciones:
+            _msg = f"**{_v.regla}** — {_v.mensaje}"
+            if _v.severidad == "ERROR":
+                st.error(_msg)
+            else:
+                st.warning(_msg)
+    except Exception:
+        pass
+
     # ── Paso 5: adjuntar a la cartera del cliente ──────────────────────────
     st.markdown(
         '<p class="mq-estudio-torre-kicker">📎 Paso 5 — Adjuntar a la cartera del cliente</p>',
         unsafe_allow_html=True,
     )
     st.caption(f"Al confirmar, las compras se registran en: **`{sc['cartera_activa']}`**")
+    if _hay_error_guardrail:
+        st.caption("⚠️ Hay un problema bloqueante arriba — corregilo antes de adjuntar.")
     _confirm = st.checkbox(
         "Confirmo que el cliente ejecutó estas operaciones en su broker",
         key=f"est_wiz_confirm_{cid}",
@@ -794,7 +814,7 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
             type="primary",
             use_container_width=True,
             key=f"est_wiz_adjuntar_{cid}",
-            disabled=not _confirm,
+            disabled=not _confirm or _hay_error_guardrail,
         ):
             from ui.carga_activos import _persist_filas
 
