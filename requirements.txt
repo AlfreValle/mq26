@@ -23,10 +23,10 @@ alembic>=1.13.0
 # 0.4.x: API de login() cambió (escribe en session_state, no devuelve tupla) y el
 # constructor usa `cookie_key`; core/auth_saas.py está adaptado a esa convención.
 streamlit-authenticator>=0.4.2
-pyyaml>=6.0.0
+pyyaml>=6.0.3
 
 # Sprint 6: monitoreo de errores en producción (opcional — solo si SENTRY_DSN definida)
-sentry-sdk>=1.40.0
+sentry-sdk>=2.63.0
 
 # Dev: tests + cobertura (P3-QA-01)
 pytest>=7.4.0
