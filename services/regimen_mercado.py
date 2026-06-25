@@ -103,6 +103,25 @@ def detectar_regimen(precios, *, periodos_anio: int = 252) -> RegimenMercado:
     )
 
 
+# Tilt táctico por régimen: cuánto del capital disponible mover hacia renta fija
+# (positivo = más defensivo). Se aplica DENTRO de la banda del perfil (clamp), no
+# la rompe. Caótico/bajista suben defensivos; alcista baja a favor de RV.
+_TILT_RF_POR_REGIMEN = {
+    "caotico": 0.12,
+    "tendencial_bajista": 0.08,
+    "tendencial_alcista": -0.10,
+    "lateral": 0.0,
+    "indeterminado": 0.0,
+}
+
+
+def tilt_rf_por_regimen(regimen: str | None) -> float:
+    """Fracción del capital disponible a desplazar hacia/desde renta fija según
+    el régimen (+RF defensivo / -RF ofensivo). 0.0 si no hay régimen o es lateral.
+    El llamador debe CLAMPEAR el resultado dentro de [rf_min, rf_max] del perfil."""
+    return _TILT_RF_POR_REGIMEN.get(str(regimen or "").strip().lower(), 0.0)
+
+
 def regimen_actual(ticker: str = "SPY", *, period: str = "6mo") -> RegimenMercado | None:
     """Régimen del índice indicado vía yfinance (gratis). None si no hay red/datos.
     Cachear en el caller (la descarga es lenta)."""

@@ -896,6 +896,7 @@ def generar_primera_cartera(
     df_scores: pd.DataFrame | None = None,
     *,
     desplegar_todo: bool = False,
+    regimen: str | None = None,
 ) -> RecomendacionResult:
     """
     Genera la primera cartera para un inversor nuevo (sin posiciones previas).
@@ -966,6 +967,7 @@ def generar_primera_cartera(
             df_scores=df_scores,
             precios_ars=precios_dict,
             n_total_objetivo=n_activos_objetivo(cap),
+            regimen=regimen,
         )
         logger.info(
             "cartera_optima dinámica usada para perfil %s (objetivo %d activos)",
