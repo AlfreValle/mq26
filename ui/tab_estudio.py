@@ -527,6 +527,56 @@ def _obtener_scores_para_wizard() -> pd.DataFrame | None:
     return None
 
 
+def _cliente_sin_posiciones(cid: int, nombre: str, ctx: dict) -> bool:
+    """True si el cliente no tiene posiciones reales cargadas."""
+    try:
+        df = _cargar_cartera_cliente(int(cid), nombre, ctx)
+    except Exception:
+        return True
+    if df is None or df.empty or "TICKER" not in df.columns:
+        return True
+    s = df["TICKER"].astype(str).str.strip().str.upper()
+    return s[s.ne("") & s.ne("NAN") & s.ne("NONE")].empty
+
+
+def _render_apertura_sin_posiciones(cid: int, nombre: str, ctx: dict) -> None:
+    """Bifurcación al abrir un cliente SIN posiciones: armar su primera cartera
+    (wizard) o cargar una existente (importar/manual). El asesor elige el camino."""
+    nom = str(nombre).split("|")[0].strip()
+    st.markdown(
+        f'<p class="mq-estudio-torre-kicker">🆕 {html.escape(nom)} todavía no tiene posiciones</p>',
+        unsafe_allow_html=True,
+    )
+    st.caption("Elegí cómo arrancar su cartera:")
+    modo_key = f"est_apertura_{cid}"
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if st.button("🚀 Armar su primera cartera", key=f"est_ap_wizard_{cid}",
+                     use_container_width=True, type="primary"):
+            st.session_state[modo_key] = "wizard"
+            st.rerun()
+        st.caption("El motor sugiere los mejores activos según objetivo y capital.")
+    with col_b:
+        if st.button("📥 Cargar una cartera existente", key=f"est_ap_cargar_{cid}",
+                     use_container_width=True):
+            st.session_state[modo_key] = "cargar"
+            st.rerun()
+        st.caption("Importá del broker o cargá a mano las posiciones que ya tiene.")
+
+    modo = st.session_state.get(modo_key)
+    if modo == "wizard":
+        st.divider()
+        _render_wizard_capital_estudio(int(cid), nombre, ctx)
+    elif modo == "cargar":
+        st.divider()
+        if not can_action(ctx, "write"):
+            st.warning("Necesitás permiso de escritura en Estudio para cargar posiciones.")
+        else:
+            from ui.carga_activos import render_carga_activos
+
+            render_carga_activos(_ctx_scoped_cliente(int(cid), nombre, ctx))
+
+
 def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
     """Wizard de capital del cliente seleccionado (pasos 3-5 del flujo de estudio).
 
@@ -1254,12 +1304,16 @@ def render_tab_estudio(ctx: dict) -> None:
 
             _render_ficha_cliente_rapida(int(cid), _nom_btn, ctx)
 
-            # Pasos 3-5: agregar capital → objetivo → recomendar → adjuntar.
-            # Expander para no abrumar la ficha; se abre al gestionar el aporte.
-            with st.expander(
-                f"💰 Agregar capital y recomendar — {_nom_corto}", expanded=False
-            ):
-                _render_wizard_capital_estudio(int(cid), _nom_btn, ctx)
+            if _cliente_sin_posiciones(int(cid), _nom_btn, ctx):
+                # Cliente sin posiciones: bifurcación primera cartera / cargar existente.
+                _render_apertura_sin_posiciones(int(cid), _nom_btn, ctx)
+            else:
+                # Con posiciones: agregar capital → objetivo → recomendar → adjuntar.
+                # Expander para no abrumar la ficha; se abre al gestionar el aporte.
+                with st.expander(
+                    f"💰 Agregar capital y recomendar — {_nom_corto}", expanded=False
+                ):
+                    _render_wizard_capital_estudio(int(cid), _nom_btn, ctx)
 
             if col_rpt.button("📄 Generar informe", key="btn_estudio_rpt",
                               use_container_width=True):
