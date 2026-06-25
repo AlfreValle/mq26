@@ -284,6 +284,30 @@ def _render_config_perfil(ctx: dict) -> None:
             st.error(f"No se pudo guardar: {e}")
 
 
+_REGIMEN_EMOJI = {
+    "tendencial_alcista": "📈",
+    "tendencial_bajista": "📉",
+    "lateral": "↔️",
+    "caotico": "🌪️",
+}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _regimen_mercado_cached() -> tuple[str, str, str] | None:
+    """Régimen de mercado (SPY) cacheado 1h. Tupla (regimen, descripción,
+    sugerencia) o None si no hay red/datos. Solo contexto visible — no altera
+    la recomendación (H2, bajo riesgo)."""
+    try:
+        from services.regimen_mercado import regimen_actual
+
+        r = regimen_actual("SPY")
+        if r is None or r.regimen == "indeterminado":
+            return None
+        return (r.regimen, r.descripcion, r.sugerencia)
+    except Exception:
+        return None
+
+
 def _render_inv_onboarding_hub() -> None:
     """Onboarding ligero (3 pasos). Tras verlo queda colapsado pero SIEMPRE
     accesible (antes se ocultaba para siempre — callejón sin salida)."""
@@ -366,6 +390,16 @@ def render_tab_inversor(ctx: dict) -> None:
         )
         if _resumen:
             st.info(_resumen, icon="🗒️")
+    except Exception:
+        pass
+
+    # H2: contexto de mercado (régimen) — solo informativo, cacheado, degrada sin red.
+    try:
+        _reg = _regimen_mercado_cached()
+        if _reg:
+            _regimen, _desc, _sug = _reg
+            _emoji = _REGIMEN_EMOJI.get(_regimen, "📊")
+            st.caption(f"{_emoji} **Contexto de mercado:** {_desc} {_sug}")
     except Exception:
         pass
 
