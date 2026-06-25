@@ -16,8 +16,24 @@ def _diag():
         score_total=78,
         rendimiento_ytd_usd_pct=0.12,
         valor_cartera_usd=15000,
-        observaciones=[SimpleNamespace(titulo="Buena diversificación", icono="✅")],
+        pct_defensivo_actual=0.30,
+        pct_defensivo_requerido=0.35,
+        titulo_semaforo="Cartera saludable",
+        observaciones=[
+            SimpleNamespace(titulo="Buena diversificación", icono="✅", detalle="8 activos en 4 sectores"),
+            SimpleNamespace(titulo="Falta renta fija", icono="⚠️", detalle="30% vs 35% objetivo"),
+        ],
     )
+
+
+def _posiciones():
+    import pandas as pd
+
+    return pd.DataFrame([
+        {"TICKER": "AAPL", "TIPO": "CEDEAR", "VALOR_ARS": 5_000_000, "PESO_PCT": 0.45, "PNL_PCT": 0.12},
+        {"TICKER": "PN43O", "TIPO": "ON_USD", "VALOR_ARS": 3_000_000, "PESO_PCT": 0.27, "PNL_PCT": 0.03},
+        {"TICKER": "KO", "TIPO": "CEDEAR", "VALOR_ARS": 3_100_000, "PESO_PCT": 0.28, "PNL_PCT": -0.04},
+    ])
 
 
 def _rr():
@@ -36,6 +52,19 @@ def test_genera_pdf_valido_con_recomendacion():
     assert isinstance(pdf, bytes)
     assert pdf[:5] == b"%PDF-"      # header de PDF válido
     assert len(pdf) > 1500          # tiene contenido real
+
+
+def test_pdf_rico_con_posiciones_y_contexto():
+    # El informe enriquecido (cartera actual + diagnóstico + contexto) pesa más.
+    pdf_min = generar_informe_pdf(cliente_nombre="X", perfil="Moderado", diag=_diag())
+    pdf_rico = generar_informe_pdf(
+        cliente_nombre="Ana | Moderado", perfil="Moderado", diag=_diag(),
+        recomendacion=_rr(), metricas={"total_valor": 11_100_000}, ccl=1500,
+        posiciones=_posiciones(), contexto_mercado="El mercado viene alcista. Mantener el plan.",
+    )
+    assert pdf_rico[:5] == b"%PDF-"
+    # Más secciones → más bytes que el mínimo.
+    assert len(pdf_rico) > len(pdf_min)
 
 
 def test_genera_pdf_sin_recomendacion_ni_diag():

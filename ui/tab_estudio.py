@@ -1355,6 +1355,17 @@ def render_tab_estudio(ctx: dict) -> None:
                         try:
                             from services.informe_pdf import generar_informe_pdf
 
+                            # Contexto de mercado (régimen) — opcional, degrada sin red.
+                            _ctx_mkt = ""
+                            try:
+                                from services.regimen_mercado import regimen_actual
+
+                                _rm = regimen_actual("SPY")
+                                if _rm and _rm.regimen != "indeterminado":
+                                    _ctx_mkt = f"{_rm.descripcion} {_rm.sugerencia}"
+                            except Exception:
+                                _ctx_mkt = ""
+
                             _pdf = generar_informe_pdf(
                                 cliente_nombre=nombre_cli,
                                 perfil=perfil_v,
@@ -1362,6 +1373,8 @@ def render_tab_estudio(ctx: dict) -> None:
                                 recomendacion=rr,
                                 metricas=metricas_ctx,
                                 ccl=ccl_ctx,
+                                posiciones=df_pos,
+                                contexto_mercado=_ctx_mkt,
                             )
                             st.download_button(
                                 "📄 Descargar informe (PDF)",
