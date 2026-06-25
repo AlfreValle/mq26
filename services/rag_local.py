@@ -110,14 +110,71 @@ def construir_indice_desde_textos(items: list[tuple[str, str]]) -> IndiceRag:
     return IndiceRag(frags)
 
 
-def construir_indice_docs(raiz: Path, patrones: tuple[str, ...] = ("docs/**/*.md",)) -> IndiceRag:
-    """Indexa los documentos del repo (markdown) bajo `raiz`. PoC del corpus
-    propio; ampliable a logs/audit trail más adelante."""
-    items: list[tuple[str, str]] = []
+def _fragmentos_docs(raiz: Path, patrones: tuple[str, ...]) -> list[Fragmento]:
+    frags: list[Fragmento] = []
     for patron in patrones:
         for p in sorted(Path(raiz).glob(patron)):
             try:
-                items.append((str(p.relative_to(raiz)), p.read_text(encoding="utf-8", errors="replace")))
+                frags.extend(trocear_markdown(p.read_text(encoding="utf-8", errors="replace"),
+                                              str(p.relative_to(raiz))))
             except OSError:
                 continue
-    return construir_indice_desde_textos(items)
+    return frags
+
+
+def construir_indice_docs(raiz: Path, patrones: tuple[str, ...] = ("docs/**/*.md",)) -> IndiceRag:
+    """Indexa los documentos del repo (markdown) bajo `raiz`."""
+    return IndiceRag(_fragmentos_docs(raiz, patrones))
+
+
+def fragmentos_desde_auditoria(df_reco=None, df_ordenes=None) -> list[Fragmento]:
+    """Convierte el historial de auditoría (DataFrames de recomendaciones y
+    órdenes) en fragmentos indexables — la "memoria operativa" del estudio:
+    "¿qué recomendé / qué operé la última vez para X?". Función PURA."""
+    frags: list[Fragmento] = []
+
+    def _val(row, col, default=""):
+        try:
+            v = row.get(col, default)
+        except Exception:
+            return default
+        return default if v is None else v
+
+    if df_reco is not None and getattr(df_reco, "empty", True) is False:
+        for _, r in df_reco.iterrows():
+            txt = (
+                f"Recomendación {_val(r, 'evento')} para {_val(r, 'cliente_nombre', 's/n')} "
+                f"(perfil {_val(r, 'perfil', 's/p')}) · cartera {_val(r, 'cartera', 's/c')} · "
+                f"capital ARS {_val(r, 'capital_ars', 0)} · {_val(r, 'filas', 0)} activos · "
+                f"{_val(r, 'timestamp')} (actor {_val(r, 'actor', 's/a')})."
+            )
+            frags.append(Fragmento(fuente="audit:recomendaciones", texto=txt))
+
+    if df_ordenes is not None and getattr(df_ordenes, "empty", True) is False:
+        for _, r in df_ordenes.iterrows():
+            txt = (
+                f"Orden {_val(r, 'tipo')} {_val(r, 'ticker')} x{_val(r, 'cantidad', 0)} "
+                f"@ARS {_val(r, 'precio_ars', 0)} · cartera {_val(r, 'cartera', 's/c')} · "
+                f"{_val(r, 'modelo', '')} · {_val(r, 'timestamp')}."
+            )
+            frags.append(Fragmento(fuente="audit:ordenes", texto=txt))
+
+    return frags
+
+
+def construir_indice_local(raiz: Path, *, incluir_audit: bool = True, limite_audit: int = 200) -> IndiceRag:
+    """Índice de la base de conocimiento PROPIA: docs del repo + (best-effort) el
+    historial de auditoría (recomendaciones y órdenes). Degrada con elegancia: si
+    la BD de auditoría no está disponible, indexa solo los docs."""
+    frags: list[Fragmento] = list(_fragmentos_docs(raiz, ("docs/**/*.md",)))
+    if incluir_audit:
+        try:
+            from services.audit_trail import listar_ordenes, listar_recomendaciones
+
+            frags.extend(fragmentos_desde_auditoria(
+                df_reco=listar_recomendaciones(limit=limite_audit),
+                df_ordenes=listar_ordenes(limit=limite_audit),
+            ))
+        except Exception:
+            pass  # sin BD de auditoría → solo docs
+    return IndiceRag(frags)
