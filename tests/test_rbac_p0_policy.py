@@ -61,24 +61,27 @@ def test_panel_admin_write_only_super_admin() -> None:
     assert can_action({"user_role": "super_admin"}, "panel_admin_write") is True
 
 
-# ─── #11: admin entra sin elegir cliente ─────────────────────────────────────
+# ─── Roles que entran sin elegir cliente (gestionan adentro del dashboard) ────
 
-def test_entra_sin_cliente_solo_admin() -> None:
+def test_entra_sin_cliente_admin_y_estudio() -> None:
     from ui.rbac import entra_sin_cliente
 
-    # Admin/super_admin entran directo (sin cliente); el resto pasa por el selector.
+    # admin/super_admin/estudio entran directo (eligen cliente adentro);
+    # asesor/inversor pasan por el selector de ingreso.
     assert entra_sin_cliente("super_admin") is True
     assert entra_sin_cliente("admin") is True
-    assert entra_sin_cliente("SUPER_ADMIN") is True  # case-insensitive
-    for r in ("inversor", "estudio", "asesor", "viewer", "", None):
+    assert entra_sin_cliente("estudio") is True
+    assert entra_sin_cliente("ESTUDIO") is True  # case-insensitive
+    for r in ("inversor", "asesor", "viewer", "", None):
         assert entra_sin_cliente(r) is False, r
 
 
 def test_entra_sin_cliente_forzar_selector_obliga_a_elegir() -> None:
     from ui.rbac import entra_sin_cliente
 
-    # "🔄 Cambiar cliente" fuerza el selector incluso para el admin.
+    # "🔄 Cambiar cliente" fuerza el selector aunque el rol entre directo.
     assert entra_sin_cliente("super_admin", forzar_selector=True) is False
     assert entra_sin_cliente("admin", forzar_selector=True) is False
-    # Para no-admin es indistinto: nunca entran directo.
+    assert entra_sin_cliente("estudio", forzar_selector=True) is False
+    # asesor nunca entra directo.
     assert entra_sin_cliente("asesor", forzar_selector=False) is False

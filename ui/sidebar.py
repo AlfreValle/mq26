@@ -251,10 +251,16 @@ def render_sidebar(
     )
 
     # "Cambiar cliente" solo tiene sentido si hay un cliente activo que cambiar.
-    # El admin que entró directo al panel (sin cliente, #11) no lo ve: para elegir
-    # uno usa el selector que aparece al entrar, no un botón de "cambiar".
-    # Y el inversor con un único cliente tampoco (no hay alternativas).
-    _mostrar_cambiar = bool(cliente_id) and (role != "inversor" or len(df_clientes) > 1)
+    # El admin que entró directo al panel (sin cliente) no lo ve: elige con el
+    # selector de ingreso. El inversor con un único cliente tampoco (no hay
+    # alternativas). El ESTUDIO gestiona el cliente DENTRO del dashboard (selector
+    # + Torre en tab_estudio), así que tampoco usa este botón.
+    _rol_lc = str(role or "").lower()
+    _mostrar_cambiar = (
+        bool(cliente_id)
+        and _rol_lc != "estudio"
+        and (role != "inversor" or len(df_clientes) > 1)
+    )
     if _mostrar_cambiar:
         if st.sidebar.button(
             "🔄 Cambiar cliente", key="btn_cambiar_cliente", use_container_width=True
