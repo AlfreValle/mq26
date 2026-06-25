@@ -257,7 +257,7 @@ def _aplicar_tilt_dcf(rv_dict: dict[str, float], *, factor_max: float = 1.30) ->
 
 # ─── Asignación de % por clase (sin hardcoded por perfil) ─────────────────────
 
-def _asignar_pct_clases(perfil: str) -> dict[str, float]:
+def _asignar_pct_clases(perfil: str, regimen: str | None = None) -> dict[str, float]:
     """
     Calcula % por clase de activo respetando los constraints.
     Usa el midpoint de [min, max] de cada clase para balance,
@@ -265,6 +265,10 @@ def _asignar_pct_clases(perfil: str) -> dict[str, float]:
 
     Esto NO es hardcoded en el sentido tradicional: viene de los CONSTRAINTS
     estructurales (que son matemáticamente válidos por perfil de riesgo).
+
+    ``regimen`` (opcional): aplica un tilt táctico RF↔RV según el régimen de
+    mercado (caótico/bajista → más defensivo; alcista → más RV), SIEMPRE dentro
+    de la banda [rf_min, rf_max] del perfil (no la rompe). None = sin tilt.
     """
     c = PERFIL_CONSTRAINTS.get(perfil, PERFIL_CONSTRAINTS["Moderado"])
 
@@ -283,6 +287,22 @@ def _asignar_pct_clases(perfil: str) -> dict[str, float]:
     pct_rf = pct_disponible * (rf_mid / suma_mid)
     pct_rv = pct_disponible * (rv_mid / suma_mid)
 
+    # ── Tilt táctico por régimen (opt-in), clampeado a la banda del perfil ───
+    # Guarda: con pct_disponible degenerado (reservas extremas) el clamp podría
+    # invertir floor/cap; no aplicamos tilt en ese caso (no alcanzable con los
+    # constraints actuales, pero blinda futuras ediciones de las reservas).
+    if regimen and pct_disponible > 0.10:
+        from services.regimen_mercado import tilt_rf_por_regimen
+
+        shift = tilt_rf_por_regimen(regimen) * pct_disponible
+        if shift:
+            # Topes en fracción del TOTAL coherentes con la banda del perfil.
+            rf_cap = min(float(c["rf_max"]), pct_disponible - 0.05)  # no dejar RV en 0
+            rf_floor = min(float(c["rf_min"]), rf_cap)
+            nuevo_rf = max(rf_floor, min(rf_cap, pct_rf + shift))
+            pct_rf = nuevo_rf
+            pct_rv = max(0.0, pct_disponible - nuevo_rf)
+
     return {
         "RF":       pct_rf,
         "RV":       pct_rv,
@@ -300,6 +320,7 @@ def cartera_optima_para_perfil(
     df_scores=None,
     precios_ars: dict[str, float] | None = None,
     n_total_objetivo: int | None = None,
+    regimen: str | None = None,
 ) -> dict[str, float]:
     """
     Calcula la cartera ÓPTIMA para un perfil sin pesos hardcoded.
@@ -322,8 +343,8 @@ def cartera_optima_para_perfil(
     """
     c = PERFIL_CONSTRAINTS.get(perfil, PERFIL_CONSTRAINTS["Moderado"])
 
-    # Paso 1: asignar % por clase
-    clases = _asignar_pct_clases(perfil)
+    # Paso 1: asignar % por clase (con tilt táctico por régimen si se pasa)
+    clases = _asignar_pct_clases(perfil, regimen=regimen)
 
     # Resultado acumulador
     resultado: dict[str, float] = {}

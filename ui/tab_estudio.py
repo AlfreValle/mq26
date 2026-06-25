@@ -607,6 +607,17 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
                 # score y no un fallback estático por sector.
                 with st.spinner("Analizando el universo para elegir los mejores activos…"):
                     _df_scores_wiz = _obtener_scores_para_wizard()
+                # Régimen de mercado (H2) → tilt táctico defensivo/ofensivo, dentro
+                # de la banda del perfil. Cacheado, degrada sin red.
+                _regimen_wiz = None
+                try:
+                    from services.regimen_mercado import regimen_actual
+
+                    _rm = regimen_actual("SPY")
+                    if _rm is not None:
+                        _regimen_wiz = _rm.regimen
+                except Exception:
+                    _regimen_wiz = None
                 # El wizard responde "¿qué compro con ESTE capital nuevo?": arma una
                 # canasta de despliegue total para el monto, tenga o no posiciones el
                 # cliente. Antes, los clientes CON posiciones usaban recomendar()
@@ -625,6 +636,7 @@ def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
                     df_analisis=ctx.get("df_analisis"),
                     df_scores=_df_scores_wiz,
                     desplegar_todo=True,
+                    regimen=_regimen_wiz,
                 )
                 st.session_state[f"est_wiz_scored_{cid}"] = _df_scores_wiz is not None
                 st.session_state[rr_key] = {
