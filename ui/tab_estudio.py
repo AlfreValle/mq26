@@ -10,6 +10,7 @@ from __future__ import annotations
 import html
 import time
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -488,41 +489,69 @@ def _ctx_scoped_cliente(cid: int, nombre: str, ctx: dict) -> dict:
     return sc
 
 
-@st.cache_data(ttl=1800, show_spinner=False)
-def _scores_universo_wizard() -> pd.DataFrame:
-    """Scoring 60/20/20 (técnico/fundamental/sectorial) del universo para el wizard.
+# El escaneo del universo vía yfinance es CARO (~1,5s/ticker → 40 tickers ≈ 50s).
+# Por eso se cachea en DISCO 12h: corre como mucho una vez al día y el resto de
+# los "Recomendar" leen el cache (instantáneo). Universo acotado a 40 (suficiente
+# para elegir hasta 15 activos) para que el escaneo en frío sea tolerable.
+_SCORES_CACHE_TTL_SEG = 12 * 3600
+_SCORES_MAX_ACTIVOS = 40
 
-    Se cachea 30 min: el wizard lo dispara solo si no hay scores en sesión, así el
-    asesor no tiene que ir a Universo/Perlas antes. Si falla (red/datos), devuelve
-    vacío y el motor cae al scoring básico por sector.
-    """
-    from services.scoring_engine import escanear_universo_completo
 
-    return escanear_universo_completo(
-        incluir_cedears=True,
-        incluir_merval=True,
-        incluir_bonos=False,
-        incluir_internacional=False,
-        incluir_fci=False,
-        max_activos=80,
-    )
+def _ruta_cache_scores() -> Path:
+    return Path(__file__).resolve().parents[1] / "0_Data_Maestra" / "scores_universo_cache.pkl"
 
 
 def _obtener_scores_para_wizard() -> pd.DataFrame | None:
-    """Scores del scanner: de sesión si existen, si no los calcula (cacheado).
-
-    Garantiza que el wizard recomiende SIEMPRE por análisis técnico + fundamental
-    + sectorial, sin pasos manuales. Degrada a None (scoring básico) si no hay datos.
-    """
+    """Scores del scanner (técnico/fundamental/sectorial), en 3 niveles:
+    sesión → cache en disco (12h) → escaneo en frío (con barra de progreso).
+    Degrada a None (scoring básico) si no hay datos/red. Sin pasos manuales."""
+    # 1. Sesión (instantáneo).
     df = st.session_state.get("df_scores")
     if isinstance(df, pd.DataFrame) and not df.empty:
         return df
+
+    # 2. Cache en disco (instantáneo si es reciente).
+    cache = _ruta_cache_scores()
     try:
-        df = _scores_universo_wizard()
+        if cache.exists() and (time.time() - cache.stat().st_mtime) < _SCORES_CACHE_TTL_SEG:
+            df = pd.read_pickle(cache)
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                st.session_state["df_scores"] = df
+                return df
+    except Exception:
+        pass
+
+    # 3. Escaneo en frío (lento, ~una vez cada 12h) con barra de progreso.
+    try:
+        from services.scoring_engine import escanear_universo_completo
+
+        barra = st.progress(0.0, text="Analizando el universo (una vez cada 12h)…")
+
+        def _prog(i: int, total: int, ticker: str) -> None:
+            try:
+                barra.progress(min(1.0, i / max(1, total)), text=f"Analizando {ticker} ({i}/{total})…")
+            except Exception:
+                pass
+
+        df = escanear_universo_completo(
+            incluir_cedears=True, incluir_merval=True, incluir_bonos=False,
+            incluir_internacional=False, incluir_fci=False,
+            max_activos=_SCORES_MAX_ACTIVOS, callback_progreso=_prog,
+        )
+        try:
+            barra.empty()
+        except Exception:
+            pass
     except Exception:
         return None
+
     if isinstance(df, pd.DataFrame) and not df.empty:
         st.session_state["df_scores"] = df
+        try:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            df.to_pickle(cache)
+        except Exception:
+            pass
         return df
     return None
 
