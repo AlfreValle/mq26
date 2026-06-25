@@ -32,8 +32,14 @@ def generar_informe_pdf(
     recomendacion: Any = None,
     metricas: dict | None = None,
     ccl: float = 0.0,
+    posiciones: Any = None,
+    contexto_mercado: str = "",
 ) -> bytes:
-    """Devuelve el informe del cliente como bytes PDF. Pura, sin Streamlit."""
+    """Devuelve el informe del cliente como bytes PDF. Pura, sin Streamlit.
+
+    posiciones: DataFrame de la cartera actual (TICKER/TIPO/VALOR_ARS/PESO_PCT/
+    PNL_PCT). contexto_mercado: línea opcional de régimen de mercado.
+    """
     try:
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
@@ -93,14 +99,20 @@ def generar_informe_pdf(
     valor_usd = float(getattr(diag, "valor_cartera_usd", 0) or 0)
     if valor_usd <= 0 and ccl > 0:
         valor_usd = float(metricas.get("total_valor", 0) or 0) / ccl
+    valor_ars = float(metricas.get("total_valor", 0) or 0)
+    if valor_ars <= 0 and valor_usd > 0 and ccl > 0:
+        valor_ars = valor_usd * ccl
     score = getattr(diag, "score_total", None)
     rend = getattr(diag, "rendimiento_ytd_usd_pct", None)
     rend_txt = f"{float(rend) * 100:+.1f}%" if isinstance(rend, (int, float)) else "—"
+    rf_act = float(getattr(diag, "pct_defensivo_actual", 0) or 0)
+    rf_req = float(getattr(diag, "pct_defensivo_requerido", 0) or 0)
+    rf_txt = f"{rf_act * 100:.0f}% (objetivo {rf_req * 100:.0f}%)" if rf_req else f"{rf_act * 100:.0f}%"
     kpis = [
-        ["Valor (USD)", f"USD {valor_usd:,.0f}" if valor_usd else "—"],
+        ["Valor de la cartera", f"USD {valor_usd:,.0f}  ·  ARS {valor_ars:,.0f}" if valor_usd else "—"],
         ["Rendimiento (USD)", rend_txt],
-        ["Estado", _semaforo_txt(diag)],
-        ["Puntaje", f"{float(score):.0f}/100" if isinstance(score, (int, float)) else "—"],
+        ["Estado de salud", f"{_semaforo_txt(diag)}" + (f"  ·  {float(score):.0f}/100" if isinstance(score, (int, float)) else "")],
+        ["Renta fija en cartera", rf_txt],
         ["Perfil de riesgo", str(perfil)],
     ]
     t_kpi = Table(kpis, colWidths=[55 * mm, 110 * mm])
@@ -111,6 +123,65 @@ def generar_informe_pdf(
         ("LINEBELOW", (0, 0), (-1, -2), 0.3, colors.HexColor("#e5e7eb")),
     ]))
     story.append(t_kpi)
+
+    if contexto_mercado:
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(f"<b>Contexto de mercado:</b> {contexto_mercado}", body))
+
+    # ── Tu cartera actual (posiciones) ───────────────────────────────────────
+    try:
+        import pandas as _pd
+
+        if isinstance(posiciones, _pd.DataFrame) and not posiciones.empty and "TICKER" in posiciones.columns:
+            from core.renta_fija_ar import es_renta_fija as _esrf
+
+            dfp = posiciones.copy()
+            _total = float(_pd.to_numeric(dfp.get("VALOR_ARS", 0), errors="coerce").fillna(0).sum()) or 1.0
+            dfp = dfp.sort_values("VALOR_ARS", ascending=False) if "VALOR_ARS" in dfp.columns else dfp
+            story.append(Paragraph("Tu cartera actual", h2))
+            filas_p = [["Activo", "Tipo", "Valor ARS", "Peso", "P&L"]]
+            for _, r in dfp.head(25).iterrows():
+                tk = str(r.get("TICKER", "") or "").upper()
+                if not tk:
+                    continue
+                v = float(_pd.to_numeric(r.get("VALOR_ARS", 0), errors="coerce") or 0)
+                peso = (r.get("PESO_PCT") if "PESO_PCT" in dfp.columns else v / _total)
+                peso = float(_pd.to_numeric(peso, errors="coerce") or 0)
+                peso = peso * 100 if peso <= 1.5 else peso
+                pnl = float(_pd.to_numeric(r.get("PNL_PCT", 0), errors="coerce") or 0) * 100
+                filas_p.append([
+                    tk, "RF" if _esrf(tk) else "RV", f"{v:,.0f}", f"{peso:.1f}%", f"{pnl:+.1f}%",
+                ])
+            if len(filas_p) > 1:
+                tp = Table(filas_p, colWidths=[30 * mm, 16 * mm, 38 * mm, 22 * mm, 24 * mm], repeatRows=1)
+                tp.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e2538")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f6f8fc")]),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ]))
+                story.append(tp)
+    except Exception:
+        pass
+
+    # ── Salud y diagnóstico (todas las observaciones) ────────────────────────
+    obs_list = list(getattr(diag, "observaciones", None) or [])
+    titulo_sem = str(getattr(diag, "titulo_semaforo", "") or "").strip()
+    if titulo_sem or obs_list:
+        story.append(Paragraph("Salud y diagnóstico", h2))
+        if titulo_sem:
+            story.append(Paragraph(f"<b>{titulo_sem}</b>", body))
+        for o in obs_list[:8]:
+            ic = str(getattr(o, "icono", "") or "").strip()
+            ti = str(getattr(o, "titulo", "") or "").strip()
+            de = str(getattr(o, "detalle", "") or getattr(o, "descripcion", "") or "").strip()
+            if not ti:
+                continue
+            txt = f"• <b>{ti}</b>" + (f": {de}" if de else "")
+            story.append(Paragraph(txt, body))
 
     # ── Recomendación de compras (si hay) ────────────────────────────────────
     items = list(getattr(recomendacion, "compras_recomendadas", None) or [])
