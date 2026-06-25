@@ -1332,13 +1332,36 @@ def render_tab_estudio(ctx: dict) -> None:
                         if not nombre_base:
                             nombre_base = "cliente"
                         st.download_button(
-                            "Descargar informe PDF-ready",
+                            "Descargar informe (HTML)",
                             data=html,
                             file_name=f"informe_{nombre_base}_{mes_actual}.html",
                             mime="text/html",
                             use_container_width=True,
                             key="btn_dl_informe_estudio",
                         )
+                        # Informe en PDF (entregable para mandar al cliente).
+                        try:
+                            from services.informe_pdf import generar_informe_pdf
+
+                            _pdf = generar_informe_pdf(
+                                cliente_nombre=nombre_cli,
+                                perfil=perfil_v,
+                                diag=diag,
+                                recomendacion=rr,
+                                metricas=metricas_ctx,
+                                ccl=ccl_ctx,
+                            )
+                            st.download_button(
+                                "📄 Descargar informe (PDF)",
+                                data=_pdf,
+                                file_name=f"informe_{nombre_base}_{mes_actual}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True,
+                                type="primary",
+                                key="btn_dl_informe_pdf_estudio",
+                            )
+                        except Exception as _e_pdf:
+                            st.caption(f"PDF no disponible: {_e_pdf}")
                         sem = getattr(diag.semaforo, "value", str(diag.semaforo))
                         icono = {"verde": "OK", "amarillo": "Atencion", "rojo": "Alerta"}.get(
                             sem, "—"

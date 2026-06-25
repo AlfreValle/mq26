@@ -28,6 +28,9 @@ pyyaml>=6.0.3
 # Sprint 6: monitoreo de errores en producción (opcional — solo si SENTRY_DSN definida)
 sentry-sdk>=2.63.0
 
+# Informe de cartera del cliente en PDF (reportlab: puro Python, sin deps de sistema)
+reportlab>=4.0.0
+
 # Dev: tests + cobertura (P3-QA-01)
 pytest>=7.4.0
 pytest-cov>=4.0.0
