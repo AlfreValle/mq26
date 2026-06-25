@@ -31,15 +31,20 @@ def user_role_lower(ctx: dict | None) -> str:
 
 
 # Roles que administran el SaaS y no necesitan un cliente seleccionado para entrar.
-ROLES_SIN_CLIENTE: set[str] = {"admin", "super_admin"}
+# Roles que administran/gestionan varios clientes → entran directo y eligen el
+# cliente DENTRO de su dashboard (no en un gate previo):
+# - admin/super_admin: panel de administración.
+# - estudio: dashboard multi-cliente (selector + Torre de control en tab_estudio).
+ROLES_SIN_CLIENTE: set[str] = {"admin", "super_admin", "estudio"}
 
 
 def entra_sin_cliente(role: str | None, forzar_selector: bool = False) -> bool:
-    """#11 (dictamen): ¿el rol entra directo sin elegir cliente?
+    """¿El rol entra directo sin elegir cliente en el gate de ingreso?
 
-    Admin/super_admin caen directo al panel; el resto debe pasar por el selector.
+    admin/super_admin/estudio caen directo a su dashboard y eligen el cliente
+    adentro; el resto (asesor, inversor) pasa por el selector de ingreso.
     ``forzar_selector`` (set por "Cambiar cliente" en el sidebar) obliga a mostrar
-    el selector también al admin, para que pueda elegir un cliente cuando quiera.
+    el selector aunque el rol entre directo.
     """
     r = str(role or "").strip().lower()
     return r in ROLES_SIN_CLIENTE and not bool(forzar_selector)
