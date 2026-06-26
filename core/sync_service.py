@@ -70,7 +70,9 @@ def sincronizar_excel_a_bd(ruta_excel: Path, tenant_id: str = "default") -> dict
             ticker   = str(row.get(col_ticker, "")).strip().upper()
             if not ticker:
                 continue
-            cantidad = int(pd.to_numeric(row.get(col_cantidad, 0), errors="coerce") or 0)
+            # NaN es truthy: `pd.to_numeric(NaN) or 0` da NaN e int(NaN) explota.
+            _cant = pd.to_numeric(row.get(col_cantidad, 0), errors="coerce")
+            cantidad = int(_cant) if pd.notna(_cant) else 0
             if cantidad <= 0:
                 continue
             ppc_usd  = parsear_ppc_usd(row.get(col_ppc, 0.0))

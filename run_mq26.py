@@ -361,10 +361,12 @@ def init_sistema():
         _claves = dbm.obtener_clientes_df(tenant_id=TENANT_ID)  # disparador para init
         with dbm.get_session() as _sess:
             from sqlalchemy import text as _text
+            # La tabla `configuracion` no tiene `created_at`; los tokens se
+            # escriben una sola vez, así que `updated_at` es su fecha de creación.
             _sess.execute(_text(
                 "DELETE FROM configuracion WHERE clave LIKE 'token_reporte_%' "
                 "AND CAST(strftime('%s','now') AS INTEGER) - "
-                "CAST(strftime('%s', created_at) AS INTEGER) > 86400"
+                "CAST(strftime('%s', updated_at) AS INTEGER) > 86400"
             ))
             _sess.commit()
     except Exception as _e_tokens:

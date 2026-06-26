@@ -720,8 +720,12 @@ def _render_primera_cartera_inversor(ctx: dict) -> None:
                 _filas: list[dict] = []
                 for _, row in edited.iterrows():
                     _tick = str(row.get("Ticker", "")).strip().upper()
-                    _u = int(pd.to_numeric(row.get("Unidades", 0), errors="coerce") or 0)
-                    _px = float(pd.to_numeric(row.get("Precio_ARS", 0), errors="coerce") or 0.0)
+                    # NaN es truthy: `pd.to_numeric(NaN) or 0` da NaN e int(NaN)
+                    # explota. Filas vacías del data_editor traen NaN.
+                    _uv = pd.to_numeric(row.get("Unidades", 0), errors="coerce")
+                    _u = int(_uv) if pd.notna(_uv) else 0
+                    _pxv = pd.to_numeric(row.get("Precio_ARS", 0), errors="coerce")
+                    _px = float(_pxv) if pd.notna(_pxv) else 0.0
                     _ti = str(row.get("TIPO", "CEDEAR") or "CEDEAR").strip().upper()
                     if _ti in ("NAN", "NONE", ""):
                         _ti = "CEDEAR"
