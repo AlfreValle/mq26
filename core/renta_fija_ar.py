@@ -322,6 +322,7 @@ def seleccionar_ons_para_perfil(
     n_max: int = 3,
     vencimiento_min_meses: int = 12,
     lamina_max_usd: int | None = None,
+    cap_por_nombre: float | None = None,
 ) -> dict[str, float]:
     """
     Selecciona las mejores ONs USD activas del catálogo para el perfil dado.
@@ -373,7 +374,17 @@ def seleccionar_ons_para_perfil(
         return {}
 
     candidatos.sort(key=lambda x: -x[1])
-    seleccionados = candidatos[:n_max]
+
+    # Tope de concentración por nombre: si todo el sleeve cayera en una sola ON,
+    # esa posición superaría el límite del perfil y el diagnóstico la penalizaría.
+    # Seleccionamos al menos ceil(peso_total / cap) nombres para poder repartir el
+    # sleeve sin que ninguno exceda el tope (el catálogo tiene ~11 ONs activas).
+    import math
+    cap = float(cap_por_nombre) if (cap_por_nombre and cap_por_nombre > 0) else 1.0
+    cap = min(cap, 1.0)
+    n_min = max(1, math.ceil(float(peso_total) / cap)) if cap < 1.0 else 1
+    n_sel = min(len(candidatos), max(int(n_max), n_min))
+    seleccionados = candidatos[:n_sel]
 
     total_score = sum(sc for _, sc in seleccionados)
     if total_score <= 0:
@@ -383,12 +394,35 @@ def seleccionar_ons_para_perfil(
 
     pesos: dict[str, float] = {}
     for tk, sc in seleccionados:
-        pesos[tk] = round(float(peso_total) * sc / total_score, 6)
+        pesos[tk] = float(peso_total) * sc / total_score
 
-    # Corrección de redondeo al primer elemento
+    # Water-filling: ninguna ON supera `cap`; el excedente se reparte entre las
+    # demás (proporcional a su peso). Como n_sel ≥ ceil(peso_total/cap), la
+    # capacidad (n_sel × cap) siempre alcanza para colocar todo el sleeve.
+    if cap < 1.0 and len(pesos) > 1:
+        for _ in range(len(pesos) + 2):
+            exceso = 0.0
+            libres = []
+            for tk in pesos:
+                if pesos[tk] > cap + 1e-12:
+                    exceso += pesos[tk] - cap
+                    pesos[tk] = cap
+                elif pesos[tk] < cap - 1e-12:
+                    libres.append(tk)
+            if exceso <= 1e-12 or not libres:
+                break
+            base = sum(pesos[tk] for tk in libres)
+            for tk in libres:
+                share = (pesos[tk] / base) if base > 1e-12 else 1.0 / len(libres)
+                pesos[tk] += exceso * share
+
+    pesos = {tk: round(p, 6) for tk, p in pesos.items()}
+
+    # Corrección de redondeo al elemento con más margen bajo el tope
     diff = round(float(peso_total) - sum(pesos.values()), 6)
-    if abs(diff) > 1e-7 and seleccionados:
-        pesos[seleccionados[0][0]] = round(pesos[seleccionados[0][0]] + diff, 6)
+    if abs(diff) > 1e-7 and pesos:
+        _tk_ajuste = min(pesos, key=lambda k: pesos[k])
+        pesos[_tk_ajuste] = round(pesos[_tk_ajuste] + diff, 6)
 
     return pesos
 

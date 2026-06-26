@@ -62,6 +62,51 @@ def test_desplegar_todo_menos_5pct_con_pocos_activos():
     )
 
 
+def test_cartera_recomendada_respeta_su_propio_limite_concentracion():
+    """Regresión (reporte de usuario): una cartera RECOMENDADA por el wizard no debe
+    arrancar marcada por "concentración elevada" en su propio diagnóstico. El sleeve
+    de ONs caía entero en un nombre (p. ej. IRCPO/TLCTO ~30-60%) y las fases de
+    mop-up del wizard amplificaban la mayor posición sin tope. Ahora ningún nombre
+    supera el límite de concentración adaptativo del perfil (con ≥3 líneas)."""
+    from core.diagnostico_types import LIMITE_CONCENTRACION
+
+    def _limite_adaptativo(perfil: str, n: int) -> float:
+        base = LIMITE_CONCENTRACION.get(perfil, 0.25)
+        if 0 < n <= 6:
+            return max(base, min(0.46, 1.0 / n + 0.05))
+        return base
+
+    # Precios ARS realistas para que los CEDEARs no se descarten por falta de precio
+    # (en producción se resuelven): así el total invertido ≈ capital, como mide el
+    # diagnóstico (peso = monto / total invertido, sin contar efectivo ocioso).
+    rv = ["AAPL", "ABBV", "AMZN", "BABA", "BRKB", "COST", "CVX", "DIA", "GOOGL",
+          "JNJ", "JPM", "KO", "MA", "MCD", "MELI", "META", "MSFT", "NVDA", "QQQ",
+          "SPY", "UBER", "V", "VIST", "YPFD", "CEPU", "PAMP"]
+    precios = {t: 25_000.0 for t in rv}
+    precios.update({"SPY": 70_000.0, "QQQ": 65_000.0, "NVDA": 18_000.0, "AAPL": 30_000.0})
+
+    for perfil in ("Conservador", "Moderado", "Arriesgado"):
+        for cap in (3_000_000.0, 8_000_000.0, 20_000_000.0):
+            rr = generar_primera_cartera(
+                capital_ars=cap, perfil=perfil, ccl=1200.0, precios_dict=precios,
+                desplegar_todo=True,
+            )
+            items = rr.compras_recomendadas or []
+            invertido = sum(float(i.monto_ars) for i in items) or 1.0
+            n = len(items)
+            if n < 3:
+                continue  # 1-2 líneas: concentrado por naturaleza, exento
+            lim = _limite_adaptativo(perfil, n)
+            peor_t, peor_w = max(
+                ((i.ticker, float(i.monto_ars) / invertido) for i in items),
+                key=lambda x: x[1], default=("", 0.0),
+            )
+            assert peor_w <= lim + 1e-6, (
+                f"{perfil} cap={cap/1e6:.0f}M: {peor_t} pesa {peor_w:.1%} > límite "
+                f"{lim:.1%} (n={n}) — la cartera recomendada se autopenaliza"
+            )
+
+
 def test_recomendacion_prioriza_defensa_primero():
     df = pd.DataFrame(
         [{"TICKER": "NVDA", "VALOR_ARS": 1_000_000.0, "TIPO": "CEDEAR", "PESO_PCT": 1.0}]

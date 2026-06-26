@@ -384,7 +384,9 @@ def _expandir_ideal(
             # Tolerancia: hasta 1.5x el target (similar al filtro RV)
             lamina_max = max(1, int(capital_por_on_usd * 1.5))
         ons = seleccionar_ons_para_perfil(
-            perfil, peso_on, n_max=n_max_ons, lamina_max_usd=lamina_max
+            perfil, peso_on, n_max=n_max_ons, lamina_max_usd=lamina_max,
+            cap_por_nombre=LIMITE_CONCENTRACION.get(
+                perfil_diagnostico_valido(perfil), 0.25),
         )
         if ons:
             resultado.update(ons)
@@ -884,6 +886,17 @@ _JUSTIFICACION_PRIMERA_CARTERA: dict[str, str] = {
 _JUSTIFICACION_DEFAULT = "Activo recomendado para tu perfil — diversificación de cartera"
 
 
+def _cap_concentracion_adaptativo(perfil: str, n_pos: int) -> float:
+    """Tope de peso por nombre que usa el recomendador, IDÉNTICO al del diagnóstico
+    (services.diagnostico_cartera._limite_concentracion_adaptativo): así la cartera
+    recomendada no se autopenaliza por "concentración". Carteras chicas (≤6 líneas)
+    suben el tope porque un peso ~1/N es normal en una canasta recién armada."""
+    base = LIMITE_CONCENTRACION.get(perfil, LIMITE_CONCENTRACION.get("Moderado", 0.25))
+    if n_pos and 0 < n_pos <= 6:
+        return float(max(base, min(0.46, (1.0 / float(n_pos)) + 0.05)))
+    return float(base)
+
+
 def generar_primera_cartera(
     capital_ars: float,
     perfil: str,
@@ -1137,6 +1150,24 @@ def generar_primera_cartera(
     _MAX_EFECTIVO_PCT = 0.05   # regla 95/100%: máximo 5% idle
     _pesos_ideales = {tk: float(w) for tk, w in ideal.items() if tk != "_RENTA_AR"}
 
+    # Tope de concentración por nombre (el MISMO que aplica el diagnóstico) para que
+    # la cartera recomendada no arranque marcada por "concentración elevada". El nº
+    # de líneas es estable durante el mop-up (las posiciones crecen, no se agregan).
+    # Margen = (1 − efectivo_máximo): el diagnóstico mide el peso contra el total
+    # INVERTIDO (sin efectivo ocioso), así que con hasta 5% de cash el peso medido
+    # se infla ~5%; este margen lo compensa para no quedar marginalmente por encima.
+    # Con ≤2 líneas no hay forma de diversificar (una canasta de 1-2 nombres es
+    # concentrada por naturaleza y el tope dejaría efectivo ocioso): ahí prioriza
+    # desplegar el capital. Con ≥3 líneas la capacidad (n × cap) supera el 100%, así
+    # que el tope y el despliegue conviven.
+    # Centinela finito (no float('inf'), que rompería los int(...//px) de abajo):
+    # con monto ≤ cap nunca liga cuando el tope no aplica.
+    _SIN_TOPE = max(cap, 1.0) * 1e6
+    _cap_conc_ars = (
+        _cap_concentracion_adaptativo(perfil_n, len(compras)) * cap * (1.0 - _MAX_EFECTIVO_PCT)
+        if cap > 0 and len(compras) >= 3 else _SIN_TOPE
+    )
+
     # ── FASE 1: rebalance hacia targets (respetar pesos) ──────────────────────
     # Solo compra tickers underweight, hasta que todos lleguen a su target ±5%.
     for _ in range(len(compras) * 5 + 10):
@@ -1161,9 +1192,12 @@ def generar_primera_cartera(
             actual_pct = _item.monto_ars / cap if cap > 0 else 0.0
             if target_pct > 0 and actual_pct >= target_pct * 1.05:
                 continue
+            if _item.monto_ars >= _cap_conc_ars:   # tope de concentración por nombre
+                continue
             falta_ars = max(0.0, (target_pct - actual_pct) * cap)
             _extra_max_target = int(falta_ars // _px) if falta_ars > 0 else _lam
-            _extra_raw = min(int(_efectivo_libre // _px), max(_lam, _extra_max_target))
+            _extra_max_conc = int(max(0.0, _cap_conc_ars - _item.monto_ars) // _px)
+            _extra_raw = min(int(_efectivo_libre // _px), max(_lam, _extra_max_target), _extra_max_conc)
             _extra = (_extra_raw // _lam) * _lam
             if _extra >= _lam:
                 _item.unidades += _extra
@@ -1209,8 +1243,11 @@ def generar_primera_cartera(
             # No comprar si supera el cap de overweight
             if target_pct > 0 and actual_pct >= target_pct * _OVERWEIGHT_MAX:
                 continue
-            # Máximo extra dentro del cap
+            if _item.monto_ars >= _cap_conc_ars:   # tope de concentración por nombre
+                continue
+            # Máximo extra dentro del cap (overweight Y concentración)
             max_monto_ticker = target_pct * _OVERWEIGHT_MAX * cap if target_pct > 0 else _efectivo_libre
+            max_monto_ticker = min(max_monto_ticker, _cap_conc_ars)
             margen_ow_ars = max_monto_ticker - _item.monto_ars
             _extra_max_ow = int(margen_ow_ars // _px) if margen_ow_ars > 0 else 0
             _extra_max_cash = int(_efectivo_libre // _px)
@@ -1245,6 +1282,9 @@ def generar_primera_cartera(
                     continue
                 _lam = _lamina_min_on(_item.ticker)
                 _alloc = _residual * (_item.monto_ars / _total_actual)
+                _alloc = min(_alloc, _cap_conc_ars - _item.monto_ars)   # tope concentración
+                if _alloc <= 0:
+                    continue
                 _extra_raw = int(_alloc // _px)
                 _extra = (_extra_raw // _lam) * _lam if _lam > 1 else _extra_raw
                 _cost = _extra * _px
@@ -1263,6 +1303,8 @@ def generar_primera_cartera(
                     continue
                 _lam = _lamina_min_on(_item.ticker)
                 if capital_restante < _px * _lam:
+                    continue
+                if _item.monto_ars + _lam * _px > _cap_conc_ars:   # tope concentración
                     continue
                 _item.unidades += _lam
                 _item.monto_ars += _lam * _px
