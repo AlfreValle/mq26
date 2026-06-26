@@ -10,6 +10,7 @@ from __future__ import annotations
 import html
 import time
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -488,43 +489,121 @@ def _ctx_scoped_cliente(cid: int, nombre: str, ctx: dict) -> dict:
     return sc
 
 
-@st.cache_data(ttl=1800, show_spinner=False)
-def _scores_universo_wizard() -> pd.DataFrame:
-    """Scoring 60/20/20 (técnico/fundamental/sectorial) del universo para el wizard.
+# El escaneo del universo vía yfinance es CARO (~1,5s/ticker → 40 tickers ≈ 50s).
+# Por eso se cachea en DISCO 12h: corre como mucho una vez al día y el resto de
+# los "Recomendar" leen el cache (instantáneo). Universo acotado a 40 (suficiente
+# para elegir hasta 15 activos) para que el escaneo en frío sea tolerable.
+_SCORES_CACHE_TTL_SEG = 12 * 3600
+_SCORES_MAX_ACTIVOS = 40
 
-    Se cachea 30 min: el wizard lo dispara solo si no hay scores en sesión, así el
-    asesor no tiene que ir a Universo/Perlas antes. Si falla (red/datos), devuelve
-    vacío y el motor cae al scoring básico por sector.
-    """
-    from services.scoring_engine import escanear_universo_completo
 
-    return escanear_universo_completo(
-        incluir_cedears=True,
-        incluir_merval=True,
-        incluir_bonos=False,
-        incluir_internacional=False,
-        incluir_fci=False,
-        max_activos=80,
-    )
+def _ruta_cache_scores() -> Path:
+    return Path(__file__).resolve().parents[1] / "0_Data_Maestra" / "scores_universo_cache.pkl"
 
 
 def _obtener_scores_para_wizard() -> pd.DataFrame | None:
-    """Scores del scanner: de sesión si existen, si no los calcula (cacheado).
-
-    Garantiza que el wizard recomiende SIEMPRE por análisis técnico + fundamental
-    + sectorial, sin pasos manuales. Degrada a None (scoring básico) si no hay datos.
-    """
+    """Scores del scanner (técnico/fundamental/sectorial), en 3 niveles:
+    sesión → cache en disco (12h) → escaneo en frío (con barra de progreso).
+    Degrada a None (scoring básico) si no hay datos/red. Sin pasos manuales."""
+    # 1. Sesión (instantáneo).
     df = st.session_state.get("df_scores")
     if isinstance(df, pd.DataFrame) and not df.empty:
         return df
+
+    # 2. Cache en disco (instantáneo si es reciente).
+    cache = _ruta_cache_scores()
     try:
-        df = _scores_universo_wizard()
+        if cache.exists() and (time.time() - cache.stat().st_mtime) < _SCORES_CACHE_TTL_SEG:
+            df = pd.read_pickle(cache)
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                st.session_state["df_scores"] = df
+                return df
+    except Exception:
+        pass
+
+    # 3. Escaneo en frío (lento, ~una vez cada 12h) con barra de progreso.
+    try:
+        from services.scoring_engine import escanear_universo_completo
+
+        barra = st.progress(0.0, text="Analizando el universo (una vez cada 12h)…")
+
+        def _prog(i: int, total: int, ticker: str) -> None:
+            try:
+                barra.progress(min(1.0, i / max(1, total)), text=f"Analizando {ticker} ({i}/{total})…")
+            except Exception:
+                pass
+
+        df = escanear_universo_completo(
+            incluir_cedears=True, incluir_merval=True, incluir_bonos=False,
+            incluir_internacional=False, incluir_fci=False,
+            max_activos=_SCORES_MAX_ACTIVOS, callback_progreso=_prog,
+        )
+        try:
+            barra.empty()
+        except Exception:
+            pass
     except Exception:
         return None
+
     if isinstance(df, pd.DataFrame) and not df.empty:
         st.session_state["df_scores"] = df
+        try:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            df.to_pickle(cache)
+        except Exception:
+            pass
         return df
     return None
+
+
+def _cliente_sin_posiciones(cid: int, nombre: str, ctx: dict) -> bool:
+    """True si el cliente no tiene posiciones reales cargadas."""
+    try:
+        df = _cargar_cartera_cliente(int(cid), nombre, ctx)
+    except Exception:
+        return True
+    if df is None or df.empty or "TICKER" not in df.columns:
+        return True
+    s = df["TICKER"].astype(str).str.strip().str.upper()
+    return s[s.ne("") & s.ne("NAN") & s.ne("NONE")].empty
+
+
+def _render_apertura_sin_posiciones(cid: int, nombre: str, ctx: dict) -> None:
+    """Bifurcación al abrir un cliente SIN posiciones: armar su primera cartera
+    (wizard) o cargar una existente (importar/manual). El asesor elige el camino."""
+    nom = str(nombre).split("|")[0].strip()
+    st.markdown(
+        f'<p class="mq-estudio-torre-kicker">🆕 {html.escape(nom)} todavía no tiene posiciones</p>',
+        unsafe_allow_html=True,
+    )
+    st.caption("Elegí cómo arrancar su cartera:")
+    modo_key = f"est_apertura_{cid}"
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if st.button("🚀 Armar su primera cartera", key=f"est_ap_wizard_{cid}",
+                     use_container_width=True, type="primary"):
+            st.session_state[modo_key] = "wizard"
+            st.rerun()
+        st.caption("El motor sugiere los mejores activos según objetivo y capital.")
+    with col_b:
+        if st.button("📥 Cargar una cartera existente", key=f"est_ap_cargar_{cid}",
+                     use_container_width=True):
+            st.session_state[modo_key] = "cargar"
+            st.rerun()
+        st.caption("Importá del broker o cargá a mano las posiciones que ya tiene.")
+
+    modo = st.session_state.get(modo_key)
+    if modo == "wizard":
+        st.divider()
+        _render_wizard_capital_estudio(int(cid), nombre, ctx)
+    elif modo == "cargar":
+        st.divider()
+        if not can_action(ctx, "write"):
+            st.warning("Necesitás permiso de escritura en Estudio para cargar posiciones.")
+        else:
+            from ui.carga_activos import render_carga_activos
+
+            render_carga_activos(_ctx_scoped_cliente(int(cid), nombre, ctx))
 
 
 def _render_wizard_capital_estudio(cid: int, nombre: str, ctx: dict) -> None:
@@ -1254,12 +1333,16 @@ def render_tab_estudio(ctx: dict) -> None:
 
             _render_ficha_cliente_rapida(int(cid), _nom_btn, ctx)
 
-            # Pasos 3-5: agregar capital → objetivo → recomendar → adjuntar.
-            # Expander para no abrumar la ficha; se abre al gestionar el aporte.
-            with st.expander(
-                f"💰 Agregar capital y recomendar — {_nom_corto}", expanded=False
-            ):
-                _render_wizard_capital_estudio(int(cid), _nom_btn, ctx)
+            if _cliente_sin_posiciones(int(cid), _nom_btn, ctx):
+                # Cliente sin posiciones: bifurcación primera cartera / cargar existente.
+                _render_apertura_sin_posiciones(int(cid), _nom_btn, ctx)
+            else:
+                # Con posiciones: agregar capital → objetivo → recomendar → adjuntar.
+                # Expander para no abrumar la ficha; se abre al gestionar el aporte.
+                with st.expander(
+                    f"💰 Agregar capital y recomendar — {_nom_corto}", expanded=False
+                ):
+                    _render_wizard_capital_estudio(int(cid), _nom_btn, ctx)
 
             if col_rpt.button("📄 Generar informe", key="btn_estudio_rpt",
                               use_container_width=True):
