@@ -29,7 +29,7 @@ pyyaml>=6.0.3
 sentry-sdk>=2.63.0
 
 # Informe de cartera del cliente en PDF (reportlab: puro Python, sin deps de sistema)
-reportlab>=4.0.0
+reportlab>=5.0.0
 
 # Dev: tests + cobertura (P3-QA-01)
 pytest>=7.4.0
