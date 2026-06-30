@@ -138,12 +138,15 @@ def precio_referencia_ars_desde_catalogo(
     y PriceEngine, con el riesgo de divergir.
 
     - moneda USD: paridad% sobre VN USD × CCL → ARS por VN.
-    - moneda ARS / ARS_CER: paridad% sobre VN ARS → ARS por VN (sin CCL).
+    - moneda ARS / ARS_CER: precio en pesos REAL desde ``precio_ars_ref`` (NO paridad).
 
-    ``paridad_ref`` SIEMPRE es un porcentaje del nominal (ej. 97.8 = 97.8%), tanto
-    para USD como para ARS. Lo único que cambia es el ``× CCL`` en los USD. Antes
-    el caso ARS devolvía ``v * paridad`` (sin /100) y sobrevaluaba letras/LECAP/
-    BONCER 100×.
+    Para USD el nominal es fijo (1 USD), así que ``paridad/100 × CCL`` ES el precio.
+    Para ARS/ARS_CER NO: la paridad es % del nominal ajustado (CER/capitalización),
+    no de 1 peso, así que ``paridad/100`` (≈0.95) NO es el precio en pesos y daba
+    P&L ≈ −99% contra el costo (precio peso real del broker). El precio peso real
+    se toma de ``precio_ars_ref`` (informe de banco / BYMA, misma escala que el
+    quote del broker → costo y precio coinciden). Sin ``precio_ars_ref`` devuelve
+    0.0 (→ cae a precio live/fallback; mejor que emitir una escala falsa).
 
     Devuelve 0.0 si el ticker no está en catálogo, la paridad no es válida
     o falta CCL para instrumentos USD.
@@ -156,14 +159,23 @@ def precio_referencia_ars_desde_catalogo(
         v = float(vn)
     except (TypeError, ValueError):
         return 0.0
-    if paridad <= 0 or v <= 0:
+    if v <= 0:
         return 0.0
     if str(meta.get("moneda", "USD")).upper() == "USD":
+        if paridad <= 0:
+            return 0.0
         c = float(ccl or 0)
         if c <= 0:
             return 0.0
         return v * (paridad / 100.0) * c
-    return v * (paridad / 100.0)
+    # ARS / ARS_CER: precio peso real (misma escala que el costo del broker).
+    try:
+        precio_ars_ref = float(meta.get("precio_ars_ref", 0) or 0)
+    except (TypeError, ValueError):
+        precio_ars_ref = 0.0
+    if precio_ars_ref > 0:
+        return v * precio_ars_ref
+    return 0.0
 
 
 def meta_on_usd_unidades_resumen(ticker: str) -> dict[str, Any] | None:

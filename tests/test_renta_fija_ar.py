@@ -495,13 +495,15 @@ class TestPrecioReferenciaArsDesdeCatalogo:
     def test_moneda_ars_no_usa_ccl(self):
         from core.renta_fija_ar import INSTRUMENTOS_RF, precio_referencia_ars_desde_catalogo
 
+        # ARS/ARS_CER se valúa con precio_ars_ref (pesos reales), nunca con CCL.
         t_ars = next(
             (t for t, m in INSTRUMENTOS_RF.items()
-             if str(m.get("moneda", "")).upper() == "ARS" and float(m.get("paridad_ref", 0) or 0) > 0),
+             if str(m.get("moneda", "")).upper() in ("ARS", "ARS_CER")
+             and float(m.get("precio_ars_ref", 0) or 0) > 0),
             None,
         )
         if t_ars is None:
-            pytest.skip("catálogo sin instrumentos ARS con paridad")
+            pytest.skip("catálogo sin instrumentos ARS con precio_ars_ref")
         con_ccl = precio_referencia_ars_desde_catalogo(t_ars, 1429.0)
         sin_ccl = precio_referencia_ars_desde_catalogo(t_ars, 0.0)
         assert con_ccl == sin_ccl > 0

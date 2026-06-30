@@ -102,10 +102,11 @@ def test_agregar_cartera_fifo_rf_normaliza_ppc_por_paridad(monkeypatch):
     assert inv == 14649.0
 
 
-# ── Regresión: escala de valuación RF (paridad % = porcentaje del nominal) ─────
-# Bug del dictamen: el precio de referencia ARS devolvía v*paridad (sin /100),
-# sobrevaluando letras/LECAP/BONCER 100×; y BONCER/BOPREAL caían a la rama CEDEAR
-# del costo (×CCL sobre paridad entera), con P&L falso de -99%.
+# ── Regresión: escala de valuación RF por moneda ──────────────────────────────
+# USD: nominal fijo (1 USD) → precio = paridad/100 × CCL.
+# ARS/ARS_CER: la paridad es % del nominal AJUSTADO (CER/capitalización), no de
+# 1 peso, así que paridad/100 NO es el precio en pesos (daba P&L -99% contra el
+# costo, que es el precio peso real del broker). Se usa precio_ars_ref (pesos).
 
 def test_precio_referencia_paridad_es_porcentaje_ars_y_usd():
     from core.renta_fija_ar import get_meta, precio_referencia_ars_desde_catalogo
@@ -119,16 +120,19 @@ def test_precio_referencia_paridad_es_porcentaje_ars_y_usd():
         por_moneda.setdefault(mon, tk)
     assert por_moneda, "catálogo RF vacío"
     for mon, tk in por_moneda.items():
-        par = float(get_meta(tk).get("paridad_ref", 0) or 0)
-        if par <= 0:
-            continue
+        m = get_meta(tk)
         px = precio_referencia_ars_desde_catalogo(tk, ccl, vn=1.0)
-        esperado = (par / 100.0) * ccl if mon == "USD" else (par / 100.0)
-        assert abs(px - esperado) < 1e-6, f"{tk} ({mon}): {px} != {esperado}"
-        # Nunca debe ser ~paridad entera (el bug 100×): un VN vale O(1) ARS en
-        # ARS y O(CCL) en USD, jamás O(100) en ARS.
-        if mon != "USD":
-            assert px < par, f"{tk}: precio/VN {px} parece sin /100 (bug 100×)"
+        if mon == "USD":
+            par = float(m.get("paridad_ref", 0) or 0)
+            if par <= 0:
+                continue
+            esperado = (par / 100.0) * ccl
+            assert abs(px - esperado) < 1e-6, f"{tk} ({mon}): {px} != {esperado}"
+        else:
+            # ARS/ARS_CER: precio peso real (precio_ars_ref); independiente del CCL.
+            precio_ref = float(m.get("precio_ars_ref", 0) or 0)
+            assert abs(px - precio_ref) < 1e-6, f"{tk} ({mon}): {px} != precio_ars_ref {precio_ref}"
+            assert px == precio_referencia_ars_desde_catalogo(tk, 0.0, vn=1.0), f"{tk}: ARS no debe usar CCL"
 
 
 def test_familias_rf_clasifican_como_local_no_cedear():

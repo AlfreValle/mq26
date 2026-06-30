@@ -430,6 +430,7 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "lamina_min":    1,
         "spread_real":   0.02,
         "duration_real": 0.39,          # MD informe (≈143 días al vto)
+        "precio_ars_ref": 701.0,        # ARS, informe BH 18-jun (escala broker/BYMA, NO paridad/100)
     },
     "TX28": {
         "emisor": "Tesoro Nacional",
@@ -444,6 +445,7 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "lamina_min":    1,
         "spread_real":   0.0225,
         "duration_real": 1.32,          # MD informe
+        "precio_ars_ref": 1_672.0,      # ARS, informe BH 18-jun (escala broker/BYMA, NO paridad/100)
     },
     "TZXD7": {
         "emisor": "Tesoro Nacional",
@@ -458,6 +460,7 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "lamina_min":    1,
         "spread_real":   0.005,
         "duration_real": 1.45,          # MD informe
+        "precio_ars_ref": 267.25,       # ARS, informe BH 18-jun (escala broker/BYMA, NO paridad/100)
     },
     "DICP": {
         "emisor": "República Argentina",
@@ -472,6 +475,7 @@ INSTRUMENTOS_RF: dict[str, dict[str, Any]] = {
         "lamina_min":    1,
         "spread_real":   0.08,
         "duration_real": 3.05,
+        "precio_ars_ref": 53_600.0,      # ARS, informe BH 18-jun (escala broker/BYMA, NO paridad/100)
         "forma_amortizacion": "Amortización trimestral sobre VN ajustado por CER",
     },
 
