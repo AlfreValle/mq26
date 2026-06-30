@@ -834,6 +834,25 @@ _horiz_label    = st.session_state.get("cliente_horizonte_label", "1 año")
 
 df_clientes = _df_clientes_scoped(TENANT_ID)
 
+# ── Anti-IDOR (fail-closed): el cliente activo debe pertenecer al scope del usuario.
+# df_clientes ya viene filtrado por tenant + allowed_cliente_ids; si se manipuló
+# session_state["cliente_id"] a un ID ajeno, se descarta y se sigue SIN cliente
+# (no se expone el transaccional de otro). Admin (.env, sin restricción) ve todo el tenant.
+if _cliente_id is not None:
+    _ids_scope: set[int] = set()
+    if not df_clientes.empty and "ID" in df_clientes.columns:
+        _ids_scope = set(pd.to_numeric(df_clientes["ID"], errors="coerce").dropna().astype(int))
+    try:
+        _en_scope = int(_cliente_id) in _ids_scope
+    except (TypeError, ValueError):
+        _en_scope = False
+    if not _en_scope:
+        _log.warning("scope_violation: cliente_id=%s fuera del scope (rol=%s)", _cliente_id, _mq26_role)
+        for _k in ("cliente_id", "cliente_nombre", "cliente_perfil", "cliente_horizonte_label"):
+            st.session_state.pop(_k, None)
+        _cliente_id = None
+        _cliente_nombre = ""
+
 # ── Transaccional — se calcula ANTES del sidebar para pasarlo como param ────
 # (también lo necesita el cuerpo de la app, por eso vive aquí)
 horizonte_dias = dbm.HORIZONTE_DIAS.get(_horiz_label, 365)
