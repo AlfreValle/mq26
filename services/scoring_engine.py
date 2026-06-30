@@ -98,20 +98,14 @@ BONOS_SOBERANOS_YAHOO_RX: dict[str, str] = {
 
 
 def _simbolos_yfinance_rf(ticker: str) -> list[str]:
-    """Orden de prueba: RX (soberanos) → .BA (BYMA) → ticker plano."""
+    """Símbolos Yahoo para renta fija. SOLO los soberanos con símbolo RX conocido
+    tienen datos en Yahoo; las ONs / BONCER / letras NO cotizan en Yahoo, así que
+    NO se adivina ``.BA`` ni el ticker plano: cada intento era una llamada doomed
+    de ~1-2 s ("possibly delisted") que multiplicada por ticker × período colgaba
+    la carga de la cartera. Para esos casos devuelve [] (sin yfinance → catálogo)."""
     t = str(ticker).upper().strip()
-    ordered: list[str] = []
-    if t in BONOS_SOBERANOS_YAHOO_RX:
-        ordered.append(BONOS_SOBERANOS_YAHOO_RX[t])
-    ordered.append(f"{t}.BA")
-    ordered.append(t)
-    seen: set[str] = set()
-    out: list[str] = []
-    for s in ordered:
-        if s not in seen:
-            seen.add(s)
-            out.append(s)
-    return out
+    rx = BONOS_SOBERANOS_YAHOO_RX.get(t)
+    return [rx] if rx else []
 
 
 def _history_close_rf(ticker: str, period: str = "5d") -> pd.Series:
@@ -887,34 +881,40 @@ def calcular_score_total(ticker: str, tipo: str = "CEDEAR") -> dict:
     st, df_tec  = _get_score_tecnico_cached(ticker, tipo)
     ss, df_sec  = score_sector_contexto(ticker, tipo)
 
+    # Símbolo Yahoo (una sola resolución para volatilidad + liquidez). Para RF sin
+    # símbolo en Yahoo (ONs/letras) queda None → no se intenta yfinance (evita las
+    # llamadas doomed que colgaban la carga; su riesgo viene del catálogo).
+    if tipo in ("Bono USD", "ON Corporativa"):
+        _syms_rf = _simbolos_yfinance_rf(ticker)
+        _sym_yf: str | None = _syms_rf[0] if _syms_rf else None
+    else:
+        _sym_yf = _ticker_yahoo(ticker, tipo)
+
     # ── Volatilidad / riesgo — requiere descargar serie de precios ────────────
     _pen_volatilidad = 0.0
     _vol_det: dict = {"hv20": 0.0, "max_dd_1y": 0.0, "penalizacion": 0.0}
-    try:
-        _t_yf_v = _ticker_yahoo(ticker, tipo)
-        _hist_v = yf.Ticker(_t_yf_v).history(period="1y")
-        if not _hist_v.empty and "Close" in _hist_v.columns:
-            _cierre_v = _hist_v["Close"].dropna()
-            _pen_volatilidad, _vol_det = _calcular_volatilidad_penalizacion(_cierre_v)
-    except Exception:
-        pass
+    if _sym_yf:
+        try:
+            _hist_v = yf.Ticker(_sym_yf).history(period="1y")
+            if not _hist_v.empty and "Close" in _hist_v.columns:
+                _cierre_v = _hist_v["Close"].dropna()
+                _pen_volatilidad, _vol_det = _calcular_volatilidad_penalizacion(_cierre_v)
+        except Exception:
+            pass
 
     # ── Liquidez — penalización por volumen bajo (MQ2-U7) ────────────────────
     _vol_promedio       = 0.0
     _penalizacion_liq   = 0.0
-    try:
-        if tipo in ("Bono USD", "ON Corporativa"):
-            _sym_vol = _simbolos_yfinance_rf(ticker)[0]
-        else:
-            _sym_vol = _ticker_yahoo(ticker, tipo)
-        _hist_liq = yf.Ticker(_sym_vol).history(period="35d")
-        if not _hist_liq.empty and "Volume" in _hist_liq.columns:
-            _vol_promedio = float(_hist_liq["Volume"].tail(30).mean())
-            _umbral_vol   = 50_000
-            if 0 < _vol_promedio < _umbral_vol:
-                _penalizacion_liq = min(10.0, 10.0 * (1 - _vol_promedio / _umbral_vol))
-    except Exception:
-        pass
+    if _sym_yf:
+        try:
+            _hist_liq = yf.Ticker(_sym_yf).history(period="35d")
+            if not _hist_liq.empty and "Volume" in _hist_liq.columns:
+                _vol_promedio = float(_hist_liq["Volume"].tail(30).mean())
+                _umbral_vol   = 50_000
+                if 0 < _vol_promedio < _umbral_vol:
+                    _penalizacion_liq = min(10.0, 10.0 * (1 - _vol_promedio / _umbral_vol))
+        except Exception:
+            pass
 
     # ── Moat bonus ────────────────────────────────────────────────────────────
     _mb = _moat_bonus(ticker)
