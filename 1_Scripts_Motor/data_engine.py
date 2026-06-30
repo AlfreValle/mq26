@@ -617,36 +617,46 @@ class DataEngine:
                 byma_live = {}
             for t in rf_tickers:
                 tu = str(t).upper().strip()
-                live = byma_live.get(tu) if isinstance(byma_live, dict) else None
-                if isinstance(live, dict):
-                    try:
-                        par_live = float(live.get("paridad_ref") or 0.0)
-                    except (TypeError, ValueError):
-                        par_live = 0.0
-                    # Sanidad: paridades fuera de [35 %, 200 %] son datos basura del feed BYMA
-                    # (ej. price en USD del segmento HD devuelto como paridad).
-                    if par_live > 0 and 35.0 <= par_live <= 200.0:
-                        precios[t] = round((par_live / 100.0) * ccl, 2)
-                        continue
-                    # Si la paridad es inválida, intentar precio_ars directamente
-                    try:
-                        px_live = float(live.get("precio_ars") or 0.0)
-                    except (TypeError, ValueError):
-                        px_live = 0.0
-                    # precio_ars válido: debe ser equivalente a una paridad [35 %, 200 %]
-                    if px_live > 0 and ccl > 0:
-                        par_from_px = (px_live / ccl) * 100.0
-                        if 35.0 <= par_from_px <= 200.0:
-                            precios[t] = round(px_live, 2)
-                            continue
                 meta = rf_get_meta(tu)
-                if meta:
-                    par = float(meta.get("paridad_ref") or 0.0)
-                    mon = str(meta.get("moneda") or "USD").upper()
-                    if par > 0:
-                        precios[t] = round((par / 100.0) * ccl, 2) if mon == "USD" else round(par, 2)
-                        continue
-                precios[t] = 0.0
+                es_usd = str(meta.get("moneda") or "USD").upper() == "USD" if meta else True
+                live = byma_live.get(tu) if isinstance(byma_live, dict) else None
+                px = 0.0
+                if isinstance(live, dict):
+                    if es_usd:
+                        # USD: paridad live % → ARS/VN = paridad/100 × CCL.
+                        # Sanidad: fuera de [35 %, 200 %] es basura del feed (price USD del HD como paridad).
+                        try:
+                            par_live = float(live.get("paridad_ref") or 0.0)
+                        except (TypeError, ValueError):
+                            par_live = 0.0
+                        if 35.0 <= par_live <= 200.0:
+                            px = round((par_live / 100.0) * ccl, 2)
+                    if px <= 0:
+                        # precio_ars live directo (peso real): USD lo valida vs paridad; ARS lo usa tal cual
+                        # (la paridad ARS es % del nominal CER/capitalizado, NO sirve para derivar el precio).
+                        try:
+                            px_live = float(live.get("precio_ars") or 0.0)
+                        except (TypeError, ValueError):
+                            px_live = 0.0
+                        if px_live > 0:
+                            if es_usd and ccl > 0:
+                                par_from_px = (px_live / ccl) * 100.0
+                                if 35.0 <= par_from_px <= 200.0:
+                                    px = round(px_live, 2)
+                            elif not es_usd:
+                                px = round(px_live, 2)
+                if px <= 0 and meta:
+                    # Fallback catálogo: USD → paridad/100×CCL; ARS/ARS_CER → precio_ars_ref
+                    # (la paridad ARS es % del nominal CER/capitalizado, no sirve para el precio peso).
+                    if es_usd:
+                        par = float(meta.get("paridad_ref") or 0.0)
+                        if par > 0 and ccl > 0:
+                            px = round((par / 100.0) * ccl, 2)
+                    else:
+                        precio_ars_ref = float(meta.get("precio_ars_ref") or 0.0)
+                        if precio_ars_ref > 0:
+                            px = round(precio_ars_ref, 2)
+                precios[t] = px if px > 0 else 0.0
         return precios
 
     def descargar_historico(
