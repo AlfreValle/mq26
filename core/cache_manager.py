@@ -9,6 +9,10 @@ import os
 import pandas as pd
 import streamlit as st
 
+from core.logging_config import get_logger
+
+_log = get_logger(__name__)
+
 # TTLs configurables vía variables de entorno
 _TTL_CCL       = int(os.environ.get("CACHE_TTL_CCL",       300))   # 5 min
 _TTL_HISTORICO = int(os.environ.get("CACHE_TTL_HISTORICO", 3600))  # 1 hora
@@ -20,12 +24,20 @@ _TTL_DASHBOARD = int(os.environ.get("CACHE_TTL_DASHBOARD", 120))   # 2 min
 
 @st.cache_data(ttl=_TTL_CCL)
 def cache_ccl(engine_data) -> float:
-    """CCL en tiempo real con TTL=5 min."""
+    """CCL en tiempo real con TTL=5 min. Si la fuente falla, usa fallback DURO
+    (CCL_FALLBACK_OVERRIDE o 1500) y deja traza — no falla en silencio: con un CCL
+    de fallback las valuaciones en ARS de CEDEARs/USD pueden quedar desalineadas."""
     try:
         from data_engine import obtener_ccl
         return obtener_ccl()
-    except Exception:
-        return float(os.environ.get("CCL_FALLBACK_OVERRIDE", 1500.0))
+    except Exception as e:
+        _fallback = float(os.environ.get("CCL_FALLBACK_OVERRIDE", 1500.0))
+        _log.warning(
+            "cache_ccl: obtener_ccl() fallo (%s); usando CCL fallback %.2f. "
+            "Las valuaciones en ARS pueden estar desalineadas hasta que vuelva la fuente.",
+            e, _fallback,
+        )
+        return _fallback
 
 
 @st.cache_data(ttl=_TTL_HISTORICO)
