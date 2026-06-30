@@ -258,6 +258,13 @@ _CICLO_AJUSTE: dict[str, float] = {
 _SCORE_TEC_CACHE: dict[str, tuple[tuple, float]] = {}
 _SCORE_TEC_TTL = 3_600  # 1 hora
 
+# ─── CACHE DE SCORE FUNDAMENTAL (TTL 1h, módulo-level) ────────────────────────
+# El score fundamental de CEDEARs hace yf.Ticker(t).info — la llamada yfinance
+# más lenta (~1-3s) — por cada posición. Cachearlo evita re-bajar .info en cada
+# load/rerun y cuando un ticker aparece en varias vistas (cartera, perlas, ficha).
+_SCORE_FUND_CACHE: dict[str, tuple[tuple, float]] = {}
+_SCORE_FUND_TTL = 3_600  # 1 hora
+
 
 def _get_score_tecnico_cached(ticker: str, tipo: str = "CEDEAR") -> tuple[float, dict]:
     """
@@ -276,6 +283,26 @@ def _get_score_tecnico_cached(ticker: str, tipo: str = "CEDEAR") -> tuple[float,
     except Exception:
         val = (40.0, {"sma_score": 0, "rsi": 50, "rsi_score": 0, "mom_score": 0, "precio": 0})
     _SCORE_TEC_CACHE[key] = (val, now)
+    return val
+
+
+def _get_score_fundamental_cached(ticker: str, tipo: str = "CEDEAR") -> tuple[float, dict]:
+    """
+    Score fundamental con cache de 1h por clave ticker:tipo.
+    Nunca lanza excepción — retorna (40.0, {}) si falla.
+    Invariante: llamadas sucesivas dentro del TTL NO llaman a yfinance (.info).
+    """
+    now = time.time()
+    key = f"{ticker.upper()}:{tipo.upper()}"
+    if key in _SCORE_FUND_CACHE:
+        val, ts = _SCORE_FUND_CACHE[key]
+        if now - ts < _SCORE_FUND_TTL:
+            return val
+    try:
+        val = score_fundamental(ticker, tipo)
+    except Exception:
+        val = (40.0, {})
+    _SCORE_FUND_CACHE[key] = (val, now)
     return val
 
 
@@ -877,7 +904,7 @@ def calcular_score_total(ticker: str, tipo: str = "CEDEAR") -> dict:
             "Penalizacion_Liquidez": 0.0, "Ciclo_Sector": "neutral",
         }
 
-    sf, df_fund = score_fundamental(ticker, tipo)
+    sf, df_fund = _get_score_fundamental_cached(ticker, tipo)
     st, df_tec  = _get_score_tecnico_cached(ticker, tipo)
     ss, df_sec  = score_sector_contexto(ticker, tipo)
 

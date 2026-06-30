@@ -44,6 +44,10 @@ class TestCalcularScoreTotal:
         monkeypatch.setattr(se, "score_fundamental", lambda t, tipo: (sf, {}))
         monkeypatch.setattr(se, "score_tecnico", lambda t, tipo: (st, {}))
         monkeypatch.setattr(se, "score_sector_contexto", lambda t, tipo: (ss, {}))
+        # calcular_score_total llama los wrappers cacheados — parchearlos evita
+        # contaminación entre tests por el cache módulo-level (TTL 1h).
+        monkeypatch.setattr(se, "_get_score_fundamental_cached", lambda t, tipo="CEDEAR": (sf, {}))
+        monkeypatch.setattr(se, "_get_score_tecnico_cached", lambda t, tipo="CEDEAR": (st, {}))
         import yfinance as yf
         monkeypatch.setattr(yf.Ticker, "history", lambda self, **kw: pd.DataFrame())
 
