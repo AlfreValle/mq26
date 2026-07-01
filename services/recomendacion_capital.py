@@ -1012,6 +1012,37 @@ def generar_primera_cartera(
         # Cartera ya viene con tickers expandidos desde cartera_optima_para_perfil
         ideal = {k: v for k, v in _ideal_raw.items() if k != "_PERLAS_POOL"}
 
+    # El enriquecido previo de precios usa el CARTERA_IDEAL legacy; el ideal
+    # dinámico (cartera_optima) puede traer ONs distintas (p. ej. YM34O) que se
+    # quedaban SIN precio y se caían del despliegue → la RF no llegaba al target.
+    # Resolvemos acá el precio de CUALQUIER ticker del ideal real que falte
+    # (resolver_precios usa paridad_ref×CCL como fallback para ONs del catálogo).
+    _faltan_precio = sorted(
+        str(t).upper() for t in ideal
+        if t and not str(t).startswith("_") and precios_dict.get(str(t).upper(), 0) <= 0
+    )
+    if _faltan_precio:
+        for _k, _v in resolver_precios(_faltan_precio, precios_dict, ccl_f, universo_df).items():
+            _fv = float(_v or 0)
+            if _fv > 0:
+                precios_dict[str(_k).upper()] = _fv
+
+    # ── desplegar_todo: plegar _RENTA_AR al pool de ONs ───────────────────────
+    # Los bonos AR (_RENTA_AR) son de gestión MANUAL: no se compran acá, así que
+    # en modo "invertí todo" ese peso se fugaba a RV en el mop-up y bajaba la RF
+    # por debajo del target del diagnóstico. Como el objetivo es desplegar el
+    # capital, redistribuimos ese peso a las ONs (renta fija cotizable) para que
+    # la RF desplegada se acerque al target. Sin ONs, el peso queda al mop-up.
+    if desplegar_todo:
+        _w_renta_ar = float(ideal.get("_RENTA_AR", 0.0))
+        _on_ticks = {k: v for k, v in ideal.items()
+                     if k and not str(k).startswith("_") and es_renta_fija(k)}
+        _sum_on = sum(_on_ticks.values())
+        if _w_renta_ar > 1e-9 and _sum_on > 1e-9:
+            for _tk in _on_ticks:
+                ideal[_tk] = ideal[_tk] + _w_renta_ar * (ideal[_tk] / _sum_on)
+            ideal.pop("_RENTA_AR", None)
+
     # Seleccionar perlas elegibles para este perfil y capital
     _perlas_seleccionadas: list = []
     try:
@@ -1168,6 +1199,29 @@ def generar_primera_cartera(
         if cap > 0 and len(compras) >= 3 else _SIN_TOPE
     )
 
+    # Techo de RENTA FIJA en el mop-up de desplegar: el relleno "más barato primero"
+    # favorece los ONs (mucho más baratos que un CEDEAR) y la RF se pasaba del target
+    # del diagnóstico (demasiada RF ⇒ poca RV ⇒ baja "alineación"). Frenamos de sumar
+    # a ONs cuando la RF ya alcanzó su objetivo; el residual se va a RV.
+    from core.perfil_allocation import target_rf_efectivo as _trf
+    # Techo de la CLASE renta fija en ARS: en desplegar el capital se invierte casi
+    # entero (invertido ≈ cap), así que RF_max ≈ target × cap. Con un pequeño margen
+    # para no quedar sistemáticamente por debajo. Sin desplegar no aplica.
+    _rf_ceil_ars = (
+        float(_trf(perfil_n, "largo")) * cap * 1.02
+        if desplegar_todo and cap > 0 else float("inf")
+    )
+
+    def _rf_total_actual() -> float:
+        return sum(c.monto_ars for c in compras if es_renta_fija(c.ticker))
+
+    def _rf_extra_max_unidades(_item, _px: float) -> int | None:
+        """Máx. unidades de un ON sin pasar el techo de la CLASE RF. None = sin tope
+        (no es RF o modo no-desplegar)."""
+        if not (es_renta_fija(_item.ticker) and _px > 0) or _rf_ceil_ars == float("inf"):
+            return None
+        return int(max(0.0, _rf_ceil_ars - _rf_total_actual()) // _px)
+
     # ── FASE 1: rebalance hacia targets (respetar pesos) ──────────────────────
     # Solo compra tickers underweight, hasta que todos lleguen a su target ±5%.
     for _ in range(len(compras) * 5 + 10):
@@ -1194,10 +1248,15 @@ def generar_primera_cartera(
                 continue
             if _item.monto_ars >= _cap_conc_ars:   # tope de concentración por nombre
                 continue
+            _rf_cap_u = _rf_extra_max_unidades(_item, _px)   # techo de la clase RF
+            if _rf_cap_u is not None and _rf_cap_u < _lam:
+                continue
             falta_ars = max(0.0, (target_pct - actual_pct) * cap)
             _extra_max_target = int(falta_ars // _px) if falta_ars > 0 else _lam
             _extra_max_conc = int(max(0.0, _cap_conc_ars - _item.monto_ars) // _px)
             _extra_raw = min(int(_efectivo_libre // _px), max(_lam, _extra_max_target), _extra_max_conc)
+            if _rf_cap_u is not None:
+                _extra_raw = min(_extra_raw, _rf_cap_u)
             _extra = (_extra_raw // _lam) * _lam
             if _extra >= _lam:
                 _item.unidades += _extra
@@ -1245,6 +1304,9 @@ def generar_primera_cartera(
                 continue
             if _item.monto_ars >= _cap_conc_ars:   # tope de concentración por nombre
                 continue
+            _rf_cap_u = _rf_extra_max_unidades(_item, _px)   # techo de la clase RF
+            if _rf_cap_u is not None and _rf_cap_u < max(1, _lam):
+                continue
             # Máximo extra dentro del cap (overweight Y concentración)
             max_monto_ticker = target_pct * _OVERWEIGHT_MAX * cap if target_pct > 0 else _efectivo_libre
             max_monto_ticker = min(max_monto_ticker, _cap_conc_ars)
@@ -1252,6 +1314,8 @@ def generar_primera_cartera(
             _extra_max_ow = int(margen_ow_ars // _px) if margen_ow_ars > 0 else 0
             _extra_max_cash = int(_efectivo_libre // _px)
             _extra_raw = min(_extra_max_ow, _extra_max_cash)
+            if _rf_cap_u is not None:
+                _extra_raw = min(_extra_raw, _rf_cap_u)
             _extra = (_extra_raw // _lam) * _lam if _lam > 1 else _extra_raw
             if _extra >= max(1, _lam):
                 _item.unidades += _extra
@@ -1283,6 +1347,9 @@ def generar_primera_cartera(
                 _lam = _lamina_min_on(_item.ticker)
                 _alloc = _residual * (_item.monto_ars / _total_actual)
                 _alloc = min(_alloc, _cap_conc_ars - _item.monto_ars)   # tope concentración
+                _rf_cap_u = _rf_extra_max_unidades(_item, _px)          # techo de la clase RF
+                if _rf_cap_u is not None:
+                    _alloc = min(_alloc, _rf_cap_u * _px)
                 if _alloc <= 0:
                     continue
                 _extra_raw = int(_alloc // _px)
@@ -1305,6 +1372,9 @@ def generar_primera_cartera(
                 if capital_restante < _px * _lam:
                     continue
                 if _item.monto_ars + _lam * _px > _cap_conc_ars:   # tope concentración
+                    continue
+                _rf_cap_u = _rf_extra_max_unidades(_item, _px)     # techo de la clase RF
+                if _rf_cap_u is not None and _rf_cap_u < _lam:
                     continue
                 _item.unidades += _lam
                 _item.monto_ars += _lam * _px

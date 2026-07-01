@@ -62,6 +62,41 @@ def test_desplegar_todo_menos_5pct_con_pocos_activos():
     )
 
 
+def test_cartera_recomendada_alcanza_target_rf_del_diagnostico():
+    """Regresión (reporte de usuario): la cartera recomendada arrancaba con score
+    bajo (54/100) porque traía ~15-21pp MENOS renta fija que la que el diagnóstico
+    exige (target_rf_efectivo), penalizando 'cobertura defensiva'. El recomendador y
+    el diagnóstico ahora comparten UNA fuente de verdad: la RF desplegada debe quedar
+    cerca del target del perfil (single source of truth), sin dejar efectivo ocioso."""
+    from core.perfil_allocation import target_rf_efectivo
+    from core.renta_fija_ar import es_renta_fija
+
+    # Precios ARS realistas (los ONs se resuelven por paridad_ref×CCL del catálogo).
+    rv = ["AAPL", "ABBV", "AMZN", "BABA", "BRKB", "COST", "CVX", "DIA", "GOOGL",
+          "JNJ", "JPM", "KO", "MA", "MCD", "MELI", "META", "MSFT", "NVDA", "QQQ",
+          "SPY", "UBER", "V", "VIST", "YPFD", "CEPU", "PAMP"]
+    precios = {t: 25_000.0 for t in rv}
+    precios.update({"SPY": 70_000.0, "QQQ": 65_000.0, "NVDA": 18_000.0, "AAPL": 30_000.0})
+
+    for perfil in ("Conservador", "Moderado", "Arriesgado"):
+        target = float(target_rf_efectivo(perfil, "largo"))
+        for cap in (5_000_000.0, 12_000_000.0):
+            rr = generar_primera_cartera(
+                capital_ars=cap, perfil=perfil, ccl=1200.0, precios_dict=precios,
+                desplegar_todo=True,
+            )
+            items = rr.compras_recomendadas or []
+            tot = sum(float(i.monto_ars) for i in items) or 1.0
+            rf = sum(float(i.monto_ars) for i in items if es_renta_fija(i.ticker)) / tot
+            # RF desplegada cerca del target (banda amplia: láminas enteras + tope
+            # de concentración por nombre limitan la precisión, pero no debe quedar
+            # ni muy por debajo (score bajo) ni disparada por encima (poca RV)).
+            assert target - 0.12 <= rf <= target + 0.10, (
+                f"{perfil} cap={cap/1e6:.0f}M: RF desplegada {rf:.0%} lejos del "
+                f"target {target:.0%} (single source of truth recomendador↔diagnóstico)"
+            )
+
+
 def test_cartera_recomendada_respeta_su_propio_limite_concentracion():
     """Regresión (reporte de usuario): una cartera RECOMENDADA por el wizard no debe
     arrancar marcada por "concentración elevada" en su propio diagnóstico. El sleeve

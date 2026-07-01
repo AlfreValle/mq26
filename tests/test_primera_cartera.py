@@ -602,13 +602,19 @@ def test_gpc_incluye_rf_cuando_hay_precio():
 
 
 def test_gpc_rf_pendiente_cuando_sin_precio():
-    """Sin precios para PN43O/TLCTO (ni en dict ni en fallback) → RF va a pendientes."""
+    """Sin precios para RF (ni en dict ni en fallback) → RF va a pendientes.
+
+    Nota: el motor resuelve el precio de CUALQUIER ON del catálogo vía paridad_ref×CCL
+    (resolver_precios), tanto en el enriquecido como en el pase del ideal dinámico. Para
+    simular de verdad "sin precio" hay que neutralizar AMBOS caminos — de lo contrario el
+    fallback ARS cotiza los ONs y se compran (que es el comportamiento deseado normal)."""
     precios_sin_rf = {k: v for k, v in _PRECIOS_TEST.items() if k not in ("PN43O", "TLCTO")}
-    # Patch _enriquecer_precios_recomendacion para devolver exactamente el dict sin RF,
-    # evitando que el fallback ARS llene automáticamente PN43O/TLCTO.
     with patch(
         "services.recomendacion_capital._enriquecer_precios_recomendacion",
         return_value=dict(precios_sin_rf),
+    ), patch(
+        "services.recomendacion_capital.resolver_precios",
+        return_value={},   # ni el fallback del ideal dinámico consigue precio
     ):
         from services.recomendacion_capital import generar_primera_cartera
 

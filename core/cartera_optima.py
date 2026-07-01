@@ -64,7 +64,7 @@ PERFIL_CONSTRAINTS: dict[str, dict[str, Any]] = {
         "etf_min":            0.10,    # ETFs broad market
         "n_rv_min":           4,
         "n_rv_max":           8,
-        "n_ons":              3,
+        "n_ons":              5,   # RF alta (~60%): más ONs para repartir bajo el tope de concentración
         "pct_perlas":         0.20,    # reserva táctica
         "pct_renta_ar":       0.10,    # bonos AR gestión manual
         "max_por_ticker":     0.18,    # ningún ticker > 18% del total
@@ -79,7 +79,7 @@ PERFIL_CONSTRAINTS: dict[str, dict[str, Any]] = {
         "etf_min":            0.10,
         "n_rv_min":           5,
         "n_rv_max":           10,
-        "n_ons":              3,
+        "n_ons":              4,   # RF ~50%: headroom para el tope de concentración
         "pct_perlas":         0.20,
         "pct_renta_ar":       0.08,
         "max_por_ticker":     0.15,
@@ -277,15 +277,19 @@ def _asignar_pct_clases(perfil: str, regimen: str | None = None) -> dict[str, fl
     pct_renta_ar  = c["pct_renta_ar"]
     pct_disponible = 1.0 - pct_perlas - pct_renta_ar
 
-    # Distribución dentro del % disponible entre RF (ONs) y RV (CEDEARs)
-    # Usar midpoint de los rangos pero respetando las relaciones del perfil
-    rf_mid = (c["rf_min"] + c["rf_max"]) / 2
-    rv_mid = (c["rv_min"] + c["rv_max"]) / 2
+    # ── Objetivo RF = MISMA fuente de verdad que el diagnóstico ────────────────
+    # Antes: midpoint de las bandas [rf_min, rf_max] del perfil → daba ~15-21pp
+    # MENOS renta fija que la que el diagnóstico exige (target_rf_efectivo), así
+    # que la cartera recomendada arrancaba castigada en "cobertura defensiva".
+    # Ahora la RF total (ONs + renta_ar) sobre el capital INVERTIDO (sin perlas)
+    # apunta exactamente a target_rf_efectivo, y las perlas quedan como reserva.
+    from core.perfil_allocation import target_rf_efectivo
 
-    # Normalizar a que sumen pct_disponible
-    suma_mid = rf_mid + rv_mid
-    pct_rf = pct_disponible * (rf_mid / suma_mid)
-    pct_rv = pct_disponible * (rv_mid / suma_mid)
+    invertido = 1.0 - pct_perlas                      # renta_ar cuenta como RF invertida
+    rf_objetivo = float(target_rf_efectivo(perfil, "largo"))  # horizonte-independiente hoy
+    rf_total = rf_objetivo * invertido                # RF total (ONs + renta_ar) del total
+    pct_rf = max(0.0, rf_total - pct_renta_ar)        # ONs = RF total − bonos AR manuales
+    pct_rv = max(0.0, invertido - rf_total)           # RV = resto invertido
 
     # ── Tilt táctico por régimen (opt-in), clampeado a la banda del perfil ───
     # Guarda: con pct_disponible degenerado (reservas extremas) el clamp podría
