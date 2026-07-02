@@ -134,7 +134,25 @@ def test_vencimientos_on_usd_por_mes_no_vacio_y_columnas():
 # ── Alerta de vencimiento próximo (MRCAO / YCA6O) ────────────────────────────
 
 class TestAlertasVencimientoProximo:
-    """instrumentos_on_usd_proximos_vencer + resumen_alertas_vencimiento_on_usd."""
+    """instrumentos_on_usd_proximos_vencer + resumen_alertas_vencimiento_on_usd.
+
+    Fecha CONGELADA a 2026-05-27 (la fecha de escritura de estos tests, ver el
+    docstring de instrumentos_on_usd_proximos_vencer): los asserts dependen de
+    "cuántos días faltan" hasta vencimientos reales del catálogo (MRCAO/YCA6O
+    vencen 2026-07-01), así que con la fecha del sistema eran una time-bomb —
+    el 2026-07-01 la ventana 0 dejó de estar vacía y el CI se puso rojo.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _congelar_fecha(self, monkeypatch):
+        import core.renta_fija_ar as rf_mod
+
+        class _FechaFija(date):
+            @classmethod
+            def today(cls):
+                return cls(2026, 5, 27)
+
+        monkeypatch.setattr(rf_mod, "date", _FechaFija)
 
     def test_mrcao_yca6o_detectados_en_90_dias(self):
         """Ambos vencen 2026-07-01 (~35 días) → deben aparecer con ventana 90d."""

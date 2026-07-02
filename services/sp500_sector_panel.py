@@ -108,9 +108,21 @@ def _total_return_pct(close: pd.Series, start: pd.Timestamp, end: pd.Timestamp) 
     ed = ed.normalize()
     sub = ser.loc[ser.index >= sd]
     sub = sub.loc[sub.index <= ed]
-    if sub.size < 2:
+    if sub.empty:
         return None
-    a, b = float(sub.iloc[0]), float(sub.iloc[-1])
+    # Precio base: último cierre ANTERIOR al inicio del período (definición
+    # estándar de QTD/YTD). Antes se usaba el primer cierre DENTRO de la ventana,
+    # que en los primeros días de cada trimestre/año dejaba <2 puntos → None y
+    # el panel salía vacío (pasó el 2026-07-01, arranque de Q3). Si no hay
+    # historia previa (serie corta), degradamos al comportamiento anterior.
+    prev = ser.loc[ser.index < sd]
+    if not prev.empty:
+        a = float(prev.iloc[-1])
+    elif sub.size >= 2:
+        a = float(sub.iloc[0])
+    else:
+        return None
+    b = float(sub.iloc[-1])
     if a == 0:
         return None
     return round((b / a - 1.0) * 100.0, 2)
