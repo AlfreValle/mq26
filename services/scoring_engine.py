@@ -265,6 +265,35 @@ _SCORE_TEC_TTL = 3_600  # 1 hora
 _SCORE_FUND_CACHE: dict[str, tuple[tuple, float]] = {}
 _SCORE_FUND_TTL = 3_600  # 1 hora
 
+# ─── CACHE DE HISTÓRICO 1 AÑO (TTL 30 min, módulo-level) ──────────────────────
+# El histórico diario 1y de un ticker lo consumían por separado el score técnico
+# (Close+Volume), la penalización por volatilidad (Close) y la de liquidez (35d
+# → tail 30 de Volume) → 3 descargas yfinance por CEDEAR en cada score frío.
+# Cacheado por símbolo Yahoo se baja UNA vez y lo comparten los tres.
+_HIST_1Y_CACHE: dict[str, tuple[pd.DataFrame, float]] = {}
+_HIST_1Y_TTL = 1_800  # 30 min
+
+
+def _get_hist_1y_cached(sym: str) -> pd.DataFrame:
+    """Histórico diario ~1 año (Close+Volume) por símbolo Yahoo, cacheado 30 min.
+    Devuelve DataFrame vacío si falla o el símbolo es vacío. Nunca lanza."""
+    if not sym:
+        return pd.DataFrame()
+    now = time.time()
+    key = sym.upper()
+    if key in _HIST_1Y_CACHE:
+        val, ts = _HIST_1Y_CACHE[key]
+        if now - ts < _HIST_1Y_TTL:
+            return val
+    try:
+        val = yf.Ticker(sym).history(period="1y")
+        if val is None:
+            val = pd.DataFrame()
+    except Exception:
+        val = pd.DataFrame()
+    _HIST_1Y_CACHE[key] = (val, now)
+    return val
+
 
 def _get_score_tecnico_cached(ticker: str, tipo: str = "CEDEAR") -> tuple[float, dict]:
     """
@@ -695,7 +724,7 @@ def score_tecnico(ticker: str, tipo: str = "CEDEAR") -> tuple[float, dict]:
     }
     try:
         t_yf = _ticker_yahoo(ticker, tipo)
-        data = yf.Ticker(t_yf).history(period="1y")
+        data = _get_hist_1y_cached(t_yf)   # 1y compartido/cacheado (dedupe vs volatilidad)
         if data.empty or len(data) < 30:
             return 40.0, default_det
         cierre = data["Close"].dropna()
@@ -917,29 +946,30 @@ def calcular_score_total(ticker: str, tipo: str = "CEDEAR") -> dict:
     else:
         _sym_yf = _ticker_yahoo(ticker, tipo)
 
-    # ── Volatilidad / riesgo — requiere descargar serie de precios ────────────
+    # Histórico 1y compartido (cacheado): volatilidad usa Close, liquidez usa los
+    # últimos 30 días de Volume (tail(30) del 1y == los mismos 30 días que un 35d).
+    # Antes eran 2-3 descargas yfinance por ticker; ahora una sola compartida.
+    _hist_yf = _get_hist_1y_cached(_sym_yf) if _sym_yf else pd.DataFrame()
+
+    # ── Volatilidad / riesgo ──────────────────────────────────────────────────
     _pen_volatilidad = 0.0
     _vol_det: dict = {"hv20": 0.0, "max_dd_1y": 0.0, "penalizacion": 0.0}
-    if _sym_yf:
+    if not _hist_yf.empty and "Close" in _hist_yf.columns:
         try:
-            _hist_v = yf.Ticker(_sym_yf).history(period="1y")
-            if not _hist_v.empty and "Close" in _hist_v.columns:
-                _cierre_v = _hist_v["Close"].dropna()
-                _pen_volatilidad, _vol_det = _calcular_volatilidad_penalizacion(_cierre_v)
+            _cierre_v = _hist_yf["Close"].dropna()
+            _pen_volatilidad, _vol_det = _calcular_volatilidad_penalizacion(_cierre_v)
         except Exception:
             pass
 
     # ── Liquidez — penalización por volumen bajo (MQ2-U7) ────────────────────
     _vol_promedio       = 0.0
     _penalizacion_liq   = 0.0
-    if _sym_yf:
+    if not _hist_yf.empty and "Volume" in _hist_yf.columns:
         try:
-            _hist_liq = yf.Ticker(_sym_yf).history(period="35d")
-            if not _hist_liq.empty and "Volume" in _hist_liq.columns:
-                _vol_promedio = float(_hist_liq["Volume"].tail(30).mean())
-                _umbral_vol   = 50_000
-                if 0 < _vol_promedio < _umbral_vol:
-                    _penalizacion_liq = min(10.0, 10.0 * (1 - _vol_promedio / _umbral_vol))
+            _vol_promedio = float(_hist_yf["Volume"].dropna().tail(30).mean())
+            _umbral_vol   = 50_000
+            if 0 < _vol_promedio < _umbral_vol:
+                _penalizacion_liq = min(10.0, 10.0 * (1 - _vol_promedio / _umbral_vol))
         except Exception:
             pass
 

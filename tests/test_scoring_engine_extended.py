@@ -12,6 +12,17 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _clear_scoring_caches():
+    """Aísla los caches módulo-level del scoring (histórico 1y, técnico, fundamental)
+    entre tests: si no, un mock de yfinance queda cacheado y contamina al siguiente."""
+    import services.scoring_engine as se
+    for _c in ("_HIST_1Y_CACHE", "_SCORE_TEC_CACHE", "_SCORE_FUND_CACHE"):
+        getattr(se, _c, {}).clear()
+    yield
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def _fake_history(n: int = 200) -> pd.DataFrame:
