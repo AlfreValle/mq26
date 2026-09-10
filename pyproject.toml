@@ -11,9 +11,9 @@ readme = "README.md"
 license = { text = "Proprietary" }
 
 dependencies = [
-    "streamlit>=1.32.0",
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
+    "streamlit>=1.56.0",
+    "pandas>=2.0.0,<4",
+    "numpy>=1.24.0,<3",
     "yfinance>=0.2.38",
     "scipy>=1.11.0",
     "plotly>=5.18.0",

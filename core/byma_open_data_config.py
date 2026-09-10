@@ -62,9 +62,20 @@ def byma_open_data_post_body() -> dict[str, Any]:
     }
 
 
-def byma_on_precio_umbral_ars() -> float:
-    v = _env_float("MQ26_BYMA_ON_PRECIO_UMBRAL_ARS", _DEFAULT_PRECIO_UMBRAL_ARS)
-    return v if v > 0 else _DEFAULT_PRECIO_UMBRAL_ARS
+def byma_on_precio_umbral_ars(*, ccl: float | None = None) -> float:
+    """
+    Precio ARS por debajo del cual se interpreta como paridad % (no ARS/VN).
+
+    Default: 30% del CCL vigente (env ``MQ26_BYMA_ON_PRECIO_UMBRAL_ARS`` pisa).
+    Constante 500 ARS dejaba ONs distressed (~<34% a CCL 1500) fuera del vivo.
+    """
+    raw = os.environ.get("MQ26_BYMA_ON_PRECIO_UMBRAL_ARS", "").strip()
+    if raw:
+        v = _env_float("MQ26_BYMA_ON_PRECIO_UMBRAL_ARS", _DEFAULT_PRECIO_UMBRAL_ARS)
+        return v if v > 0 else _DEFAULT_PRECIO_UMBRAL_ARS
+    if ccl is not None and float(ccl) > 0:
+        return 0.30 * float(ccl)
+    return _DEFAULT_PRECIO_UMBRAL_ARS
 
 
 BYMA_HTTP_TIMEOUT_DEFAULT: int = _DEFAULT_TIMEOUT_SEC

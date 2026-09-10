@@ -250,7 +250,11 @@ def test_tab_inversor_contexto_minimo_j93():
     st_mock.metric = MagicMock()
     st_mock.plotly_chart = MagicMock()
     st_mock.expander = lambda *a, **k: _noop()
-    st_mock.columns = MagicMock(return_value=(MagicMock(), MagicMock()))
+    def _columns(n=2, *a, **k):
+        count = n if isinstance(n, int) else 2
+        return tuple(MagicMock() for _ in range(max(1, count)))
+
+    st_mock.columns = MagicMock(side_effect=_columns)
     st_mock.number_input = MagicMock(return_value=50_000.0)
     st_mock.selectbox = MagicMock(return_value="Moderado")
     st_mock.text_input = MagicMock(return_value="Cliente")

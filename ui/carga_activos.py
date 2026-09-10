@@ -153,6 +153,93 @@ def _cartera_csv(ctx: dict) -> str:
     return str(ctx.get("cartera_activa") or "Principal").strip()
 
 
+_TIPOS_COMPRA_UNITARIA = frozenset({"CEDEAR", "ACCION_LOCAL", "ETF", "FCI", "OTRO"})
+_LOTES_UNITARIOS_KEY = "ca_lotes_unitarios"
+_MAX_LOTES_UNITARIOS = 50
+
+
+def _ccl_de_compra(fecha: date | Any, ccl_spot: float) -> float:
+    """CCL de la fecha de operación (histórico mensual); spot si no hay serie."""
+    spot = float(ccl_spot or 0.0)
+    try:
+        from core.fx import ccl_para_fecha
+
+        v = float(ccl_para_fecha(fecha, spot=spot).valor)
+        return v if v > 0 else spot
+    except Exception:
+        return spot
+
+
+def resolver_tipo_compra_unitaria(
+    ticker: str,
+    universo_df: pd.DataFrame | None = None,
+) -> str:
+    """Tipo RV para una compra por unidad. Renta fija se rechaza (va por VN + paridad)."""
+    from core.instrument_master import get_master
+
+    t = str(ticker or "").strip().upper()
+    if not t:
+        raise ValueError("Falta el ticker.")
+    inst = get_master(universo_df).get(t)
+    if inst is not None and inst.es_renta_fija:
+        raise ValueError(
+            f"{t} es renta fija ({inst.tipo}). "
+            "Cargalo en «Una compra» con valor nominal y paridad, "
+            "no como precio unitario de acción."
+        )
+    if inst is not None and inst.tipo in _TIPOS_COMPRA_UNITARIA:
+        return inst.tipo
+    return "CEDEAR"
+
+
+def fila_desde_compra_unitaria(
+    *,
+    ticker: str,
+    cantidad: float,
+    precio_unitario: float,
+    fecha: date | Any,
+    ccl_spot: float,
+    moneda: str = "ARS",
+    universo_df: pd.DataFrame | None = None,
+    ccl_operacion: float | None = None,
+) -> dict[str, Any]:
+    """
+    Convierte una compra unitaria (unidades × precio por unidad) a fila de Maestra.
+
+    Cada llamada es un lote FIFO. No consolida PPC acá: eso lo hace agregar_cartera.
+    """
+    t = str(ticker or "").strip().upper()
+    tipo = resolver_tipo_compra_unitaria(t, universo_df)
+    cant = float(cantidad)
+    px = float(precio_unitario)
+    if cant < 1:
+        raise ValueError("La cantidad tiene que ser al menos 1 unidad.")
+    if px <= 0:
+        raise ValueError("El precio unitario tiene que ser mayor a 0.")
+    ccl_op = float(ccl_operacion) if ccl_operacion and float(ccl_operacion) > 0 else _ccl_de_compra(fecha, ccl_spot)
+    if ccl_op <= 0:
+        raise ValueError("No hay CCL para convertir ARS ↔ USD de esta compra.")
+    es_mep = str(moneda or "ARS").upper().startswith("USD")
+    if es_mep:
+        ppc_usd = px
+        ppc_ars = px * ccl_op
+        moneda_precio = "USD_MEP"
+    else:
+        ppc_ars = px
+        ppc_usd = px / ccl_op
+        moneda_precio = "ARS"
+    return {
+        "FECHA_COMPRA": fecha,
+        "TICKER": t,
+        "CANTIDAD": int(cant),
+        "PPC_USD": round(ppc_usd, 6),
+        "PPC_ARS": round(ppc_ars, 4),
+        "TIPO": tipo,
+        "LAMINA_VN": float("nan"),
+        "MONEDA_PRECIO": moneda_precio,
+    }
+
+
 def _capturar_snapshot_pre_carga(ctx: dict) -> None:
     """Guarda % defensivo actual para mostrar antes/después tras el guardado (UX inversor)."""
     df_ag = ctx.get("df_ag")
@@ -832,20 +919,159 @@ def _render_importar_broker(ctx: dict) -> None:
     )
 
 
+def _render_compras_unitarias(ctx: dict) -> None:
+    """Varias compras reales: cada fila es un lote (unidades × precio unitario)."""
+    st.markdown("##### Compras unitarias")
+    st.caption(
+        "Cada fila es una compra del comprobante: ticker, unidades y precio **por unidad**. "
+        "Si compraste el mismo activo varias veces, cargá cada lote — el PPC se consolida solo. "
+        "ON, bonos y letras van en **Una compra** (valor nominal + paridad)."
+    )
+    lotes: list[dict[str, Any]] = list(st.session_state.get(_LOTES_UNITARIOS_KEY) or [])
+    ccl_spot = float(ctx.get("ccl") or 0.0)
+    univ = ctx.get("universo_df")
+
+    q = st.text_input(
+        "Buscá por nombre o ticker",
+        "",
+        key="ca_unit_q",
+        help="Ej.: nvidia, AAPL, GGAL.",
+    )
+    labels, label_map = _filtrar_univ_por_busqueda(ctx, q)
+    ticker_sel = ""
+    if labels:
+        sel = st.selectbox("Elegí el activo", labels, key="ca_unit_sel")
+        ticker_sel = label_map.get(sel, str(sel).split("—")[0].strip())
+    ticker_manual = st.text_input(
+        "O escribí el ticker",
+        ticker_sel,
+        key="ca_unit_tick",
+    ).strip().upper()
+    ticker = ticker_manual or ticker_sel
+
+    moneda_px = st.radio(
+        "Moneda del precio unitario",
+        ("Pesos (ARS)", "USD MEP (dólar CCL)"),
+        index=0,
+        horizontal=True,
+        key="ca_unit_moneda",
+    )
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        cant = st.number_input(
+            "Unidades",
+            min_value=0.0,
+            value=0.0,
+            step=1.0,
+            key="ca_unit_cant",
+        )
+    with c2:
+        es_mep = moneda_px.startswith("USD")
+        px = st.number_input(
+            "Precio unitario (USD MEP)" if es_mep else "Precio unitario (ARS)",
+            min_value=0.0,
+            value=0.0,
+            step=0.01 if es_mep else 1.0,
+            key="ca_unit_px",
+        )
+    with c3:
+        fc = st.date_input("Fecha de compra", value=date.today(), key="ca_unit_fecha")
+
+    if ticker and px > 0 and cant >= 1:
+        try:
+            prev = fila_desde_compra_unitaria(
+                ticker=ticker,
+                cantidad=cant,
+                precio_unitario=px,
+                fecha=fc,
+                ccl_spot=ccl_spot,
+                moneda="USD_MEP" if es_mep else "ARS",
+                universo_df=univ,
+            )
+            st.info(
+                f"Vista previa: **{int(cant)} × {ticker}** → "
+                f"**ARS {prev['PPC_ARS'] * int(cant):,.0f}** "
+                f"(~ USD {prev['PPC_USD'] * int(cant):,.2f} · {prev['TIPO']})."
+            )
+        except ValueError as e:
+            st.warning(str(e))
+            prev = None
+    else:
+        prev = None
+
+    puede_agregar = prev is not None and len(lotes) < _MAX_LOTES_UNITARIOS
+    if st.button(
+        "Agregar a la lista",
+        disabled=not puede_agregar,
+        key="ca_unit_add",
+        use_container_width=True,
+    ):
+        lotes.append(prev)
+        st.session_state[_LOTES_UNITARIOS_KEY] = lotes
+        st.rerun()
+
+    if not lotes:
+        st.caption("Todavía no hay lotes en la lista.")
+        return
+
+    from ui.mq26_ux import dataframe_auto_height
+
+    df_lotes = pd.DataFrame(lotes)
+    mostrar = df_lotes[["FECHA_COMPRA", "TICKER", "CANTIDAD", "PPC_ARS", "PPC_USD", "TIPO"]].copy()
+    mostrar.columns = ["Fecha", "Ticker", "Unidades", "Precio ARS", "Precio USD", "Tipo"]
+    st.dataframe(
+        mostrar,
+        use_container_width=True,
+        hide_index=True,
+        height=dataframe_auto_height(mostrar),
+    )
+    total_ars = float((df_lotes["CANTIDAD"] * df_lotes["PPC_ARS"]).sum())
+    st.caption(f"**{len(lotes)}** lote(s) · total aproximado **ARS {total_ars:,.0f}**.")
+
+    qcol, gcol = st.columns(2)
+    with qcol:
+        idx_del = st.number_input(
+            "Quitar fila Nº",
+            min_value=1,
+            max_value=len(lotes),
+            value=1,
+            step=1,
+            key="ca_unit_del_idx",
+        )
+        if st.button("Quitar de la lista", key="ca_unit_del", use_container_width=True):
+            lotes.pop(int(idx_del) - 1)
+            st.session_state[_LOTES_UNITARIOS_KEY] = lotes
+            st.rerun()
+    with gcol:
+        if st.button(
+            f"Guardar {len(lotes)} compra(s) en la cartera",
+            type="primary",
+            key="ca_unit_save",
+            use_container_width=True,
+        ):
+            _persist_filas(
+                ctx,
+                lotes,
+                modo=st.session_state.get("ca_merge_mode", "agregar"),
+                session_keys_clear=[_LOTES_UNITARIOS_KEY],
+            )
+
+
 def render_carga_activos(ctx: dict) -> None:
     """Menú principal de carga de activos."""
     ttab = st.session_state.get("inv_carga_tab")
-    if ttab in ("importar", "manual", "venta"):
+    if ttab in ("importar", "manual", "unitarias", "venta"):
         st.session_state["ca_menu_main"] = ttab
         st.session_state.pop("inv_carga_tab", None)
 
     st.markdown("### Sumar a esta cartera")
     modo = st.radio(
         "¿Qué querés hacer?",
-        ("importar", "manual", "venta", "historial"),
+        ("importar", "manual", "unitarias", "venta", "historial"),
         format_func=lambda x: {
             "importar": "Archivo del broker",
             "manual": "Una compra",
+            "unitarias": "Varias compras unitarias",
             "venta": "Una venta",
             "historial": "Historial",
         }[x],
@@ -857,6 +1083,13 @@ def render_carga_activos(ctx: dict) -> None:
 
     if modo == "importar":
         _render_importar_broker(ctx)
+        return
+    if modo == "unitarias":
+        _render_compras_unitarias(ctx)
+        last = st.session_state.get("inv_ultima_carga")
+        if isinstance(last, dict) and last.get("TICKER"):
+            st.divider()
+            _render_confirmacion_carga(str(last["TICKER"]), float(last.get("PPC_ARS", 0) or 0), ctx)
         return
     if modo == "venta":
         _render_carga_venta_simple(ctx)

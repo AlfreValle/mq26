@@ -865,6 +865,25 @@ if _mq26_role == "inversor":
     trans, _ = normalizar_transacciones_inversor_una_cartera(trans, _cliente_nombre)
 
 # ── Render sidebar desacoplado (B10 + C3) ────────────────────────────────────
+if not st.session_state.get("_mq26_mercado_purgado"):
+    try:
+        from core.purga_caches import purgar_caches_mercado
+
+        purgar_caches_mercado()
+        st.cache_data.clear()
+        for _k_purge in (
+            "pci_resultado",
+            "inv_plata_resultado",
+            "inv_recomendacion",
+            "df_scores",
+            "est_wiz_scored",
+        ):
+            st.session_state.pop(_k_purge, None)
+        st.session_state["_mq26_mercado_purgado"] = True
+    except Exception as _e_purge:
+        log_degradacion("run_mq26", "purga_caches_mercado_fallo", _e_purge)
+        st.session_state["_mq26_mercado_purgado"] = True
+
 from ui.sidebar import render_sidebar as _render_sidebar
 
 _sb = _render_sidebar(

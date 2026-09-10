@@ -143,3 +143,86 @@ def test_broker_importar_archivo_csv_vacio_no_crash():
     assert isinstance(res, ImportBrokerResult)
     assert isinstance(res.df, pd.DataFrame)
     assert res.df.empty
+
+
+def test_carga_activos_import_sin_botones_broker_decorativos():
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parent.parent / "ui" / "carga_activos.py").read_text(
+        encoding="utf-8"
+    )
+    assert "ca_br_balanz" not in src
+    assert "ca_up_broker" in src
+    assert "Archivo del broker" in src
+    assert "Varias compras unitarias" in src
+
+
+def test_fila_compra_unitaria_ars_por_unidad():
+    from ui.carga_activos import fila_desde_compra_unitaria
+
+    f = fila_desde_compra_unitaria(
+        ticker="AAPL",
+        cantidad=10,
+        precio_unitario=15_000.0,
+        fecha=date(2024, 6, 15),
+        ccl_spot=1500.0,
+        moneda="ARS",
+        ccl_operacion=1500.0,
+    )
+    assert f["TICKER"] == "AAPL"
+    assert f["CANTIDAD"] == 10
+    assert f["PPC_ARS"] == 15_000.0
+    assert f["PPC_USD"] == 10.0
+    assert f["TIPO"] == "CEDEAR"
+    assert f["MONEDA_PRECIO"] == "ARS"
+
+
+def test_fila_compra_unitaria_usd_mep():
+    from ui.carga_activos import fila_desde_compra_unitaria
+
+    f = fila_desde_compra_unitaria(
+        ticker="GGAL",
+        cantidad=4,
+        precio_unitario=8.0,
+        fecha=date(2024, 6, 15),
+        ccl_spot=1200.0,
+        moneda="USD_MEP",
+        ccl_operacion=1200.0,
+    )
+    assert f["PPC_USD"] == 8.0
+    assert f["PPC_ARS"] == 9600.0
+    assert f["MONEDA_PRECIO"] == "USD_MEP"
+
+
+def test_fila_compra_unitaria_rechaza_renta_fija():
+    import pytest
+
+    from core.renta_fija_ar import INSTRUMENTOS_RF
+    from ui.carga_activos import fila_desde_compra_unitaria
+
+    ticker_rf = next(iter(INSTRUMENTOS_RF))
+    with pytest.raises(ValueError, match="renta fija"):
+        fila_desde_compra_unitaria(
+            ticker=ticker_rf,
+            cantidad=10,
+            precio_unitario=97.0,
+            fecha=date(2024, 6, 15),
+            ccl_spot=1500.0,
+            ccl_operacion=1500.0,
+        )
+
+
+def test_fila_compra_unitaria_rechaza_cantidad_cero():
+    import pytest
+
+    from ui.carga_activos import fila_desde_compra_unitaria
+
+    with pytest.raises(ValueError, match="cantidad"):
+        fila_desde_compra_unitaria(
+            ticker="AAPL",
+            cantidad=0,
+            precio_unitario=100.0,
+            fecha=date(2024, 6, 15),
+            ccl_spot=1500.0,
+            ccl_operacion=1500.0,
+        )

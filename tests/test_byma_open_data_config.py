@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
+
 import core.byma_open_data_config as cfg
 
 
@@ -35,6 +37,16 @@ def test_byma_on_precio_umbral_ars(monkeypatch):
         assert cfg.byma_on_precio_umbral_ars() == 600.0
     finally:
         monkeypatch.delenv("MQ26_BYMA_ON_PRECIO_UMBRAL_ARS", raising=False)
+        importlib.reload(cfg)
+
+
+def test_byma_on_precio_umbral_ars_desde_ccl(monkeypatch):
+    monkeypatch.delenv("MQ26_BYMA_ON_PRECIO_UMBRAL_ARS", raising=False)
+    importlib.reload(cfg)
+    try:
+        assert cfg.byma_on_precio_umbral_ars(ccl=1500.0) == pytest.approx(450.0)
+        assert cfg.byma_on_precio_umbral_ars() == 500.0
+    finally:
         importlib.reload(cfg)
 
 

@@ -31,7 +31,6 @@ import pandas as pd
 import streamlit as st
 
 from core.byma_open_data_config import (
-    byma_on_precio_umbral_ars,
     byma_open_data_base_url,
     byma_open_data_cache_ttl_sec,
     byma_open_data_post_body,
@@ -42,6 +41,12 @@ from core.byma_open_data_config import (
 _BASE_URL = byma_open_data_base_url()
 _TIMEOUT = byma_open_data_timeout_sec()
 _TTL = byma_open_data_cache_ttl_sec()
+
+# Banda de paridad ON (incluye distressed). Un solo piso: helper, ÷100 del feed y sanidad live.
+_PARIDAD_ON_LO = 20.0
+_PARIDAD_ON_HI = 160.0
+_PARIDAD_ON_HI_SANIDAD = 200.0
+_PARIDAD_ON_HI_ESCALA = 220.0
 
 # Precio BYMA ON Hard Dollar: puede venir como (a) % par directo, (b) ARS por VN USD 1,
 # o (c) ARS por cada 100 nominales USD (típico prospecto / pantallas).
@@ -65,7 +70,7 @@ def _normalizar_lastprice_on_byma_meta(px_raw: float, ccl: float) -> tuple[float
     Convierte lastPrice crudo de BYMA al **ARS por 1 USD nominal** cuando viene en escala ×100.
 
     Heurística: si el precio “completo” implica paridad absurda (>500 %) pero precio/100 implica
-    paridad típica ON (35–220 %), se usa precio/100.
+    paridad típica ON (20–220 %, incluye distressed), se usa precio/100.
 
     Returns:
         (precio_ars_por_unidad, True) si se aplicó ÷100; (precio, False) si no.
@@ -76,7 +81,7 @@ def _normalizar_lastprice_on_byma_meta(px_raw: float, ccl: float) -> tuple[float
     ccl_f = float(ccl)
     par_full = (px / ccl_f) * 100.0
     par_scaled = (px / 100.0 / ccl_f) * 100.0
-    if 35.0 <= par_scaled <= 220.0 and par_full > 500.0:
+    if _PARIDAD_ON_LO <= par_scaled <= _PARIDAD_ON_HI_ESCALA and par_full > 500.0:
         return px / 100.0, True
     return px, False
 
@@ -88,20 +93,22 @@ def _normalizar_lastprice_on_byma(px_raw: float, ccl: float) -> float:
 
 def _paridad_pct_desde_precio_on(px: float, ccl: float) -> float:
     """
-    Infiere paridad % (50–140 típico ON) desde último precio BYMA y CCL.
+    Infiere paridad % (20–160: incluye ONs distressed) desde último precio BYMA y CCL.
 
-    - px < umbral configurado → ya es % par.
+    - Si px ya está en banda de paridad → es % par.
     - Si px/CCL está en rango ON → px es ARS por cada **100** VN USD.
     - Si (px/CCL)×100 está en rango → px es ARS por **1** VN USD.
     - Si no, conserva el comportamiento histórico (×100).
     """
     if ccl <= 0:
         ccl = 1.0
-    if px < byma_on_precio_umbral_ars():
-        return round(float(px), 2)
-    r1 = float(px) / float(ccl)
+    px = float(px)
+    _lo, _hi = _PARIDAD_ON_LO, _PARIDAD_ON_HI
+    # Ya es paridad % (banda ON típica, incluye distressed ≥20%).
+    if _lo <= px <= _hi:
+        return round(px, 2)
+    r1 = px / float(ccl)
     r2 = r1 * 100.0
-    _lo, _hi = 35.0, 160.0
     if _lo <= r1 <= _hi:
         return round(r1, 2)
     if _lo <= r2 <= _hi:
@@ -161,7 +168,7 @@ _COLS_DISPLAY = {
 }
 
 
-def _fetch_tipo(endpoint: str) -> list[dict[str, Any]]:
+def _fetch_tipo(endpoint: str, timeout: int | None = None) -> list[dict[str, Any]]:
     url  = f"{_BASE_URL}/{endpoint}"
     body = json.dumps(byma_open_data_post_body()).encode("utf-8")
     headers = {
@@ -171,13 +178,51 @@ def _fetch_tipo(endpoint: str) -> list[dict[str, Any]]:
     }
     req = Request(url, data=body, headers=headers, method="POST")
     try:
-        with urlopen(req, timeout=_TIMEOUT) as resp:
+        with urlopen(req, timeout=timeout if timeout is not None else _TIMEOUT) as resp:
             raw = json.loads(resp.read().decode("utf-8"))
     except (URLError, HTTPError, TimeoutError, OSError):
         return []
 
     data = raw if isinstance(raw, list) else raw.get("data", [])
     return data if isinstance(data, list) else []
+
+
+def last_ars_rv_byma(tickers: list[str], timeout_s: int = 8) -> dict[str, float]:
+    """Último ARS de CEDEARs/acciones desde BYMA Open Data. Sin yfinance ni fallbacks."""
+    want = {str(t).upper().strip() for t in tickers if t and not str(t).startswith("_")}
+    if not want:
+        return {}
+    lookup: dict[str, float] = {}
+    to = max(3, int(timeout_s))
+    for endpoint in ("cedears", "equities"):
+        still = {
+            t for t in want
+            if float(lookup.get(t, 0) or lookup.get(f"{t}.BA", 0) or 0) <= 0
+        }
+        if not still:
+            break
+        rows = _fetch_tipo(endpoint, timeout=to)
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            sym = str(r.get("symbol") or r.get("ticker") or "").upper().strip()
+            if not sym:
+                continue
+            px_raw = r.get("lastPrice")
+            if px_raw is None or str(px_raw).strip() in ("", "None"):
+                px_raw = r.get("closingPrice")
+            try:
+                px = float(px_raw or 0)
+            except (TypeError, ValueError):
+                continue
+            if px > 0:
+                lookup[sym] = px
+    out: dict[str, float] = {}
+    for t in want:
+        px = float(lookup.get(t, 0) or lookup.get(f"{t}.BA", 0) or 0)
+        if px > 0:
+            out[t] = round(px, 2)
+    return out
 
 
 # ─── FUNCIONES PURAS (sin dependencia Streamlit) ────────────────────────────
@@ -270,11 +315,9 @@ def enriquecer_on_desde_byma(ccl: float) -> dict[str, dict[str, Any]]:
             px_u, div_ult = _normalizar_lastprice_on_byma_meta(px, ccl)
             paridad_pct = _paridad_pct_desde_precio_on(px_u, ccl)
 
-            # Sanidad: paridades fuera del rango [35 %, 200 %] son datos basura del feed
-            # (ej. BYMA devuelve el precio HD en USD ≈ 14.90 → paridad = 14.90 % que es absurda
-            # para un bono corporativo investment-grade).  Descartar para que el motor use
-            # el catálogo de referencia en su lugar.
-            if not (35.0 <= paridad_pct <= 200.0):
+            # Sanidad: paridades fuera de [20 %, 200 %] son basura del feed
+            # (p.ej. lastPrice en USD ~14.90 leído como 14.90 %). Distressed ≥20 % entra.
+            if not (_PARIDAD_ON_LO <= paridad_pct <= _PARIDAD_ON_HI_SANIDAD):
                 continue
 
             # ARS por 1 USD nominal (misma escala que brokers tipo Balanz / “último operado”)

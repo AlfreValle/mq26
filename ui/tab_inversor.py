@@ -932,18 +932,30 @@ def render_tab_inversor(ctx: dict) -> None:
 
         st.markdown("### Agregar o importar")
         st.session_state.setdefault("inv_carga_open", False)
-        if st.button(
-            "📝 Registrar venta",
-            key="inv_open_venta_manual",
-            use_container_width=True,
-            help="Abre el asistente para registrar una venta manualmente o importar el extracto del broker.",
-        ):
-            st.session_state["inv_carga_open"] = True
-            st.session_state["inv_carga_tab"] = "venta"
-            st.rerun()
+        b_unit, b_venta = st.columns(2)
+        with b_unit:
+            if st.button(
+                "📋 Compras unitarias",
+                key="inv_open_compras_unitarias",
+                use_container_width=True,
+                help="Cargá cada compra: ticker, unidades y precio por unidad. Varios lotes del mismo activo quedan en FIFO.",
+            ):
+                st.session_state["inv_carga_open"] = True
+                st.session_state["inv_carga_tab"] = "unitarias"
+                st.rerun()
+        with b_venta:
+            if st.button(
+                "📝 Registrar venta",
+                key="inv_open_venta_manual",
+                use_container_width=True,
+                help="Abre el asistente para registrar una venta manualmente o importar el extracto del broker.",
+            ):
+                st.session_state["inv_carga_open"] = True
+                st.session_state["inv_carga_tab"] = "venta"
+                st.rerun()
         st.caption("Para vaciar toda la cartera y empezar de cero, usá el panel **🧹 Vaciar cartera** en la columna izquierda.")
         st.checkbox(
-            "Mostrar asistente para sumar compras o importar archivo del broker",
+            "Mostrar asistente (broker, una compra, compras unitarias o venta)",
             key="inv_carga_open",
         )
         if st.session_state.get("inv_carga_open"):
