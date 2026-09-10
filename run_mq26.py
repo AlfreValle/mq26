@@ -838,20 +838,48 @@ df_clientes = _df_clientes_scoped(TENANT_ID)
 # df_clientes ya viene filtrado por tenant + allowed_cliente_ids; si se manipuló
 # session_state["cliente_id"] a un ID ajeno, se descarta y se sigue SIN cliente
 # (no se expone el transaccional de otro). Admin (.env, sin restricción) ve todo el tenant.
-if _cliente_id is not None:
-    _ids_scope: set[int] = set()
-    if not df_clientes.empty and "ID" in df_clientes.columns:
-        _ids_scope = set(pd.to_numeric(df_clientes["ID"], errors="coerce").dropna().astype(int))
+def _descartar_cliente_fuera_de_scope(cliente_id, cliente_nombre: str, df: pd.DataFrame, role: str):
+    """Anti-IDOR fail-closed: el id activo debe estar en el df ya scopeado."""
+    if cliente_id is None:
+        return None, cliente_nombre
+    ids_scope: set[int] = set()
+    if df is not None and not df.empty and "ID" in df.columns:
+        ids_scope = set(pd.to_numeric(df["ID"], errors="coerce").dropna().astype(int))
     try:
-        _en_scope = int(_cliente_id) in _ids_scope
+        en_scope = int(cliente_id) in ids_scope
     except (TypeError, ValueError):
-        _en_scope = False
-    if not _en_scope:
-        _log.warning("scope_violation: cliente_id=%s fuera del scope (rol=%s)", _cliente_id, _mq26_role)
-        for _k in ("cliente_id", "cliente_nombre", "cliente_perfil", "cliente_horizonte_label"):
-            st.session_state.pop(_k, None)
-        _cliente_id = None
-        _cliente_nombre = ""
+        en_scope = False
+    if en_scope:
+        return cliente_id, cliente_nombre
+    _log.warning("scope_violation: cliente_id=%s fuera del scope (rol=%s)", cliente_id, role)
+    for _k in ("cliente_id", "cliente_nombre", "cliente_perfil", "cliente_horizonte_label"):
+        st.session_state.pop(_k, None)
+    return None, ""
+
+
+_cliente_id, _cliente_nombre = _descartar_cliente_fuera_de_scope(
+    _cliente_id, _cliente_nombre, df_clientes, _mq26_role
+)
+
+# Deeplinks: fail-closed en ui.deeplinks; se re-chequea el scope después de aplicar.
+try:
+    from ui.deeplinks import apply_deeplink, parse_deeplink, render_deeplink_status
+
+    _dl = parse_deeplink()
+    if _dl.has_any:
+        _dl_res = apply_deeplink(_dl, df_clientes=df_clientes)
+        if not _dl_res.ok and _dl_res.errors:
+            st.warning("Deeplink con errores: " + "; ".join(_dl_res.errors))
+        render_deeplink_status(_dl)
+        _cliente_id = st.session_state.get("cliente_id")
+        _cliente_nombre = st.session_state.get("cliente_nombre", "")
+        _cliente_id, _cliente_nombre = _descartar_cliente_fuera_de_scope(
+            _cliente_id, _cliente_nombre, df_clientes, _mq26_role
+        )
+        _cliente_perfil = st.session_state.get("cliente_perfil", _cliente_perfil)
+        _horiz_label = st.session_state.get("cliente_horizonte_label", _horiz_label)
+except Exception as _e_dl:
+    log_degradacion("run_mq26", "deeplink_apply_fallo", _e_dl)
 
 # ── Transaccional — se calcula ANTES del sidebar para pasarlo como param ────
 # (también lo necesita el cuerpo de la app, por eso vive aquí)
