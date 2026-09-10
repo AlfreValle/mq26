@@ -17,11 +17,11 @@ import streamlit as st
 from core.diagnostico_types import (
     CARTERA_IDEAL,
     UNIVERSO_RENTA_FIJA_AR,
+    etiqueta_fuente_precio,
     perfil_motor_salida,
 )
 from core.logging_config import get_logger
 from core.renta_fija_ar import es_fila_renta_fija_ar
-from services.cartera_service import PRECIOS_FALLBACK_ARS
 
 _log = get_logger(__name__)
 
@@ -48,55 +48,35 @@ def _log_degradacion(ctx: dict, evento: str, exc: Exception | None = None, **ext
     st.session_state["inv_degradado_ui"] = True
 
 
-def _precios_para_recomendar(ctx: dict) -> dict:
-    """
-    Precios **ARS por cuotaparte** (BYMA / teórico NY×CCL÷ratio / fallback).
-    Sin esto, cartera vacía solo usa fallbacks viejos o valores que parecen USD.
-    """
-    from services.cartera_service import (
-        asegurar_precios_fallback_cargados,
-        resolver_precios,
-    )
-
-    ccl = float(ctx.get("ccl") or 1150.0)
-    universo_df = ctx.get("universo_df")
-    asegurar_precios_fallback_cargados()
-
+def _tickers_semilla_precios(ctx: dict) -> list[str]:
+    """Anclas nombradas del ideal (SPY/QQQ). Sin análisis ni catálogo RF entero."""
+    _ = ctx  # la semilla es estructural, no depende del libro cargado
     need: set[str] = set()
     for _pesos in CARTERA_IDEAL.values():
         for k in _pesos or {}:
-            ks = str(k).strip()
+            ks = str(k).strip().upper()
             if ks and not ks.startswith("_"):
-                need.add(ks.upper())
-    df_an = ctx.get("df_analisis")
-    if df_an is not None and not df_an.empty and "TICKER" in df_an.columns:
-        for t in df_an["TICKER"].astype(str).str.upper().unique():
-            tt = str(t).strip()
-            if tt:
-                need.add(tt)
+                need.add(ks)
+    return sorted(need)
 
-    tickers_list = sorted(need)
-    live: dict[str, float] = {}
-    eng = ctx.get("engine_data")
-    if eng is not None and tickers_list:
-        try:
-            live = eng.obtener_precios_cartera(tickers_list, ccl) or {}
-        except Exception:
-            live = {}
 
-    resolved = resolver_precios(tickers_list, live, ccl, universo_df)
-    out: dict[str, float] = {}
-    for k, v in resolved.items():
-        fv = float(v or 0.0)
-        if fv > 0:
-            out[str(k).upper()] = fv
-    for k, v in (ctx.get("precios_dict") or {}).items():
-        fv = float(v or 0.0)
-        if fv > 0:
-            out[str(k).upper()] = fv
-    for k, v in PRECIOS_FALLBACK_ARS.items():
-        out.setdefault(str(k).upper(), float(v))
-    return out
+def _precios_para_recomendar(ctx: dict) -> dict:
+    """
+    Precios **ARS por cuotaparte** para armar/recomendar cartera.
+
+    No pega a Yahoo acá: un `yf.download` del análisis/universo traba el clic
+    (SSL/timeout). Las ONs salen por catálogo×CCL; el RV elegido se cotiza
+    después, en un lote chico, dentro de `generar_primera_cartera`.
+    """
+    from services.cartera_service import resolver_precios
+
+    ccl = float(ctx.get("ccl") or 0.0)
+    universo_df = ctx.get("universo_df")
+    tickers_list = _tickers_semilla_precios(ctx)
+    resolved = resolver_precios(
+        tickers_list, {}, ccl, universo_df, permitir_hard=False
+    )
+    return {str(k).upper(): float(v) for k, v in resolved.items() if float(v or 0) > 0}
 
 
 def _ctx_hash_inversor(ctx: dict) -> str:
@@ -291,6 +271,85 @@ def _nombre_universo_para_ticker(ticker: str, udf: pd.DataFrame | None) -> str:
     return ""
 
 
+def _nombre_criollo(ticker: str, udf: pd.DataFrame | None, item=None) -> str:
+    """Nombre comercial: item → universo → catálogo RF. Vacío si solo hay ticker."""
+    tu = str(ticker or "").strip().upper()
+    if not tu:
+        return ""
+    if item is not None:
+        n = str(getattr(item, "nombre_legible", "") or "").strip()
+        if n and n.upper() != tu:
+            return n[:72]
+    nom = _nombre_universo_para_ticker(tu, udf)
+    if nom and nom.upper() != tu:
+        return nom
+    try:
+        from core.renta_fija_ar import descripcion_legible
+
+        d = str(descripcion_legible(tu) or "").strip()
+        if d and d.upper() != tu:
+            return d[:72]
+    except Exception:
+        pass
+    return ""
+
+
+def _etiqueta_fuente_precio(codigo: str) -> str:
+    return etiqueta_fuente_precio(codigo)
+
+
+def _fila_editor_canasta(
+    ticker: str,
+    *,
+    unidades: int,
+    precio_ars: float,
+    tipo: str,
+    notas: str,
+    nombre: str = "",
+    fuente: str = "",
+) -> dict:
+    return {
+        "Ticker": ticker,
+        "Nombre": nombre,
+        "Unidades": int(unidades),
+        "Precio_ARS": float(precio_ars),
+        "Fuente": fuente,
+        "TIPO": tipo,
+        "Notas": notas,
+    }
+
+
+def _column_config_editor_canasta() -> dict:
+    return {
+        "Ticker": st.column_config.TextColumn("Ticker", help="Código BYMA", width="small"),
+        "Nombre": st.column_config.TextColumn(
+            "Nombre",
+            disabled=True,
+            width="medium",
+            help="Nombre comercial del instrumento.",
+        ),
+        "Unidades": st.column_config.NumberColumn("Unidades", min_value=0, step=1, width="small"),
+        "Precio_ARS": st.column_config.NumberColumn(
+            "Precio ARS c/u",
+            min_value=0.0,
+            format="%.2f",
+            help="Pesos por cuotaparte en BYMA.",
+        ),
+        "Fuente": st.column_config.TextColumn(
+            "Fuente",
+            disabled=True,
+            width="medium",
+            help="De dónde salió el precio de esta fila.",
+        ),
+        "TIPO": st.column_config.SelectboxColumn(
+            "Tipo",
+            options=_TIPOS_EDICION_PRIMERA_CARTERA,
+            width="small",
+        ),
+        "Notas": st.column_config.TextColumn("Notas (solo guía)", width="large"),
+    }
+
+
 def _cartera_resuelta_primera_cartera(ctx: dict) -> str:
     """
     Libro donde persistir compras sugeridas: **el mismo** que la cartera activa en contexto.
@@ -316,14 +375,148 @@ def _flag_plan_explicado(ctx: dict) -> bool:
         return True
 
 
+_TIPOS_INVALIDOS_EDICION = frozenset({"NAN", "NONE", "", "COMPRA", "VENTA"})
+
+
 def _tipo_universo_ticker(ticker: str, udf: pd.DataFrame | None) -> str:
-    if udf is None or udf.empty or "TICKER" not in udf.columns:
-        return "CEDEAR"
+    """Tipo canónico: maestro (RF manda) → universo_df → CEDEAR solo si no es RF."""
     tu = str(ticker or "").strip().upper()
-    m = udf[udf["TICKER"].astype(str).str.strip().str.upper() == tu]
-    if m.empty:
+    if not tu:
         return "CEDEAR"
-    t = str(m.iloc[0].get("TIPO", "") or "CEDEAR").strip().upper()
-    if t in ("ACCION", "ACCIÓN"):
-        return "ACCION_LOCAL"
-    return t or "CEDEAR"
+    try:
+        from core.instrument_master import get_master, normalizar_tipo
+
+        t_m = normalizar_tipo(get_master(udf).tipo(tu))
+        if t_m:
+            return t_m
+    except Exception:
+        pass
+    try:
+        from core.renta_fija_ar import es_renta_fija, get_meta
+
+        if es_renta_fija(tu):
+            meta = get_meta(tu) or {}
+            t_rf = str(meta.get("tipo") or "ON_USD").strip().upper()
+            return t_rf or "ON_USD"
+    except Exception:
+        pass
+    if udf is not None and not udf.empty and "TICKER" in udf.columns:
+        m = udf[udf["TICKER"].astype(str).str.strip().str.upper() == tu]
+        if not m.empty:
+            t = str(m.iloc[0].get("TIPO", "") or "").strip().upper()
+            if t in ("ACCION", "ACCIÓN"):
+                return "ACCION_LOCAL"
+            if t:
+                return t
+    return "CEDEAR"
+
+
+def _ppc_usd_desde_precio_ars(
+    ticker: str,
+    precio_ars: float,
+    ccl: float,
+    tipo: str = "",
+) -> float:
+    """PPC_USD para persistir el libro. Delega al helper canónico."""
+    from core.pricing_utils import ppc_usd_desde_precio_ars
+
+    return ppc_usd_desde_precio_ars(precio_ars, ticker, ccl, tipo=tipo)
+
+
+def _tipo_persistencia_fila(
+    ticker: str,
+    tipo_editor: str,
+    udf: pd.DataFrame | None,
+) -> str:
+    """RF siempre por maestro; RV respeta el editor si el tipo es válido."""
+    from core.renta_fija_ar import es_renta_fija
+
+    maestro = _tipo_universo_ticker(ticker, udf)
+    te = str(tipo_editor or "").strip().upper()
+    if es_renta_fija(ticker):
+        return maestro or te or "ON_USD"
+    if te in _TIPOS_INVALIDOS_EDICION or te not in _TIPOS_EDICION_PRIMERA_CARTERA:
+        return maestro or "CEDEAR"
+    return te
+
+
+def _filas_maestra_desde_editor(
+    edited: pd.DataFrame | None,
+    ccl: float,
+    udf: pd.DataFrame | None = None,
+) -> tuple[list[dict], list[dict]]:
+    """Parte el data_editor en filas que entran al libro vs. las que no se anotan."""
+    entra: list[dict] = []
+    excluidas: list[dict] = []
+    if edited is None or getattr(edited, "empty", True):
+        return entra, excluidas
+    from core.unit_contracts import es_instrumento_rf_usd_paridad
+
+    ccl_f = float(ccl or 0.0)
+    for _, row in edited.iterrows():
+        tick = str(row.get("Ticker", "")).strip().upper()
+        if not tick:
+            continue
+        uv = pd.to_numeric(row.get("Unidades", 0), errors="coerce")
+        u = int(uv) if pd.notna(uv) else 0
+        pxv = pd.to_numeric(row.get("Precio_ARS", 0), errors="coerce")
+        px = float(pxv) if pd.notna(pxv) else 0.0
+        ti = _tipo_persistencia_fila(
+            tick, str(row.get("TIPO", "") or ""), udf
+        )
+        if u <= 0 or px <= 0:
+            excluidas.append(
+                {
+                    "TICKER": tick,
+                    "TIPO": ti,
+                    "motivo": "sin unidades" if u <= 0 else "sin cotización",
+                    "Unidades": u,
+                    "Precio_ARS": px,
+                }
+            )
+            continue
+        ppc_usd = _ppc_usd_desde_precio_ars(tick, px, ccl_f, ti)
+        if es_instrumento_rf_usd_paridad(tick, ti) and ccl_f > 0 and ppc_usd > 0:
+            from core.pricing_utils import precio_ars_desde_ppc_usd
+
+            # ARS por 1 VN: mismo contrato que carga_activos / agregar_cartera.
+            ppc_ars = precio_ars_desde_ppc_usd(tick, ti, ppc_usd, ccl_f)
+        else:
+            ppc_ars = round(px, 4)
+        entra.append(
+            {
+                "FECHA_COMPRA": date.today(),
+                "TICKER": tick,
+                "CANTIDAD": u,
+                "PPC_USD": ppc_usd,
+                "PPC_ARS": ppc_ars,
+                "TIPO": ti,
+                "LAMINA_VN": float("nan"),
+            }
+        )
+    return entra, excluidas
+
+
+def _html_pills_ruta_decision(rr) -> str:
+    """Pills de trazabilidad: ruta de score + constructor (Sprint B)."""
+    from ui.mq26_ux import html_pills_fuente
+
+    ruta = str(getattr(rr, "ruta_score", "") or "")
+    ctor = str(getattr(rr, "constructor_ideal", "") or "")
+    fp = str(getattr(rr, "fingerprint_decision", "") or "")
+    hz = str(getattr(rr, "horizonte_label", "") or "")
+    if ruta == "scanner_60_20_20":
+        ruta_item: tuple[str, str] = ("Scanner 60/20/20", "neutral")
+    else:
+        ruta_item = ("Score estático", "ghost")
+    if ctor == "cartera_optima":
+        ctor_item: tuple[str, str] = ("Canasta dinámica", "ok")
+    elif ctor == "cartera_ideal_fallback":
+        ctor_item = ("Semilla de perfil (fallback)", "warn")
+    else:
+        ctor_item = (ctor or "Sin constructor", "ghost")
+    items: list[tuple[str, str]] = [ruta_item, ctor_item]
+    if hz:
+        items.append((f"Horizonte {hz}", "ghost"))
+    hint = f"decisión {fp}" if fp else ""
+    return html_pills_fuente(*items, hint=hint)

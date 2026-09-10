@@ -424,3 +424,40 @@ def test_primera_cartera_efectivo_max_5pct():
             f"(libre={remanente_libre:,.0f} ARS, base core={capital_en_titulos:,.0f} ARS, "
             f"perlas reservadas={perlas_reservado:,.0f} ARS)"
         )
+
+
+def test_guardar_on_fraccion_se_bloquea():
+    from ui.carga_activos import _aplicar_guard_paridad_rf
+
+    ok, errores, avisos = _aplicar_guard_paridad_rf(
+        [{"TICKER": "PN43O", "TIPO": "ON_USD", "PPC_USD": 0.975, "CANTIDAD": 100}]
+    )
+    assert ok == []
+    assert errores
+    assert avisos == []
+
+
+def test_guardar_on_fuera_rango_tipico_marca():
+    from ui.carga_activos import _aplicar_guard_paridad_rf
+
+    ok, errores, avisos = _aplicar_guard_paridad_rf(
+        [{"TICKER": "PN43O", "TIPO": "ON_USD", "PPC_USD": 45.0, "CANTIDAD": 100}]
+    )
+    assert len(ok) == 1
+    assert ok[0]["ALERTA_PARIDAD"] == "fuera_rango_tipico"
+    assert not errores
+    assert avisos
+
+
+def test_calcular_libro_mayor_on_ppc_ars_es_paridad():
+    """El libro mayor raíz no puede hacer PPC_USD × CCL sin /100 en una ON."""
+    from libro_mayor import calcular_libro_mayor
+
+    df = pd.DataFrame(
+        [{"Ticker": "PN43O", "Tipo": "ON_USD", "Cantidad": 1000, "PPC_USD": 97.5}]
+    )
+    out = calcular_libro_mayor(df, precios_usd={}, ratios={}, ccl=CCL)
+    assert not out.empty
+    ppc_ars = float(out.iloc[0]["PPC_ARS"])
+    assert abs(ppc_ars - PRECIO_ARS_POR_VN_ESPERADO) < 1.0
+    assert abs(ppc_ars - PARIDAD * CCL) > 1_000

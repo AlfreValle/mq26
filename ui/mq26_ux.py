@@ -82,6 +82,34 @@ def dataframe_auto_height(
     return max(int(min_px), min(int(max_px), h))
 
 
+def html_pills_fuente(*items: str | tuple[str, str], hint: str = "") -> str:
+    """
+    Badge compartido de «fuente del número» (cuatro pantallas de cartera óptima).
+
+    Cada item es un str (variant ``ghost``) o ``(texto, variant)`` con
+    variant en ``ok|warn|neutral|ghost``. Reusa ``mq-pill`` / ``mq-inv-ruta-score``.
+    """
+    bits: list[str] = []
+    allowed = {"ok", "warn", "neutral", "ghost"}
+    for it in items:
+        if isinstance(it, tuple):
+            text = str(it[0]) if it else ""
+            variant = str(it[1]) if len(it) > 1 else "ghost"
+        else:
+            text, variant = str(it), "ghost"
+        if variant not in allowed:
+            variant = "ghost"
+        bits.append(
+            f'<span class="mq-pill mq-pill--{variant}">{html_module.escape(text)}</span>'
+        )
+    hint_html = (
+        f'<span class="mq-inv-ruta-score__hint">{html_module.escape(hint)}</span>'
+        if hint
+        else ""
+    )
+    return f'<div class="mq-inv-ruta-score">{"".join(bits)}{hint_html}</div>'
+
+
 def hero_alignment_bar_html(pct: float, label: str = "Alineación con tu plan") -> str:
     """Barra hero 0–100% (snapshot del motor; solo presentación)."""
     p = max(0.0, min(100.0, float(pct)))
@@ -461,14 +489,20 @@ def highlight_pnl_target_stop(df: pd.DataFrame,
 
 
 # ── Cold start / onboarding: torta de cartera modelo por perfil ───────────────
-def fig_torta_ideal(perfil: str, ideal: dict[str, float]):
+def fig_torta_ideal(
+    perfil: str,
+    ideal: dict[str, float],
+    *,
+    titulo: str | None = None,
+):
     """
-    Dona con la distribución semilla (CARTERA_IDEAL) sugerida para el perfil.
-    Incluye el bucket agregado _RENTA_AR como “Renta fija AR (otros)” en la torta SSOT.
+    Dona con la distribución objetivo (canasta dinámica o semilla).
+    Incluye el bucket agregado _RENTA_AR como “Renta fija AR (otros)” si viene.
     """
     import plotly.graph_objects as go
 
     _bucket_labels = {"_RENTA_AR": "Renta fija AR (otros)"}
+    title_txt = titulo or f"Distribución semilla sugerida — Perfil {perfil}"
 
     def _label(k: str) -> str:
         if str(k).startswith("_"):
@@ -483,7 +517,7 @@ def fig_torta_ideal(perfil: str, ideal: dict[str, float]):
         fig.update_layout(
             **plotly_chart_layout_base(
                 height=280,
-                title=dict(text=f"Distribución semilla — {perfil}", font=dict(size=14)),
+                title=dict(text=title_txt, font=dict(size=14)),
                 margin=dict(t=40, b=10, l=10, r=10),
                 annotations=[dict(text="Sin pesos", x=0.5, y=0.5, showarrow=False)],
             ),
@@ -505,7 +539,7 @@ def fig_torta_ideal(perfil: str, ideal: dict[str, float]):
     fig.update_layout(
         **plotly_chart_layout_base(
             title=dict(
-                text=f"Distribución semilla sugerida — Perfil {perfil}",
+                text=title_txt,
                 font=dict(size=14),
             ),
             margin=dict(t=40, b=10, l=10, r=10),
@@ -514,3 +548,38 @@ def fig_torta_ideal(perfil: str, ideal: dict[str, float]):
         ),
     )
     return fig
+
+
+def error_message_html(
+    titulo: str,
+    cuerpo: str,
+    cta: str = "",
+    cta_href: str = "",
+) -> str:
+    """Mensaje de error descriptivo con CTA y región aria-live (portado de V10)."""
+    cta_html = ""
+    if cta:
+        if cta_href:
+            cta_html = (
+                f'<div class="mq-error-boundary__cta">'
+                f'<a href="{html_module.escape(cta_href)}">{html_module.escape(cta)}</a>'
+                f"</div>"
+            )
+        else:
+            cta_html = f'<div class="mq-error-boundary__cta">{html_module.escape(cta)}</div>'
+    return (
+        f'<div class="mq-error-boundary" role="alert" aria-live="assertive">'
+        f'<div class="mq-error-boundary__title">⛔ {html_module.escape(titulo)}</div>'
+        f'<div class="mq-error-boundary__body">{html_module.escape(cuerpo)}</div>'
+        f"{cta_html}"
+        f"</div>"
+    )
+
+
+def chart_description_html(titulo: str, descripcion: str) -> str:
+    """Descripción accesible para gráficos (portado de V10)."""
+    return (
+        f'<figure role="img" aria-label="{html_module.escape(titulo)}">'
+        f'<figcaption class="mq-chart-caption">{html_module.escape(descripcion)}</figcaption>'
+        f"</figure>"
+    )

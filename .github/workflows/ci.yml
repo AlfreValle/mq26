@@ -16,6 +16,8 @@ jobs:
         run: |
           pip install ruff
           ruff check . --exclude .claude
+      - name: Unidades canónicas (PPC_USD×CCL y RATIO default)
+        run: python scripts/check_unidades_canonicas.py
 
   mypy-strict:
     # Bloqueante: módulos H06 con disallow_untyped_defs activo (ver [tool.mypy.overrides] en pyproject.toml).

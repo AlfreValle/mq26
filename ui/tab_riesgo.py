@@ -10,7 +10,7 @@ import streamlit as st
 
 from core.structured_logging import log_degradacion
 from services.risk_var import calcular_var_cvar
-from ui.mq26_ux import dataframe_auto_height, plotly_template_actual
+from ui.mq26_ux import dataframe_auto_height, html_pills_fuente, plotly_template_actual
 
 # ── Glosario de métricas de riesgo en lenguaje humano (U39 Must) ─────────
 _GLOSARIO_RIESGO = {
@@ -169,6 +169,14 @@ def render_tab_riesgo(ctx: dict) -> None:
     # ── SUB-TAB: BACKTEST DUAL ───────────────────────────────────────────────────
     with sub_bt:
         st.subheader("📈 Backtest vs Benchmark — Cartera Actual + Óptima")
+        st.markdown(
+            html_pills_fuente(
+                (f"Hereda modelo Tab 3 ({modelo_opt})", "neutral"),
+                ("Backtest teórico", "ghost"),
+                ("Óptima ≠ orden de compra", "warn"),
+            ),
+            unsafe_allow_html=True,
+        )
         if tiene_dual:
             st.success(f"Comparando: **Cartera Actual** vs **Cartera Óptima ({modelo_opt})**")
         else:

@@ -5,20 +5,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-
-def es_instrumento_rf_usd_paridad(ticker: str, tipo: str | None = None) -> bool:
-    """
-    True si el instrumento trata PPC/precio como paridad % sobre nominal USD (ON/bono cable),
-    alineado con `services.cartera_service._ppc_usd_es_paridad_rf_usd`.
-    """
-    from core.renta_fija_ar import get_meta
-
-    tu = str(ticker or "").upper().strip()
-    m = get_meta(tu)
-    if m and str(m.get("moneda", "")).upper() == "USD":
-        return True
-    tp = str(tipo or "").upper().strip()
-    return tp in ("ON_USD", "BONO_USD")
+from core.pricing_utils import (
+    es_ppc_usd_paridad_rf as es_instrumento_rf_usd_paridad,
+)
+from core.pricing_utils import (
+    precio_ars_desde_ppc_usd,  # noqa: F401 — re-export histórico
+)
 
 
 def etiqueta_unidad_operativa_ejecucion(ticker: str, tipo: str | None = None) -> str:

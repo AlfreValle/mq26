@@ -16,6 +16,7 @@ import streamlit as st
 
 from core.structured_logging import log_degradacion
 from services.byma_watchdog import check_byma_status
+from ui.mq26_ux import html_pills_fuente
 
 _LOG_NAME = "ui.tab_mercado"
 
@@ -255,6 +256,14 @@ def _render_rf(ctx: dict) -> None:
                     "la fecha de vencimiento de cada letra — ver prospecto CNV."
                 )
 
+    with st.expander("📐 Letras vs plazo fijo (ilustrativo)", expanded=False):
+        try:
+            from ui.components.letras_vs_pf_panel import render_letras_vs_pf_panel
+
+            render_letras_vs_pf_panel(key_prefix="mkt_letras_pf")
+        except Exception as _e_pf:
+            log_degradacion(_LOG_NAME, "letras_vs_pf_panel_error", _e_pf)
+
 
 # ── SUB-PÁGINA C: CARTERA ÓPTIMA ──────────────────────────────────────────────
 
@@ -272,6 +281,18 @@ def _render_cartera_optima(ctx: dict) -> None:
     st.markdown(
         f"**¿En qué invertir ahora?** Cartera sugerida según perfil **{perfil}** "
         f"con precios BYMA en tiempo real"
+    )
+    st.markdown(
+        html_pills_fuente(
+            ("BYMA en vivo", "ok"),
+            ("Comprable hoy", "neutral"),
+        ),
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "Esta cartera es una sugerencia algorítmica basada en señales técnicas "
+        "y fundamentales. No es asesoramiento de inversión. "
+        "Consultá con tu asesor antes de operar."
     )
 
     # Editar perfil si el usuario quiere simular otro
@@ -350,13 +371,6 @@ def _render_cartera_optima(ctx: dict) -> None:
                      hide_index=True, height=220)
     else:
         st.info("Sin datos de ONs disponibles.")
-
-    st.divider()
-    st.caption(
-        "⚠️ Esta cartera es una sugerencia algorítmica basada en señales técnicas "
-        "y fundamentales. No es asesoramiento de inversión. "
-        "Consultá con tu asesor antes de operar."
-    )
 
 
 # ── ORQUESTADOR PRINCIPAL ─────────────────────────────────────────────────────

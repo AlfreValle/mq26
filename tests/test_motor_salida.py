@@ -249,3 +249,85 @@ class TestEvaluarSalida:
 
         r = evaluar_salida("AAPL", 100.0, 110.0, -10.0, 7.0, 7.0, FECHA_COMPRA_BASE)
         assert "senal" in r
+
+
+# ─── Regresión unidades (mismo contrato que tests/test_on_pricing.py) ───
+
+class TestRegresionUnidadesDegradadas:
+    """Path con precios_dict vacío: el costo sale de PPC_USD vía helper canónico."""
+
+    CCL = 1200.0
+    PARIDAD = 97.5
+
+    def test_on_ppc_usd_paridad_no_queda_100x(self):
+        import pandas as pd
+
+        from services.motor_salida import evaluar_filas_salida
+
+        df = pd.DataFrame(
+            [
+                {
+                    "TICKER": "PN43O",
+                    "TIPO": "ON_USD",
+                    "CANTIDAD_TOTAL": 1000,
+                    "PPC_USD": self.PARIDAD,
+                    "PPC_ARS": 0,
+                }
+            ]
+        )
+        evs = evaluar_filas_salida(df, {}, {}, {}, ccl=self.CCL)
+        assert len(evs) == 1
+        costo = float(evs[0]["ppc_usd"])
+        esperado = (self.PARIDAD / 100.0) * self.CCL  # 1_170 ARS / VN
+        roto_100x = self.PARIDAD * self.CCL  # 117_000
+        assert abs(costo - esperado) < 1.0, f"costo={costo} ≠ {esperado} (¿olvidó /100?)"
+        assert abs(costo - roto_100x) > 1_000
+        assert evs[0]["unidad_base"] == "ars_unit_derived_from_usd"
+
+    def test_cedear_sin_columna_ratio_usa_maestro_no_1(self):
+        import pandas as pd
+
+        from core.pricing_utils import obtener_ratio
+        from services.motor_salida import evaluar_filas_salida
+
+        assert obtener_ratio("GOOGL") == 58.0
+        df = pd.DataFrame(
+            [
+                {
+                    "TICKER": "GOOGL",
+                    "TIPO": "CEDEAR",
+                    "CANTIDAD_TOTAL": 10,
+                    "PPC_USD": 2.50,
+                    "PPC_ARS": 0,
+                }
+            ]
+        )
+        evs = evaluar_filas_salida(df, {}, {}, {}, ccl=self.CCL)
+        assert len(evs) == 1
+        assert evs[0]["unidad_base"] == "ars_unit_derived_from_usd"
+        assert "ratio_desde_maestro" in evs[0]["quality_flags"]
+        # Certificado: 2.50 × CCL. Ratio 1.0 silencioso evaluaría igual en ARS,
+        # pero el flag tiene que venir del maestro (58), no de .get("RATIO", 1.0).
+        assert abs(float(evs[0]["ppc_usd"]) - 2.50 * self.CCL) < 1.0
+
+    def test_cedear_ratio_desconocido_no_inventa_uno(self):
+        import pandas as pd
+
+        from services.motor_salida import evaluar_filas_salida
+
+        df = pd.DataFrame(
+            [
+                {
+                    "TICKER": "ZZZNOEXISTE",
+                    "TIPO": "CEDEAR",
+                    "CANTIDAD_TOTAL": 10,
+                    "PPC_USD": 2.50,
+                    "PPC_ARS": 0,
+                }
+            ]
+        )
+        evs = evaluar_filas_salida(df, {}, {}, {}, ccl=self.CCL)
+        assert len(evs) == 1
+        assert evs[0]["unidad_base"] == "missing_ratio"
+        assert evs[0]["senal"] == "⚪ SIN EVALUAR"
+        assert "ratio_desconocido" in evs[0]["quality_flags"]

@@ -14,6 +14,17 @@ from ui.mq26_ux import dataframe_auto_height
 from ui.rbac import can_action as _can_action_rbac
 
 
+def _prop_y_cartera_sidebar(cartera_activa: str, ctx: dict) -> tuple[str, str]:
+    """Usa la cartera del sidebar; no vuelve a preguntar propietario."""
+    raw = str(cartera_activa or "").strip()
+    if "|" in raw:
+        prop, cart = raw.split("|", 1)
+        return prop.strip() or "Cliente", cart.strip() or "Principal"
+    prop = str(ctx.get("prop_nombre") or ctx.get("cliente_nombre") or "Cliente")
+    prop = prop.split("|")[0].strip() or "Cliente"
+    return prop, raw or "Principal"
+
+
 def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
                         cartera_activa, df_clientes, cs, dbm, lm, bi, gr,
                         engine_data, BASE_DIR, _boton_exportar):
@@ -31,31 +42,65 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
         universo_df=engine_data.universo_df,
     ) if tickers_cartera else ({}, {})
 
-    # ── c.1: Importar comprobante broker ─────────────────────────────────
+    # ── c.1: Importar comprobante broker (un paso: archivo → preview → confirmar)
     with sub_lm_imp:
-        st.markdown("#### 📥 Importar comprobante de broker (Balanz / Bull Market)")
-        col_bi1, col_bi2, col_bi3 = st.columns(3)
-        with col_bi1:
-            archivo_broker = st.file_uploader(
-                "Subí el Excel del broker:", type=["xlsx"], key="uploader_broker"
+        st.markdown("#### Importar Excel del broker")
+        _es_todas_lm = str(cartera_activa).strip() == "-- Todas las carteras --"
+        prop_broker, cart_broker = _prop_y_cartera_sidebar(cartera_activa, ctx)
+        ccl_broker = float(ccl) if ccl else 1500.0
+
+        if _es_todas_lm:
+            st.info(
+                "Elegí una **cartera concreta** en el sidebar. "
+                "El archivo se carga ahí; no hace falta volver a elegir propietario."
             )
-        with col_bi2:
-            # MQ2-A8: propietarios dinámicos desde tabla clientes
-            _nombres_cli = sorted(df_clientes["Nombre"].dropna().tolist()) if not df_clientes.empty else []
-            _prop_opts = _nombres_cli if _nombres_cli else ["Alfredo y Andrea", "Alfredo", "Santi"]
-            prop_broker = st.selectbox(
-                "Propietario:", _prop_opts, key="prop_broker"
+        else:
+            st.caption(
+                f"Destino: **{prop_broker} · {cart_broker}** · CCL ${ccl_broker:,.0f}. "
+                "Si el comprobante es de otro día, abrí opciones abajo."
             )
-        with col_bi3:
-            _cart_opts_b = sorted({c.split("|")[1].strip() for c in (ctx.get("carteras_csv") or []) if "|" in c}) or ["Retiro", "Reto 2026", "Cartera Agresiva"]
-            cart_broker = st.selectbox(
-                "Cartera:", _cart_opts_b, key="cart_broker"
-            )
-        ccl_broker = st.number_input(
-            f"CCL del día de las operaciones (actual: ${ccl:,.0f}):",
-            min_value=100.0, value=float(ccl), step=10.0, key="ccl_broker"
+
+        archivo_broker = st.file_uploader(
+            "Soltá el Excel de Balanz, IOL o Bull Market",
+            type=["xlsx", "xls"],
+            key="uploader_broker",
+            disabled=_es_todas_lm or _viewer_readonly,
+            help="Exportá tenencias u operaciones desde el broker. MQ26 detecta el formato.",
         )
-        if archivo_broker is not None:
+        with st.expander("Opciones (CCL u otra cartera)", expanded=False):
+            ccl_broker = st.number_input(
+                "CCL de las operaciones",
+                min_value=100.0,
+                value=float(ccl_broker),
+                step=10.0,
+                key="ccl_broker",
+            )
+            if st.checkbox("Cargar en otra cartera", value=False, key="lm_imp_otra_cartera"):
+                _nombres_cli = (
+                    sorted(df_clientes["Nombre"].dropna().tolist())
+                    if not df_clientes.empty
+                    else []
+                )
+                _prop_opts = _nombres_cli if _nombres_cli else [prop_broker]
+                _idx_p = _prop_opts.index(prop_broker) if prop_broker in _prop_opts else 0
+                prop_broker = st.selectbox(
+                    "Propietario",
+                    _prop_opts,
+                    index=_idx_p,
+                    key="prop_broker",
+                )
+                _cart_opts_b = sorted(
+                    {c.split("|")[1].strip() for c in (ctx.get("carteras_csv") or []) if "|" in c}
+                ) or [cart_broker]
+                _idx_c = _cart_opts_b.index(cart_broker) if cart_broker in _cart_opts_b else 0
+                cart_broker = st.selectbox(
+                    "Cartera",
+                    _cart_opts_b,
+                    index=_idx_c,
+                    key="cart_broker",
+                )
+
+        if archivo_broker is not None and not _es_todas_lm:
             try:
                 df_preview = bi.importar_comprobante(
                     archivo_broker, propietario=prop_broker,
@@ -304,17 +349,39 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
                             )
                             _moneda_r = str(_r.get("Moneda_Precio", "ARS") or "ARS").strip().upper()
                             _es_mep = _moneda_r in ("USD MEP", "USD_MEP", "MEP")
+                            _ti = (
+                                str(_r.get("Tipo_Instrumento", "CEDEAR")).strip().upper()
+                                or "CEDEAR"
+                            )
+                            if _ti in ("COMPRA", "VENTA"):
+                                _ti = "CEDEAR"
                             if _px_raw <= 0:
                                 st.warning(
                                     f"{_tick}: precio unitario debe ser > 0 — fila omitida."
                                 )
                                 continue
+                            from core.pricing_utils import (
+                                ppc_usd_desde_precio_ars as _ppc_inv,
+                            )
+                            from core.pricing_utils import (
+                                precio_ars_desde_ppc_usd as _px_ppc,
+                            )
+                            from core.pricing_utils import (
+                                validar_ppc_usd_paridad_rf as _val_par,
+                            )
+
                             if _es_mep:
                                 _ppc_usd = round(_px_raw, 6)
-                                _ppc_ars = round(_ppc_usd * _ccl_lm, 4)
+                                _ppc_ars = _px_ppc(_tick, _ti, _ppc_usd, _ccl_lm)
                             else:
                                 _ppc_ars = round(_px_raw, 4)
-                                _ppc_usd = round(_ppc_ars / _ccl_lm, 6)
+                                _ppc_usd = _ppc_inv(_ppc_ars, _tick, _ccl_lm, tipo=_ti)
+                            _ok_p, _marca_p, _msg_p = _val_par(_tick, _ti, _ppc_usd)
+                            if not _ok_p:
+                                st.error(_msg_p)
+                                continue
+                            if _marca_p:
+                                st.warning(_msg_p)
                             _fecha_v = _r.get("Fecha")
                             if pd.isna(_fecha_v):
                                 st.warning(f"{_tick}: fecha inválida — fila omitida.")
@@ -324,12 +391,6 @@ def _render_libro_mayor(ctx, df_ag, tickers_cartera, precios_dict, ccl,
                                 if hasattr(_fecha_v, "strftime")
                                 else pd.to_datetime(_fecha_v).date()
                             )
-                            _ti = (
-                                str(_r.get("Tipo_Instrumento", "CEDEAR")).strip().upper()
-                                or "CEDEAR"
-                            )
-                            if _ti in ("COMPRA", "VENTA"):
-                                _ti = "CEDEAR"
                             _g = float(
                                 pd.to_numeric(
                                     _r.get("Gastos_Operacion", 0), errors="coerce"

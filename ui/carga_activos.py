@@ -13,7 +13,7 @@ import streamlit as st
 
 from broker_importer import importar_archivo_broker
 from core.logging_config import get_logger
-from services.copy_inversor import broker_tarjeta_sub, historial_meses_copy
+from services.copy_inversor import historial_meses_copy
 
 _log = get_logger(__name__)
 from core.renta_fija_ar import (
@@ -25,6 +25,34 @@ from core.renta_fija_ar import (
     tir_al_precio,
     valor_nominal_a_ars,
 )
+
+
+def _aplicar_guard_paridad_rf(
+    filas: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str], list[str]]:
+    """KPI dictamen: no persistir ON/bono USD con PPC_USD fuera de escala."""
+    from core.pricing_utils import validar_ppc_usd_paridad_rf
+
+    ok: list[dict[str, Any]] = []
+    errores: list[str] = []
+    avisos: list[str] = []
+    for f in filas:
+        ticker = str(f.get("TICKER", "") or "")
+        tipo = str(f.get("TIPO", "") or "")
+        try:
+            ppc = float(f.get("PPC_USD") or 0)
+        except (TypeError, ValueError):
+            ppc = 0.0
+        persistible, marca, msg = validar_ppc_usd_paridad_rf(ticker, tipo, ppc)
+        if not persistible:
+            errores.append(msg or f"{ticker}: paridad RF inválida.")
+            continue
+        if marca:
+            f = dict(f)
+            f["ALERTA_PARIDAD"] = marca
+            avisos.append(msg)
+        ok.append(f)
+    return ok, errores, avisos
 
 
 def _ticker_col_univ(df: pd.DataFrame | None) -> str | None:
@@ -220,6 +248,15 @@ def _persist_filas(
             st.info(aviso)
     except Exception as _e_lam:
         _log.warning("completar_lamina_vn_filas falló (no bloquea): %s", _e_lam)
+    filas, err_paridad, warn_paridad = _aplicar_guard_paridad_rf(filas)
+    for e in err_paridad:
+        st.error(e)
+    for w in warn_paridad:
+        st.warning(w)
+    if not filas:
+        if err_paridad:
+            st.error("Ninguna fila se guardó: paridad de ON/bono USD fuera de escala.")
+        return
     try:
         df_prev = ed.cargar_transaccional().copy()
     except Exception as e:
@@ -706,29 +743,16 @@ def _render_carga_venta_simple(ctx: dict) -> None:
 
 
 def _render_importar_broker(ctx: dict) -> None:
-    st.markdown("##### Importar desde tu broker")
     st.caption(
-        "Elegí tu broker, exportá tu archivo (Excel o CSV) y subilo acá. "
-        "Si usás otro broker, probá igual: a veces el formato es compatible."
+        "Balanz, IOL o Bull Market. Exportá Excel o CSV y subilo — detectamos el formato. "
+        f"Se guarda en **{_cartera_csv(ctx)}**."
     )
-    bc1, bc2, bc3 = st.columns(3)
-    with bc1:
-        st.markdown("**Balanz**")
-        st.caption(broker_tarjeta_sub("Balanz"))
-        if st.button("Balanz", key="ca_br_balanz", use_container_width=True):
-            st.info("Exportá desde Balanz y subí el archivo abajo.")
-    with bc2:
-        st.markdown("**IOL**")
-        st.caption(broker_tarjeta_sub("IOL"))
-        if st.button("IOL", key="ca_br_iol", use_container_width=True):
-            st.info("Exportá desde IOL y subí el archivo abajo.")
-    with bc3:
-        st.markdown("**Bull Market**")
-        st.caption(broker_tarjeta_sub("BMB"))
-        if st.button("BMB", key="ca_br_bmb", use_container_width=True):
-            st.info("Exportá operaciones en Excel/CSV desde Bull Market.")
     prop = str(ctx.get("prop_nombre") or ctx.get("cliente_nombre") or "Cliente")
-    uploaded = st.file_uploader("Archivo Excel o CSV", type=["xlsx", "xls", "csv", "txt"], key="ca_up_broker")
+    uploaded = st.file_uploader(
+        "Archivo Excel o CSV",
+        type=["xlsx", "xls", "csv", "txt"],
+        key="ca_up_broker",
+    )
     if uploaded:
         fmt_guess = "auto"
         try:
@@ -815,18 +839,19 @@ def render_carga_activos(ctx: dict) -> None:
         st.session_state["ca_menu_main"] = ttab
         st.session_state.pop("inv_carga_tab", None)
 
-    st.markdown("### Sumar operaciones a tu cartera")
+    st.markdown("### Sumar a esta cartera")
     modo = st.radio(
         "¿Qué querés hacer?",
         ("importar", "manual", "venta", "historial"),
         format_func=lambda x: {
-            "importar": "Importar archivo del broker",
-            "manual": "Cargar una compra manual",
-            "venta": "Registrar una venta",
-            "historial": "Ver historial de operaciones",
+            "importar": "Archivo del broker",
+            "manual": "Una compra",
+            "venta": "Una venta",
+            "historial": "Historial",
         }[x],
         horizontal=True,
         key="ca_menu_main",
+        label_visibility="collapsed",
     )
     st.session_state.setdefault("ca_merge_mode", "agregar")
 

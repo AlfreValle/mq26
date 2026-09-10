@@ -21,8 +21,10 @@ from config import (
     UNIVERSO_BASE,
 )
 from core.pricing_utils import (
+    PPC_USD_RF_BLOQUEO_MIN,
     ccl_historico_por_fecha,
-    es_renta_fija_local,
+    es_ppc_usd_paridad_rf,
+    precio_ars_desde_ppc_usd,
 )
 from core.pricing_utils import (
     obtener_ratio as ratio_desde_universo_o_config,
@@ -47,6 +49,33 @@ def parse_ratio(valor) -> float:
     """Parsea el ratio de un CEDEAR desde distintos formatos ('20', '20:1', 20.0)."""
     try: return float(str(valor).split(":")[0].strip())
     except (ValueError, TypeError): return 1.0
+
+
+def costo_ars_historico_compra(
+    ticker: str,
+    tipo: str,
+    cant: float,
+    ppc_ars: float,
+    ppc_usd: float,
+    ccl: float,
+    es_local: bool,
+) -> float:
+    """Costo ARS de una compra: helper canónico, sin umbral mágico ppc>10."""
+    if es_ppc_usd_paridad_rf(ticker, tipo) and ppc_usd > 0:
+        derivado = precio_ars_desde_ppc_usd(ticker, tipo, ppc_usd, ccl)
+        if ppc_ars > 0 and ppc_usd < PPC_USD_RF_BLOQUEO_MIN:
+            # PPC_USD parece fracción (0.975); el ARS del broker es la fuente.
+            return cant * ppc_ars
+        if ppc_ars > 0 and derivado > 0:
+            escala = ppc_ars / derivado
+            if 0.1 <= escala <= 20.0:
+                return cant * ppc_ars
+        return cant * derivado if derivado > 0 else (cant * ppc_ars if ppc_ars > 0 else 0.0)
+    if es_local:
+        if ppc_ars > 0:
+            return cant * ppc_ars
+        return cant * ppc_usd if ppc_usd > 0 else 0.0
+    return cant * precio_ars_desde_ppc_usd(ticker, tipo, ppc_usd, ccl)
 
 def asignar_sector(ticker: str) -> str:
     return SECTORES.get(ticker.upper(), "Otros")
@@ -307,49 +336,18 @@ class DataEngine:
                 for _, row in buys.iterrows():
                     cant_r = float(row["CANTIDAD"])
                     fecha_key = str(row.get("FECHA_COMPRA", ""))[:7]
-                    ccl_hist = ccl_historico_por_fecha(fecha_key, fallback=1350.0)
-                    if es_local:
-                        # Instrumento local ARS:
-                        # - Acciones locales: PPC_ARS directo o fallback PPC_USD como ARS.
-                        # - Renta fija local (ON/bonos/letras): normalizar por paridad (% del nominal)
-                        #   para mantener unidad homogénea de lámina.
-                        ppc_ars_r = float(row.get("PPC_ARS", 0) or 0)
-                        ppc_usd_r = float(row.get("PPC_USD", 0) or 0)
-                        if es_renta_fija_local(tipo_instr):
-                            # PPC_ARS se usa directamente SOLO si está en escala coherente
-                            # con lo que esperamos (paridad × CCL por 1 VN USD).
-                            # Si PPC_ARS es 100x mayor que el valor derivado de PPC_USD,
-                            # es porque fue ingresado en escala "por 100 VN" → usar PPC_USD.
-                            ppc_ars_valido = False
-                            if ppc_ars_r > 0 and ppc_usd_r > 0:
-                                # Normalizar PPC_USD a fracción de paridad
-                                _ppc_frac = ppc_usd_r / 100.0 if ppc_usd_r > 10 else ppc_usd_r
-                                _ars_esperado = _ppc_frac * ccl_hist if ccl_hist > 0 else 0
-                                _ratio = ppc_ars_r / _ars_esperado if _ars_esperado > 0 else 0
-                                # Válido si está dentro de 20x del esperado
-                                ppc_ars_valido = (0.1 <= _ratio <= 20.0)
-                            elif ppc_ars_r > 0:
-                                ppc_ars_valido = True  # sin PPC_USD para comparar
-
-                            if ppc_ars_valido:
-                                inv_ars_hist += cant_r * ppc_ars_r
-                            elif ppc_usd_r > 10:
-                                # PPC_USD en formato paridad% (ej: 100.8 = 100.8%)
-                                inv_ars_hist += cant_r * (ppc_usd_r / 100.0) * ccl_hist
-                            elif ppc_usd_r > 0:
-                                # PPC_USD en formato fracción (ej: 1.008 = 100.8%)
-                                inv_ars_hist += cant_r * ppc_usd_r * ccl_hist
-                            else:
-                                inv_ars_hist += 0.0
-                            continue
-                        if ppc_ars_r > 0:
-                            inv_ars_hist += cant_r * ppc_ars_r
-                        else:
-                            # fallback: PPC_USD interpretado como precio ARS
-                            inv_ars_hist += cant_r * ppc_usd_r
-                    else:
-                        # CEDEAR: PPC_USD = USD por certificado; costo ARS = × CCL en fecha
-                        inv_ars_hist += cant_r * float(row["PPC_USD"]) * ccl_hist
+                    ccl_hist = ccl_historico_por_fecha(fecha_key)
+                    ppc_ars_r = float(row.get("PPC_ARS", 0) or 0)
+                    ppc_usd_r = float(row.get("PPC_USD", 0) or 0)
+                    inv_ars_hist += costo_ars_historico_compra(
+                        str(ticker_key),
+                        tipo_instr,
+                        cant_r,
+                        ppc_ars_r,
+                        ppc_usd_r,
+                        ccl_hist,
+                        es_local,
+                    )
 
             rows.append({
                 "TICKER":                ticker_key,
@@ -428,7 +426,6 @@ class DataEngine:
             tipo_raw = str(g["TIPO"].iloc[0]) if "TIPO" in g.columns else "CEDEAR"
             tipo_instr = self._tipo_normalizado_por_ticker(str(ticker_key), tipo_raw)
             es_local = es_instrumento_local_ars(str(ticker_key), tipo_instr)
-            ratio = 1.0 if es_local else float(self.obtener_ratio(str(ticker_key)))
             _lam_s = pd.to_numeric(g.get("LAMINA_VN", pd.Series(dtype=float)), errors="coerce").dropna()
             lamina_vn = float(_lam_s.iloc[0]) if not _lam_s.empty else float("nan")
 
@@ -444,27 +441,19 @@ class DataEngine:
                         primera_compra = None
                 for _, row in buys.iterrows():
                     fecha_key = str(row.get("FECHA_COMPRA", ""))[:7]
-                    ccl_hist  = ccl_historico_por_fecha(fecha_key, fallback=1350.0)
+                    ccl_hist  = ccl_historico_por_fecha(fecha_key)
                     cant_r = float(row["CANTIDAD"])
                     ppc_usd_r = float(row.get("PPC_USD", 0) or 0)
                     ppc_ars_r = float(row.get("PPC_ARS", 0) or 0)
-                    if es_local:
-                        # RF local: PPC_USD en fuente suele venir como paridad (%), normalizar por 100.
-                        if es_renta_fija_local(tipo_instr):
-                            if ppc_usd_r > 0:
-                                inv_ars_hist += cant_r * (ppc_usd_r / 100.0) * ccl_hist
-                            elif ppc_ars_r > 0:
-                                inv_ars_hist += cant_r * ppc_ars_r
-                            else:
-                                inv_ars_hist += 0.0
-                        else:
-                            # Acciones/otros locales en ARS.
-                            if ppc_ars_r > 0:
-                                inv_ars_hist += cant_r * ppc_ars_r
-                            else:
-                                inv_ars_hist += cant_r * ppc_usd_r
-                    else:
-                        inv_ars_hist += cant_r * ppc_usd_r * ccl_hist * ratio
+                    inv_ars_hist += costo_ars_historico_compra(
+                        str(ticker_key),
+                        tipo_instr,
+                        cant_r,
+                        ppc_ars_r,
+                        ppc_usd_r,
+                        ccl_hist,
+                        es_local,
+                    )
 
             rows.append({
                 "TICKER":                ticker_key,
@@ -573,7 +562,8 @@ class DataEngine:
         all_tickers = list(set(tickers_ba + tickers_us))
 
         try:
-            raw = yf.download(all_tickers, period="2d", auto_adjust=True, progress=False)
+            import yfinance as yf
+            raw = yf.download(all_tickers, period="2d", auto_adjust=True, progress=False, timeout=10, threads=False)
             if "Close" in raw.columns.get_level_values(0) if isinstance(raw.columns, pd.MultiIndex) else True:
                 if isinstance(raw.columns, pd.MultiIndex):
                     close_data = raw["Close"]

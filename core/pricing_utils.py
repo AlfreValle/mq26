@@ -79,12 +79,102 @@ TIPOS_LOCALES_ARS: set[str] = {
 TIPOS_RENTA_FIJA_LOCAL: set[str] = {
     "BONO", "BONO_ARS", "BONO_USD", "LETRA", "LETE", "LEDES", "LECAP", "LECER", "LEDE",
     "BONO_CORP", "ON", "ON_ARS", "ON_USD",
+    "BONCER", "BOPREAL", "DUAL", "USD_LINKED",
 }
 
 
 def es_renta_fija_local(tipo: str) -> bool:
     """True si el instrumento es bono/letra/ON negociada en BYMA (reglas de lámina / nominal)."""
     return str(tipo).upper().strip() in TIPOS_RENTA_FIJA_LOCAL
+
+
+def es_ppc_usd_paridad_rf(ticker: str, tipo: str | None = None) -> bool:
+    """
+    True si ``PPC_USD`` del libro es **paridad %** sobre nominal USD (ON/bono cable),
+    no USD por certificado como un CEDEAR.
+
+    Fuente única: usá esta función (no reimplementar en cartera_service / motor_salida /
+    data_engine). Alias histórico: ``es_instrumento_rf_usd_paridad``.
+    """
+    from core.renta_fija_ar import get_meta
+
+    tu = str(ticker or "").upper().strip()
+    m = get_meta(tu)
+    if m and str(m.get("moneda", "")).upper() == "USD":
+        return True
+    tp = str(tipo or "").upper().strip()
+    return tp in ("ON_USD", "BONO_USD")
+
+
+# Compatibilidad: unit_contracts y callers que ya importan este nombre.
+es_instrumento_rf_usd_paridad = es_ppc_usd_paridad_rf
+
+# KPI dictamen: 0 ONs persistidas con PPC_USD < 10 (parece fracción 0.975).
+PPC_USD_RF_BLOQUEO_MIN = 10.0
+PARIDAD_RF_USD_TIPICA = (70.0, 150.0)
+PARIDAD_RF_USD_BLOQUEO_MAX = 400.0
+
+
+def precio_ars_desde_ppc_usd(
+    ticker: str,
+    tipo: str | None,
+    ppc_usd: float,
+    ccl: float,
+) -> float:
+    """
+    Única conversión ``PPC_USD × CCL`` → ARS por unidad negociada.
+
+    ON/bono USD: paridad % → ``(paridad / 100) × CCL``.
+    CEDEAR y resto: USD por certificado → ``PPC_USD × CCL`` (sin ratio).
+    """
+    pu = float(ppc_usd or 0)
+    ccl_f = float(ccl or 0)
+    if pu <= 0 or ccl_f <= 0:
+        return 0.0
+    if es_ppc_usd_paridad_rf(ticker, tipo):
+        return round((pu / 100.0) * ccl_f, 2)
+    return round(pu * ccl_f, 2)
+
+
+def validar_ppc_usd_paridad_rf(
+    ticker: str,
+    tipo: str | None,
+    ppc_usd: float,
+) -> tuple[bool, str, str]:
+    """
+    Guardrail de persistencia para RF USD.
+
+    Returns:
+        (ok_persistir, marca, mensaje)
+        - ok False: no guardar (parece fracción o escala absurda).
+        - marca ``fuera_rango_tipico``: se puede guardar, hay que avisar (70–150%).
+    """
+    if not es_ppc_usd_paridad_rf(ticker, tipo):
+        return True, "", ""
+    tu = str(ticker or "").upper().strip() or "ON"
+    pu = float(ppc_usd or 0)
+    if pu <= 0:
+        return False, "ppc_ausente", f"{tu}: ON/bono USD sin paridad (PPC_USD). No se guarda."
+    if pu < PPC_USD_RF_BLOQUEO_MIN:
+        return (
+            False,
+            "parece_fraccion",
+            f"{tu}: PPC_USD={pu:g} parece fracción (convención: paridad %, p.ej. 97.5). No se guarda.",
+        )
+    if pu > PARIDAD_RF_USD_BLOQUEO_MAX:
+        return (
+            False,
+            "paridad_absurda",
+            f"{tu}: PPC_USD={pu:g} fuera de escala de paridad. No se guarda.",
+        )
+    lo, hi = PARIDAD_RF_USD_TIPICA
+    if pu < lo or pu > hi:
+        return (
+            True,
+            "fuera_rango_tipico",
+            f"{tu}: paridad {pu:.1f}% fuera del rango típico {lo:.0f}–{hi:.0f}%. Se marca; revisá antes de operar.",
+        )
+    return True, "", ""
 
 
 def lamina_vn_es_valida(val) -> bool:
@@ -266,14 +356,15 @@ def parsear_ratio(valor) -> float:
 
 # ─── CONVERSIONES CEDEAR ─────────────────────────────────────────────────────
 
-def obtener_ratio(ticker: str, universo_df=None) -> float:
+def obtener_ratio(ticker: str, universo_df=None, *, default: float = 1.0) -> float:
     """
     Obtiene el ratio CEDEAR para el ticker dado.
     Orden: universo_df (Excel), con corrección si el Excel trae 1 y config trae ratio BYMA > 1;
-    si no hay fila, RATIOS_CEDEAR de config; 1.0 por defecto.
+    si no hay fila, RATIOS_CEDEAR de config; ``default`` si el ticker no está en el maestro
+    (motor de salida usa ``default=0`` para no inventar 1.0).
     """
     t = ticker.upper().strip()
-    cfg = float(RATIOS_CEDEAR.get(t, 1.0))
+    cfg = float(RATIOS_CEDEAR[t]) if t in RATIOS_CEDEAR else float(default)
     if universo_df is not None and not universo_df.empty:
         col_t = "Ticker" if "Ticker" in universo_df.columns else None
         if col_t:
@@ -308,16 +399,33 @@ def subyacente_usd_desde_cedear(precio_cedear_ars: float, ratio: float, ccl: flo
     return round(precio_cedear_ars * ratio / ccl, 4)
 
 
-def ppc_usd_desde_precio_ars(precio_ars: float, ticker: str, ccl: float) -> float:
+def ppc_usd_desde_precio_ars(
+    precio_ars: float,
+    ticker: str,
+    ccl: float,
+    universo_df=None,
+    tipo: str | None = None,
+) -> float:
     """
-    Convierte un precio por CEDEAR en ARS a PPC en USD.
-    PPC_USD = precio_ARS / (ccl * ratio)
-    Para acciones locales: PPC_USD = precio_ARS / ccl
+    Inversa de ``precio_ars_desde_ppc_usd`` (mismo contrato que carga_activos).
+
+    ON/bono USD: paridad % = (ARS / CCL) × 100.
+    CEDEAR y resto: USD por certificado = ARS / CCL (el ratio no entra).
+    ``universo_df`` se conserva por firma histórica; el ratio ya no se usa.
     """
-    if ccl <= 0 or precio_ars <= 0:
+    _ = universo_df
+    px = float(precio_ars or 0.0)
+    ccl_f = float(ccl or 0.0)
+    if px <= 0.0 or ccl_f <= 0.0:
         return 0.0
-    ratio = float(RATIOS_CEDEAR.get(ticker.upper(), 1.0))
-    return round(precio_ars / (ccl * ratio), 4)
+    if es_ppc_usd_paridad_rf(ticker, tipo):
+        frac = px / ccl_f
+        par = frac * 100.0
+        # Cotización lote 100 VN: ARS ≈ paridad% × CCL (frac ya está en 20–250).
+        if par > PARIDAD_RF_USD_BLOQUEO_MAX and 20.0 <= frac <= 250.0:
+            return round(frac, 6)
+        return round(par, 6)
+    return round(px / ccl_f, 6)
 
 
 # ─── CCL HISTÓRICO ────────────────────────────────────────────────────────────

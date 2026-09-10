@@ -117,12 +117,17 @@ class TestConversionCedear:
 
 # ─── ppc_usd_desde_precio_ars ────────────────────────────────────────────────
 class TestPPCUsdDesdePrecioARS:
-    def test_aapl(self):
-        # precio_ars=18000, ratio=20, ccl=1465
-        # PPC_USD = 18000 / (1465 * 20) = 0.6143...
+    def test_aapl_es_usd_por_certificado_sin_ratio(self):
+        # Contrato: PPC_USD = ARS / CCL (no ÷ ratio). 18000/1465 ≈ 12.286.
         resultado = ppc_usd_desde_precio_ars(18000.0, "AAPL", 1465.0)
-        esperado = 18000.0 / (1465.0 * 20)
+        esperado = 18000.0 / 1465.0
         assert resultado == pytest.approx(esperado, rel=1e-3)
+
+    def test_on_usd_es_paridad_pct(self):
+        # 1170 ARS / VN, CCL 1200 → paridad 97.5
+        from core.pricing_utils import ppc_usd_desde_precio_ars
+
+        assert ppc_usd_desde_precio_ars(1170.0, "PN43O", 1200.0, tipo="ON_USD") == pytest.approx(97.5)
 
     def test_ticker_desconocido_ratio_1(self):
         resultado = ppc_usd_desde_precio_ars(1465.0, "XYZUNKNOWN", 1465.0)
@@ -166,3 +171,69 @@ class TestEsAccionLocal:
     def test_case_insensitive(self):
         assert es_accion_local("cepu")
         assert not es_accion_local("aapl")
+
+
+# ─── Contrato único PPC_USD → ARS / guard de paridad RF ──────────────────────
+
+class TestPrecioArsDesdePpcUsd:
+    def test_on_usd_es_paridad_por_cien(self):
+        from core.pricing_utils import precio_ars_desde_ppc_usd
+
+        assert precio_ars_desde_ppc_usd("PN43O", "ON_USD", 97.5, 1200.0) == pytest.approx(1170.0)
+
+    def test_cedear_no_divide_cien_ni_ratio(self):
+        from core.pricing_utils import precio_ars_desde_ppc_usd
+
+        assert precio_ars_desde_ppc_usd("GOOGL", "CEDEAR", 2.5, 1200.0) == pytest.approx(3000.0)
+
+    def test_alias_es_instrumento_rf_usd_paridad(self):
+        from core.pricing_utils import es_instrumento_rf_usd_paridad, es_ppc_usd_paridad_rf
+
+        assert es_ppc_usd_paridad_rf("PN43O", "ON_USD") is True
+        assert es_instrumento_rf_usd_paridad is es_ppc_usd_paridad_rf
+
+
+class TestValidarPpcUsdParidadRf:
+    def test_fraccion_bloquea(self):
+        from core.pricing_utils import validar_ppc_usd_paridad_rf
+
+        ok, marca, msg = validar_ppc_usd_paridad_rf("PN43O", "ON_USD", 0.975)
+        assert ok is False
+        assert marca == "parece_fraccion"
+        assert "No se guarda" in msg
+
+    def test_menor_a_diez_bloquea(self):
+        from core.pricing_utils import validar_ppc_usd_paridad_rf
+
+        ok, _, _ = validar_ppc_usd_paridad_rf("PN43O", "ON_USD", 8.0)
+        assert ok is False
+
+    def test_fuera_de_70_150_marca_pero_permite(self):
+        from core.pricing_utils import validar_ppc_usd_paridad_rf
+
+        ok, marca, msg = validar_ppc_usd_paridad_rf("PN43O", "ON_USD", 45.0)
+        assert ok is True
+        assert marca == "fuera_rango_tipico"
+        assert "45" in msg
+
+    def test_paridad_tipica_ok(self):
+        from core.pricing_utils import validar_ppc_usd_paridad_rf
+
+        ok, marca, msg = validar_ppc_usd_paridad_rf("PN43O", "ON_USD", 97.5)
+        assert ok is True
+        assert marca == ""
+        assert msg == ""
+
+    def test_cedear_no_aplica(self):
+        from core.pricing_utils import validar_ppc_usd_paridad_rf
+
+        ok, marca, _ = validar_ppc_usd_paridad_rf("GOOGL", "CEDEAR", 1.60)
+        assert ok is True
+        assert marca == ""
+
+    def test_absurda_bloquea(self):
+        from core.pricing_utils import validar_ppc_usd_paridad_rf
+
+        ok, marca, _ = validar_ppc_usd_paridad_rf("PN43O", "ON_USD", 500.0)
+        assert ok is False
+        assert marca == "paridad_absurda"

@@ -15,7 +15,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from core.logging_config import get_logger
-from core.pricing_utils import parsear_ppc_usd  # centralizado en pricing_utils
+from core.pricing_utils import parsear_ppc_usd, precio_ars_desde_ppc_usd
 
 logger = get_logger(__name__)
 
@@ -119,9 +119,10 @@ def calcular_libro_mayor(
         # Precio del CEDEAR en ARS = precio_cedear_usd × CCL
         precio_cedear_ars = precio_cedear_usd * ccl
 
-        # Inversión: cuánto pagaste en total
+        # Inversión: cuánto pagaste en total (helper: ON paridad/100 × CCL; CEDEAR × CCL)
+        ppc_ars_unit = precio_ars_desde_ppc_usd(ticker, tipo, ppc_usd, ccl)
         inv_usd = cantidad * ppc_usd
-        inv_ars = inv_usd * ccl
+        inv_ars = cantidad * ppc_ars_unit
 
         # Valor actual
         valor_ars = cantidad * precio_cedear_ars
@@ -138,7 +139,7 @@ def calcular_libro_mayor(
             'Cantidad':      cantidad,
             'Ratio':         int(ratio),
             'PPC_USD':       round(ppc_usd, 4),
-            'PPC_ARS':       round(ppc_usd * ccl, 2),
+            'PPC_ARS':       round(ppc_ars_unit, 2),
             'Px_USD_actual': round(precio_cedear_usd, 4),
             'Px_ARS_actual': round(precio_cedear_ars, 2),
             'Inv_USD':       round(inv_usd, 2),
@@ -381,7 +382,7 @@ def render_libro_mayor(
                         ccl_hist = next((v for d, v in sorted(_CCL_HIST.items(), reverse=True) if _dt.date.fromisoformat(d) <= fd), ccl)
                     except Exception:
                         ccl_hist = ccl
-                    ppc_ars  = round(ppc_usd * ccl_hist, 2)
+                    ppc_ars  = precio_ars_desde_ppc_usd(ticker, tipo, ppc_usd, ccl_hist)
                     nuevas.append([cartera, fecha_s, ticker, cantidad, round(ppc_usd, 6), ppc_ars, tipo])
 
                 with open(ruta_csv, "w", newline="", encoding="utf-8") as fh:

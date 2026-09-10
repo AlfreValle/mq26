@@ -32,33 +32,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import time as _time_mod
 
 from core.logging_config import get_logger
-from core.pricing_utils import obtener_ratio, subyacente_usd_desde_cedear
+from core.pricing_utils import (
+    es_ppc_usd_paridad_rf,
+    obtener_ratio,
+    precio_ars_desde_ppc_usd,
+    subyacente_usd_desde_cedear,
+)
 
 logger = get_logger(__name__)
 
 
 def _ppc_usd_es_paridad_rf_usd(ticker: str, tipo: str) -> bool:
-    """
-    True si PPC_USD en el transaccional es paridad % sobre nominal USD (ON/bono cable),
-    no "USD por certificado" como un CEDEAR.
-    """
-    from core.renta_fija_ar import get_meta
-
-    tu = str(ticker or "").upper().strip()
-    m = get_meta(tu)
-    if m and str(m.get("moneda", "")).upper() == "USD":
-        return True
-    tp = str(tipo or "").upper().strip()
-    return tp in ("ON_USD", "BONO_USD")
+    """Alias: la fuente de verdad es ``core.pricing_utils.es_ppc_usd_paridad_rf``."""
+    return es_ppc_usd_paridad_rf(ticker, tipo)
 
 
 def _precio_ars_desde_ppc_usd_relleno(ticker: str, tipo: str, pu: float, ccl_f: float) -> float:
-    """Último PPC_USD → precio mercado ARS por nominal (coherente con agregar_cartera FIFO)."""
-    if pu <= 0 or ccl_f <= 0:
-        return 0.0
-    if _ppc_usd_es_paridad_rf_usd(ticker, tipo):
-        return round((pu / 100.0) * ccl_f, 2)
-    return round(pu * ccl_f, 2)
+    """Último PPC_USD → precio mercado ARS por nominal (helper canónico)."""
+    return precio_ars_desde_ppc_usd(ticker, tipo, pu, ccl_f)
 
 # ─── CACHE DE DIVIDEND YIELD (TTL 24h, módulo-level) ─────────────────────────
 _DIV_YIELD_CACHE: dict[str, tuple[float, float]] = {}
@@ -164,16 +155,21 @@ def resolver_precios(
     precios_live: dict[str, float],
     ccl: float,
     universo_df: pd.DataFrame | None = None,
+    *,
+    permitir_hard: bool = True,
 ) -> dict[str, float]:
     """
     Construye el dict definitivo de precios ARS con jerarquía:
       1. Precio en vivo (yfinance / BYMA)
-      2. Precio fallback de última conciliación Balanz
-      3. 0.0 si no hay dato
+      2. Precio fallback de última conciliación Balanz (si ``permitir_hard``)
+      3. Paridad de catálogo RF × CCL (ONs)
+      4. 0.0 si no hay dato
 
-    Devuelve {ticker: precio_ars}.
+    ``permitir_hard=False``: para armar/recomendar carteras. No usa
+    PRECIOS_FALLBACK_ARS ni BD (cotizaciones de junio u otras viejas).
     """
-    _cargar_fallback_desde_bd()  # MQ-D5: lazy — solo la primera vez
+    if permitir_hard:
+        _cargar_fallback_desde_bd()  # MQ-D5: lazy — solo la primera vez
     resultado: dict[str, float] = {}
 
     byma_px: dict[str, float] = {}
@@ -195,7 +191,13 @@ def resolver_precios(
         if live > 0:
             resultado[key_orig] = live
         else:
-            fallback = float(PRECIOS_FALLBACK_ARS.get(tu, 0.0) or PRECIOS_FALLBACK_ARS.get(t, 0.0) or 0.0)
+            fallback = 0.0
+            if permitir_hard:
+                fallback = float(
+                    PRECIOS_FALLBACK_ARS.get(tu, 0.0)
+                    or PRECIOS_FALLBACK_ARS.get(t, 0.0)
+                    or 0.0
+                )
             if fallback > 0:
                 logger.debug("Usando fallback Balanz para %s: $%s ARS", t, fallback)
             resultado[key_orig] = fallback
@@ -428,13 +430,6 @@ def calcular_posicion_neta(
         # ON/bono USD cable: PPC_USD = paridad % → ARS por nominal = (PPC/100)×CCL
         # (alineado con VALOR_ARS y COSTO_PNL_REF; RATIO no entra: PPC_USD_PROM es por certificado).
         _tipos = df["TIPO"].astype(str) if "TIPO" in df.columns else pd.Series([""] * len(df))
-        _rf_usd_par = np.array(
-            [
-                _ppc_usd_es_paridad_rf_usd(str(t), str(tp))
-                for t, tp in zip(df["TICKER"].astype(str), _tipos, strict=True)
-            ],
-            dtype=bool,
-        )
         # A13: si hay fecha de compra por fila, el costo en ARS usa el CCL de
         # esa fecha (core.fx) — cumple el contrato del docstring («costo
         # histórico real, no CCL actual»). Sin fecha: CCL spot, como siempre.
@@ -451,16 +446,22 @@ def calcular_posicion_neta(
             ).fillna(float(ccl))
         else:
             _ccl_fila = pd.Series([float(ccl)] * len(df), index=df.index)
-        _ppc_loc = np.where(
-            _rf_usd_par & (ccl > 0),
-            df["PPC_USD_PROM"] / 100.0 * _ccl_fila,
-            df["PPC_USD_PROM"],
+        _es_loc = df["ES_LOCAL"].astype(bool) if "ES_LOCAL" in df.columns else pd.Series(
+            [False] * len(df), index=df.index
         )
-        df["PPC_ARS"] = np.where(
-            df["ES_LOCAL"],
-            _ppc_loc,
-            df["PPC_USD_PROM"] * _ccl_fila,
-        )
+        df["PPC_ARS"] = [
+            float(pu or 0)
+            if bool(loc) and not es_ppc_usd_paridad_rf(str(t), str(tp))
+            else precio_ars_desde_ppc_usd(str(t), str(tp), float(pu or 0), float(ccl_i or 0))
+            for t, tp, pu, ccl_i, loc in zip(
+                df["TICKER"].astype(str),
+                _tipos,
+                df["PPC_USD_PROM"],
+                _ccl_fila,
+                _es_loc,
+                strict=True,
+            )
+        ]
         df["INV_ARS"] = df["CANTIDAD_TOTAL"] * df["PPC_ARS"]
 
     # Guardrail de unidad RF USD:
@@ -468,7 +469,7 @@ def calcular_posicion_neta(
     _tipos = df["TIPO"].astype(str) if "TIPO" in df.columns else pd.Series([""] * len(df))
     _rf_usd_par = np.array(
         [
-            _ppc_usd_es_paridad_rf_usd(str(t), str(tp))
+            es_ppc_usd_paridad_rf(str(t), str(tp))
             for t, tp in zip(df["TICKER"].astype(str), _tipos, strict=True)
         ],
         dtype=bool,
@@ -514,10 +515,23 @@ def calcular_posicion_neta(
     # Base de costo en ARS alineada al certificado / posición (sin mezclar ARS con USD).
     # CEDEAR: costo nominal en pesos = unidades × precio USD/céd. × CCL (coherente con tests B2).
     # Local ARS: costo = INV_ARS (contable).
-    costo_pnl_ref = np.where(
-        df["ES_LOCAL"],
-        df["INV_ARS"],
-        df["CANTIDAD_TOTAL"] * df["PPC_USD_PROM"] * ccl,
+    costo_pnl_ref = pd.Series(
+        [
+            float(inv)
+            if bool(loc)
+            else float(cant)
+            * precio_ars_desde_ppc_usd(str(t), str(tp), float(pu or 0), float(ccl or 0))
+            for loc, inv, cant, t, tp, pu in zip(
+                df["ES_LOCAL"],
+                df["INV_ARS"],
+                df["CANTIDAD_TOTAL"],
+                df["TICKER"].astype(str),
+                _tipos,
+                df["PPC_USD_PROM"],
+                strict=True,
+            )
+        ],
+        index=df.index,
     )
     df["COSTO_PNL_REF_ARS"] = costo_pnl_ref
     df["PNL_ARS_USD"] = df["VALOR_ARS"] - costo_pnl_ref

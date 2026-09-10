@@ -145,3 +145,83 @@ def test_familias_rf_clasifican_como_local_no_cedear():
     assert es_instrumento_local_ars("BPA27", "BOPREAL") is True
     assert es_instrumento_local_ars("XXX", "DUAL") is True
     assert es_instrumento_local_ars("YYY", "USD_LINKED") is True
+
+
+def test_agregar_cartera_on_paridad_baja_no_usa_umbral_magico_10(monkeypatch):
+    """PPC_USD=8 (8%) no debe tratarse como fracción 8.0 × CCL (bug del umbral >10)."""
+    de = _load_data_engine_module()
+    eng = de.DataEngine()
+    monkeypatch.setattr(de, "rf_get_meta", lambda _t: {"tipo": "ON_USD", "moneda": "USD", "paridad_ref": 100.0})
+    monkeypatch.setattr(de, "ccl_historico_por_fecha", lambda *_a, **_k: 1464.9)
+
+    df = pd.DataFrame(
+        [
+            {
+                "CARTERA": "X",
+                "FECHA_COMPRA": "2026-04-07",
+                "TICKER": "TLCTO",
+                "TIPO": "ON_USD",
+                "CANTIDAD": 10,
+                "PPC_USD": 8.0,
+                "PPC_ARS": 0.0,
+            }
+        ]
+    )
+    out = eng.agregar_cartera(df, "X")
+    inv = float(out.iloc[0]["INV_ARS_HISTORICO"])
+    esperado = 10 * (8.0 / 100.0) * 1464.9
+    roto = 10 * 8.0 * 1464.9
+    assert abs(inv - esperado) < 0.1, f"inv={inv} ≠ {esperado}"
+    assert abs(inv - roto) > 1_000
+
+
+def test_agregar_cartera_ppc_usd_fraccion_conserva_ppc_ars(monkeypatch):
+    """Alta ARS que grabó PPC_USD=0.975 no debe tirar el PPC_ARS correcto."""
+    de = _load_data_engine_module()
+    eng = de.DataEngine()
+    monkeypatch.setattr(de, "rf_get_meta", lambda _t: {"tipo": "ON_USD", "moneda": "USD", "paridad_ref": 97.5})
+    monkeypatch.setattr(de, "ccl_historico_por_fecha", lambda *_a, **_k: 1200.0)
+
+    df = pd.DataFrame(
+        [
+            {
+                "CARTERA": "X",
+                "FECHA_COMPRA": "2026-04-07",
+                "TICKER": "PN43O",
+                "TIPO": "ON_USD",
+                "CANTIDAD": 10,
+                "PPC_USD": 0.975,
+                "PPC_ARS": 1170.0,
+            }
+        ]
+    )
+    out = eng.agregar_cartera(df, "X")
+    inv = float(out.iloc[0]["INV_ARS_HISTORICO"])
+    assert abs(inv - 11_700.0) < 1.0
+    assert inv > 1_000.0  # no 10 × (0.975/100)×1200 = 117
+
+
+def test_agregar_cartera_bopreal_paridad_no_lote_100(monkeypatch):
+    de = _load_data_engine_module()
+    eng = de.DataEngine()
+    monkeypatch.setattr(de, "ccl_historico_por_fecha", lambda *_a, **_k: 1500.0)
+
+    df = pd.DataFrame(
+        [
+            {
+                "CARTERA": "X",
+                "FECHA_COMPRA": "2026-04-07",
+                "TICKER": "BPA27",
+                "TIPO": "BOPREAL",
+                "CANTIDAD": 10,
+                "PPC_USD": 100.0,
+                "PPC_ARS": 150_000.0,  # lote 100 VN
+            }
+        ]
+    )
+    out = eng.agregar_cartera(df, "X")
+    inv = float(out.iloc[0]["INV_ARS_HISTORICO"])
+    esperado = 10 * (100.0 / 100.0) * 1500.0  # 15_000
+    lote = 10 * 150_000.0
+    assert abs(inv - esperado) < 1.0, f"inv={inv} ≠ {esperado}"
+    assert abs(inv - lote) > 1_000

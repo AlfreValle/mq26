@@ -26,6 +26,7 @@ from services.scoring_engine import (
     escanear_universo_completo,
     obtener_contexto_macro,
 )
+from ui.mq26_ux import html_pills_fuente
 
 # ─── CACHÉ SEMANAL DEL SCAN ───────────────────────────────────────────────────
 
@@ -228,6 +229,14 @@ def render_tab_recomendador(
 
     # ── SECCIÓN 2: Cartera óptima y recomendación semanal ────────────────────
     st.markdown("### 🏆 Cartera óptima a largo plazo + Recomendación semanal")
+    st.markdown(
+        html_pills_fuente(
+            ("Ranking 60/20/20", "neutral"),
+            ("Referencia semanal", "ghost"),
+            ("No es orden de compra", "warn"),
+        ),
+        unsafe_allow_html=True,
+    )
 
     col_opt1, col_opt2 = st.columns([3, 1])
     with col_opt2:

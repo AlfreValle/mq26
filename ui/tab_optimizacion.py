@@ -12,7 +12,7 @@ import streamlit as st
 from core.logging_config import get_logger
 from core.panel_precios import validar_panel_precios
 from core.structured_logging import log_degradacion
-from ui.mq26_ux import dataframe_auto_height, plotly_template_actual
+from ui.mq26_ux import dataframe_auto_height, html_pills_fuente, plotly_template_actual
 
 # Resultados del Lab extraídos a ui/optimizacion/ (Fase 2.1) — re-export.
 from ui.optimizacion.resultados import (  # noqa: F401
@@ -58,7 +58,7 @@ def render_tab_optimizacion(ctx: dict) -> None:
         )
         st.markdown(
             "**¿Qué hacer?** Cargá al menos una posición en "
-            "**📂 Cartera → Libro mayor → Importar del broker**."
+            "**📂 Cartera → Posición actual** (Excel del broker o una compra a mano)."
         )
         return
 
@@ -96,6 +96,14 @@ def render_tab_optimizacion(ctx: dict) -> None:
     # ══════════════════════════════════════════════════════════════════
     with sub_comp:
         st.subheader("📊 Comparativa — Cartera Actual vs Mejores 3 Modelos")
+        st.markdown(
+            html_pills_fuente(
+                ("Markowitz / lab cuant", "neutral"),
+                ("Backtest teórico", "ghost"),
+                ("No es cartera comprable en BYMA", "warn"),
+            ),
+            unsafe_allow_html=True,
+        )
         st.caption(f"Horizonte: **{horizonte_label}** | Perfil: **{cliente_perfil}** | Cartera: **{prop_nombre or 'activa'}**")
 
         if df_ag.empty or not tickers_cartera:

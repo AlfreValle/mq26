@@ -22,7 +22,11 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import CCL_FALLBACK
-from core.pricing_utils import es_instrumento_local_ars
+from core.pricing_utils import (
+    es_instrumento_local_ars,
+    obtener_ratio,
+    precio_ars_desde_ppc_usd,
+)
 
 # ─── OBJETIVOS POR PERFIL ────────────────────────────────────────────────────
 OBJETIVOS_PERFIL = {
@@ -32,7 +36,48 @@ OBJETIVOS_PERFIL = {
 }
 
 
-# ─── MOTOR DE SALIDA ─────────────────────────────────────────────────────────
+def ppc_ars_para_salida(
+    ticker: str,
+    *,
+    ppc_ars: float,
+    ppc_usd: float,
+    ccl: float,
+    tipo: str = "",
+    ratio_fila: float | None = None,
+    universo_df=None,
+) -> tuple[float, str, list[str]]:
+    """
+    Costo en ARS por unidad para evaluar target/stop (misma unidad que el precio BYMA).
+
+    Preferí PPC_ARS ya normalizado. Si falta, derivá con ``precio_ars_desde_ppc_usd``
+    (paridad % para ON USD; × CCL para CEDEAR — sin inventar ratio 1.0).
+    """
+    flags: list[str] = []
+    tu = str(ticker or "").upper().strip()
+    tp = str(tipo or "").strip()
+    ars = float(ppc_ars or 0)
+    usd = float(ppc_usd or 0)
+    ccl_f = float(ccl or 0)
+    if ars > 0:
+        return ars, "ars_unit_direct", flags
+    if usd > 0 and ccl_f > 0:
+        derivado = precio_ars_desde_ppc_usd(tu, tp, usd, ccl_f)
+        if derivado <= 0:
+            flags.append("ppc_derivado_invalido")
+            return 0.0, "missing_ppc", flags
+        if not es_instrumento_local_ars(tu, tp):
+            ratio = float(ratio_fila or 0)
+            if ratio <= 0:
+                ratio = float(obtener_ratio(tu, universo_df, default=0.0) or 0)
+                if ratio > 0:
+                    flags.append("ratio_desde_maestro")
+            if ratio <= 0:
+                flags.append("ratio_desconocido")
+                return 0.0, "missing_ratio", flags
+        return derivado, "ars_unit_derived_from_usd", flags
+    flags.append("ppc_ausente")
+    return 0.0, "missing_ppc", flags
+
 
 def evaluar_salida(
     ticker:       str,
@@ -279,6 +324,86 @@ def estimar_prob_exito(score_total: float, rsi: float) -> float:
     return round(min(0.80, max(0.20, prob_base)), 3)
 
 
+def evaluar_filas_salida(
+    df_posiciones: pd.DataFrame,
+    precios_actuales: dict[str, float],
+    scores_actuales: dict[str, float],
+    rsi_actuales: dict[str, float],
+    *,
+    perfil: str = "Moderado",
+    ccl: float = 0.0,
+    scores_semana_anterior: dict[str, float] | None = None,
+    universo_df=None,
+) -> list[dict]:
+    """
+    Evalúa cada fila del libro sin Streamlit (regresión de unidades / degradación).
+    ``precios_actuales`` vacío = path degradado: el costo sale de PPC_USD vía helper canónico.
+    """
+    if ccl <= 0:
+        ccl = CCL_FALLBACK
+    evaluaciones: list[dict] = []
+    for _, row in df_posiciones.iterrows():
+        ticker = str(row.get("Ticker", row.get("TICKER", ""))).upper().strip()
+        cant = float(row.get("Cantidad", row.get("CANTIDAD_TOTAL", 0)))
+        if cant <= 0 or not ticker:
+            continue
+
+        ppc_usd_raw = float(row.get("PPC_USD", row.get("PPC_USD_PROM", 0)) or 0)
+        ppc_ars_raw = float(row.get("PPC_ARS", 0) or 0)
+        tipo_fila = str(row.get("TIPO", row.get("Tipo", "")) or "")
+        ratio_fila = None
+        if "RATIO" in row.index:
+            try:
+                rv = float(row.get("RATIO") or 0)
+                if rv > 0:
+                    ratio_fila = rv
+            except (TypeError, ValueError):
+                ratio_fila = None
+        fecha_s = str(row.get("FECHA_INICIAL", row.get("Fecha", str(date.today()))))
+        try:
+            fecha_c = pd.to_datetime(fecha_s).date()
+        except Exception:
+            fecha_c = date.today()
+
+        px_ars = float(precios_actuales.get(ticker, 0) or 0)
+        ppc_base, unidad_base, qflags = ppc_ars_para_salida(
+            ticker,
+            ppc_ars=ppc_ars_raw,
+            ppc_usd=ppc_usd_raw,
+            ccl=ccl,
+            tipo=tipo_fila,
+            ratio_fila=ratio_fila,
+            universo_df=universo_df,
+        )
+        px_base = px_ars
+
+        rsi = float(rsi_actuales.get(ticker, 50))
+        score = float(scores_actuales.get(ticker, 50))
+        score_ant = float((scores_semana_anterior or {}).get(ticker, score))
+
+        ev = evaluar_salida(
+            ticker=ticker, ppc_usd=ppc_base, px_usd_actual=px_base,
+            rsi=rsi, score_actual=score, score_semana_anterior=score_ant,
+            fecha_compra=fecha_c, perfil=perfil,
+        )
+        ev["unidad_base"] = unidad_base
+        ev.setdefault("quality_flags", [])
+        ev["quality_flags"].extend(qflags)
+        if unidad_base == "missing_ratio" or "ratio_desconocido" in qflags:
+            ev["senal"] = "⚪ SIN EVALUAR"
+            ev.setdefault("disparadores", []).append({
+                "tipo": "RATIO DESCONOCIDO",
+                "detalle": "No hay RATIO en el libro ni en el maestro — no se evalúa con 1.0 inventado.",
+                "prioridad": "MEDIA",
+            })
+        if px_base <= 0:
+            ev["quality_flags"].append("precio_actual_invalido")
+        ev["cantidad"] = int(cant)
+        ev["valor_ars"] = cant * px_ars
+        evaluaciones.append(ev)
+    return evaluaciones
+
+
 # ─── RENDER STREAMLIT ─────────────────────────────────────────────────────────
 # G2: La lógica de dominio (evaluar_salida, kelly_sizing) es pura (sin Streamlit).
 # Las funciones render_* importan streamlit localmente para no contaminar el módulo.
@@ -327,54 +452,15 @@ def render_motor_salida(
         return
 
     # ── Evaluar cada posición ─────────────────────────────────────────
-    evaluaciones = []
-    for _, row in df_posiciones.iterrows():
-        ticker = str(row.get("Ticker", row.get("TICKER", ""))).upper().strip()
-        cant   = float(row.get("Cantidad", row.get("CANTIDAD_TOTAL", 0)))
-        if cant <= 0 or not ticker:
-            continue
-
-        ppc_usd_raw = float(row.get("PPC_USD", row.get("PPC_USD_PROM", 0)) or 0)
-        ppc_ars_raw = float(row.get("PPC_ARS", 0) or 0)
-        ratio = float(row.get("RATIO", 1.0) or 1.0)
-        if ratio <= 0:
-            ratio = 1.0
-        fecha_s = str(row.get("FECHA_INICIAL", row.get("Fecha", str(date.today()))))
-        try:
-            fecha_c = pd.to_datetime(fecha_s).date()
-        except Exception:
-            fecha_c = date.today()
-
-        px_ars = float(precios_actuales.get(ticker, 0) or 0)
-        es_local = es_instrumento_local_ars(ticker)
-        # Contrato único: evaluar siempre en la misma unidad de precio negociada (ARS por unidad).
-        if ppc_ars_raw > 0:
-            ppc_base = ppc_ars_raw
-            unidad_base = "ars_unit_direct"
-        elif ppc_usd_raw > 0 and ccl > 0:
-            # Si solo hay PPC_USD, convertir a ARS unitario.
-            ppc_base = (ppc_usd_raw * ccl) if es_local else (ppc_usd_raw * ccl / ratio)
-            unidad_base = "ars_unit_derived_from_usd"
-        else:
-            ppc_base = 0.0
-            unidad_base = "missing_ppc"
-        px_base = px_ars
-
-        rsi   = float(rsi_actuales.get(ticker, 50))
-        score = float(scores_actuales.get(ticker, 50))
-        score_ant = float((scores_semana_anterior or {}).get(ticker, score))
-
-        ev = evaluar_salida(
-            ticker=ticker, ppc_usd=ppc_base, px_usd_actual=px_base,
-            rsi=rsi, score_actual=score, score_semana_anterior=score_ant,
-            fecha_compra=fecha_c, perfil=perfil_sel,
-        )
-        ev["unidad_base"] = unidad_base
-        if px_base <= 0:
-            ev.setdefault("quality_flags", []).append("precio_actual_invalido")
-        ev["cantidad"] = int(cant)
-        ev["valor_ars"] = cant * px_ars
-        evaluaciones.append(ev)
+    evaluaciones = evaluar_filas_salida(
+        df_posiciones,
+        precios_actuales,
+        scores_actuales,
+        rsi_actuales,
+        perfil=perfil_sel,
+        ccl=ccl,
+        scores_semana_anterior=scores_semana_anterior,
+    )
 
     if not evaluaciones:
         st.info("Sin datos para evaluar.")
@@ -382,7 +468,7 @@ def render_motor_salida(
 
     # Ordenar: primero los que necesitan acción
     orden = {"🔴 SALIR": 0, "🟠 REVISAR": 1, "🟡 CERCA DEL OBJETIVO": 2,
-             "🟡 ATENCIÓN": 3, "⚪ EN CAMINO": 4}
+             "🟡 ATENCIÓN": 3, "⚪ EN CAMINO": 4, "⚪ SIN EVALUAR": 5}
     evaluaciones.sort(key=lambda x: (orden.get(x["senal"], 5), -x["progreso_pct"]))
 
     # ── Tabla de progreso ─────────────────────────────────────────────

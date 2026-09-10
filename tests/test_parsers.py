@@ -85,9 +85,8 @@ class TestLeerTodosLosCorreos:
 class TestPrecioArsToPpcUsd:
     def test_aapl(self):
         from broker_importer import precio_ars_to_ppc_usd
-        # precio_ars=18000, ticker=AAPL (ratio=20), ccl=1465
         resultado = precio_ars_to_ppc_usd(18000.0, "AAPL", 1465.0)
-        esperado = 18000.0 / (1465.0 * 20)
+        esperado = 18000.0 / 1465.0
         assert resultado == pytest.approx(esperado, rel=1e-3)
 
     def test_ccl_cero(self):
